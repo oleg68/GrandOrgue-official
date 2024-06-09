@@ -188,9 +188,7 @@ GOSoundStream::DecodeBlockFunction GOSoundStream::getDecodeBlockFunction(
       }
     }
   } else {
-    if (
-      interpolation == GOSoundResample::GO_POLYPHASE_INTERPOLATION
-      && !compressed) {
+    if (interpolation == GOSoundResample::GO_POLYPHASE_INTERPOLATION) {
       if (channels == 1) {
         if (bits_per_sample <= 8)
           return &GOSoundStream::DecodeBlock<
