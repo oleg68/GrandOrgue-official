@@ -526,8 +526,6 @@ wxString GOOrganController::Load(
           }
         }
 
-        GOCacheObject *obj = nullptr;
-
         if (cache_ok) {
           while ((obj = objectDistributor.FetchNext())) {
             if (!obj->LoadFromCacheWithoutExc(m_pool, reader)) {
@@ -554,6 +552,7 @@ wxString GOOrganController::Load(
 
       if (!cache_ok) {
         GOLoadWorker thisWorker(m_FileStore, m_pool, objectDistributor);
+        /*
         ptr_vector<GOLoadThread> threads;
 
         // Create and run additional worker threads
@@ -562,6 +561,7 @@ wxString GOOrganController::Load(
             new GOLoadThread(m_FileStore, m_pool, objectDistributor));
         for (unsigned i = 0; i < threads.size(); i++)
           threads[i]->Run();
+         */
 
         // try to load the object that we could not load from cache
         if (obj)
@@ -574,8 +574,10 @@ wxString GOOrganController::Load(
         // rethrow exception if any occured in thisWorker.LoadNextObject
         bool wereExceptions = thisWorker.WereExceptions();
 
+        /*
         for (unsigned i = 0; i < threads.size(); i++)
           wereExceptions |= threads[i]->CheckExceptions();
+         */
         if (wereExceptions) {
           for (auto obj : GetCacheObjects()) {
             if (!obj->IsReady())

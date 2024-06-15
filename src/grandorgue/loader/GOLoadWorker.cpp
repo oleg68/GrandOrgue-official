@@ -1,11 +1,13 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
 #include "GOLoadWorker.h"
+
+#include <stdio.h>
 
 #include "model/GOCacheObject.h"
 
@@ -25,7 +27,13 @@ GOLoadWorker::GOLoadWorker(
 
 void GOLoadWorker::LoadObjectNoExc(GOCacheObject *obj) {
   try {
+    printf(
+      "GOLoadWorker::LoadObjectNoExc: started loading %s\n",
+      obj->GetLoadTitle().c_str().AsChar());
     m_WereExceptions |= !obj->LoadFromFileWithoutExc(m_FileStore, m_pool);
+    printf(
+      "GOLoadWorker::LoadObjectNoExc: finisheded loading %s\n",
+      obj->GetLoadTitle().c_str().AsChar());
   } catch (GOOutOfMemory e) {
     m_OutOfMemory = true;
     m_WereExceptions = true;
