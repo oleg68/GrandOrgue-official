@@ -505,50 +505,6 @@ wxString GOOrganController::Load(
       GOCacheObject *obj = nullptr;
 
       /* Load pipes */
-      if (wxFileExists(m_CacheFilename)) {
-        wxFile cache_file(m_CacheFilename);
-        GOCache reader(cache_file, m_pool);
-        cache_ok = cache_file.IsOpened();
-
-        if (cache_ok) {
-          GOHashType hash1, hash2;
-          if (!reader.ReadHeader()) {
-            cache_ok = false;
-            wxLogWarning(_("Cache file had bad magic bypassing cache."));
-          }
-          hash1 = GenerateCacheHash();
-          if (
-            !reader.Read(&hash2, sizeof(hash2))
-            || memcmp(&hash1, &hash2, sizeof(hash1))) {
-            cache_ok = false;
-            reader.FreeCacheFile();
-            wxLogWarning(_("Cache file had diffent hash bypassing cache."));
-          }
-        }
-
-        if (cache_ok) {
-          while ((obj = objectDistributor.FetchNext())) {
-            if (!obj->LoadFromCacheWithoutExc(m_pool, reader)) {
-              wxLogWarning(_("Cache load failure: %s"), obj->GetLoadError());
-              break;
-            }
-            if (!dlg->Update(objectDistributor.GetPos(), obj->GetLoadTitle()))
-              throw GOLoadAborted(); // Skip the rest of the loading code
-          }
-          if (!obj)
-            m_Cacheable = true;
-          else
-            // obj points to an object with a load error. We will try to load
-            // it from the file later
-            cache_ok = false;
-        }
-
-        if (!cache_ok && !m_config.ManageCache())
-          wxLogWarning(_("The cache for this organ is outdated. Please update "
-                         "or delete it."));
-
-        reader.Close();
-      }
 
       if (!cache_ok) {
         GOLoadWorker thisWorker(m_FileStore, m_pool, objectDistributor);
@@ -591,8 +547,6 @@ wxString GOOrganController::Load(
         } else {
           if (objectDistributor.IsComplete())
             m_Cacheable = true;
-          if (m_config.ManageCache() && m_Cacheable)
-            UpdateCache(dlg, m_config.CompressCache());
         }
 
         // Despite a possible exception automatic calling ~GOLoadThread from

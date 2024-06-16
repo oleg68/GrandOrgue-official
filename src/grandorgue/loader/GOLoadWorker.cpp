@@ -27,11 +27,13 @@ GOLoadWorker::GOLoadWorker(
 
 void GOLoadWorker::LoadObjectNoExc(GOCacheObject *obj) {
   try {
-    printf(
+    fprintf(
+      stderr,
       "GOLoadWorker::LoadObjectNoExc: started loading %s\n",
       obj->GetLoadTitle().c_str().AsChar());
     m_WereExceptions |= !obj->LoadFromFileWithoutExc(m_FileStore, m_pool);
-    printf(
+    fprintf(
+      stderr,
       "GOLoadWorker::LoadObjectNoExc: finisheded loading %s\n",
       obj->GetLoadTitle().c_str().AsChar());
   } catch (GOOutOfMemory e) {
