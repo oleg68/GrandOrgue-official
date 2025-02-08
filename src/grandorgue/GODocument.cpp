@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -11,7 +11,7 @@
 
 #include "config/GOConfig.h"
 #include "document-base/GOView.h"
-#include "gui/dialogs/GOMidiListDialog.h"
+#include "gui/dialogs/GOMidiObjectstDialog.h"
 #include "gui/dialogs/GOOrganSettingsDialog.h"
 #include "gui/dialogs/midi-event/GOMidiEventDialog.h"
 #include "gui/frames/GOFrame.h"
@@ -182,7 +182,7 @@ void GODocument::ShowMidiList() {
     registerWindow(
       GODocument::MIDI_LIST,
       NULL,
-      new GOMidiListDialog(
+      new GOMidiObjectsDialog(
         this,
         NULL,
         m_OrganController->GetConfig().m_DialogSizes,
