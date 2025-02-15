@@ -8,18 +8,30 @@
 #include "GOMidiObjectstDialog.h"
 
 #include <wx/button.h>
+#include <wx/filedlg.h>
+#include <wx/log.h>
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
 
+#include "config/GOConfigFileReader.h"
+#include "config/GOConfigFileWriter.h"
+#include "config/GOConfigReader.h"
+#include "config/GOConfigReaderDB.h"
+#include "config/GOConfigWriter.h"
 #include "gui/size/GOAdditionalSizeKeeperProxy.h"
 #include "gui/wxcontrols/GOGrid.h"
 #include "midi/objects/GOMidiObject.h"
+#include "model/GOOrganModel.h"
 
 #include "GOEvent.h"
+#include "config/GOConfigFileWriter.h"
 
 enum {
   ID_LIST = 200,
   ID_EDIT,
   ID_STATUS,
+  ID_BUTTON_EXPORT,
+  ID_BUTTON_IMPORT,
   ID_BUTTON,
   ID_BUTTON_LAST = ID_BUTTON + 2,
 };
@@ -29,6 +41,8 @@ EVT_GRID_CMD_SELECT_CELL(ID_LIST, GOMidiObjectsDialog::OnSelectCell)
 EVT_GRID_CMD_CELL_LEFT_DCLICK(ID_LIST, GOMidiObjectsDialog::OnObjectDoubleClick)
 EVT_BUTTON(ID_EDIT, GOMidiObjectsDialog::OnConfigureButton)
 EVT_BUTTON(ID_STATUS, GOMidiObjectsDialog::OnStatusButton)
+EVT_BUTTON(ID_BUTTON_EXPORT, GOMidiObjectsDialog::OnExportButton)
+EVT_BUTTON(ID_BUTTON_IMPORT, GOMidiObjectsDialog::OnImportButton)
 EVT_COMMAND_RANGE(
   ID_BUTTON, ID_BUTTON_LAST, wxEVT_BUTTON, GOMidiObjectsDialog::OnActionButton)
 END_EVENT_TABLE()
@@ -36,20 +50,19 @@ END_EVENT_TABLE()
 enum { GRID_COL_TYPE = 0, GRID_COL_ELEMENT };
 
 GOMidiObjectsDialog::GOMidiObjectsDialog(
-  GODocumentBase *doc,
-  wxWindow *parent,
-  GODialogSizeSet &dialogSizes,
-  const std::vector<GOMidiObject *> &midiObjects)
+  GODocumentBase *doc, wxWindow *parent, GOOrganModel &organModel)
   : GOSimpleDialog(
     parent,
     wxT("MIDI Objects"),
     _("MIDI Objects"),
-    dialogSizes,
+    organModel.GetConfig().m_DialogSizes,
     wxEmptyString,
     0,
     wxCLOSE | wxHELP),
     GOView(doc, this),
-    r_MidiObjects(midiObjects) {
+    m_ExportImportDir(organModel.GetConfig().ExportImportPath()),
+    m_OrganName(organModel.GetOrganName()),
+    r_MidiObjects(organModel.GetMidiConfigurators()) {
   wxBoxSizer *topSizer = new wxBoxSizer(wxVERTICAL);
   topSizer->AddSpacer(5);
 
@@ -84,6 +97,21 @@ GOMidiObjectsDialog::GOMidiObjectsDialog(
   topSizer->Add(buttons, 0, wxALIGN_RIGHT | wxALL, 1);
 
   topSizer->AddSpacer(5);
+
+  // add a custom button 'Reason into the space of the standard dialog button
+  wxSizer *const pButtonSizer = GetButtonSizer();
+
+  if (pButtonSizer) {
+    pButtonSizer->InsertSpacer(2, 10);
+    m_ExportButton = new wxButton(this, ID_BUTTON_EXPORT, _("Export"));
+    pButtonSizer->Insert(
+      3, m_ExportButton, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT | wxRIGHT, 2);
+    m_ImportButton = new wxButton(this, ID_BUTTON_IMPORT, _("Import"));
+    pButtonSizer->Insert(
+      4, m_ImportButton, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT | wxRIGHT, 2);
+    pButtonSizer->InsertSpacer(6, 10);
+  }
+
   LayoutWithInnerSizer(topSizer);
 }
 
@@ -165,4 +193,154 @@ void GOMidiObjectsDialog::OnStatusButton(wxCommandEvent &event) {
 void GOMidiObjectsDialog::OnActionButton(wxCommandEvent &event) {
   GOMidiObject *obj = GetSelectedObject();
   obj->TriggerElementActions(event.GetId() - ID_BUTTON);
+}
+
+static const wxString WX_ORGAN = wxT("Organ");
+static const wxString WX_ORGAN_NAME = wxT("ChurchName");
+
+wxString GOMidiObjectsDialog::ExportMidiSettings(
+  const wxString &fileName) const {
+  wxString errMsg;
+  GOConfigFileWriter cfgFile;
+  GOConfigWriter cfg(cfgFile, false);
+
+  cfg.WriteString(WX_ORGAN, WX_ORGAN_NAME, m_OrganName);
+  for (const auto pObj : r_MidiObjects)
+    pObj->SaveMidiSettings(cfg);
+
+  if (!cfgFile.Save(fileName, false)) {
+    errMsg.Printf(_("Could not write to '%s'"), fileName);
+    wxLogError(errMsg);
+  }
+
+  return errMsg;
+}
+
+/**
+ * Check the organName of the imported midi settings file. If it differs from
+ * the current organ name then ask for the user
+ * @param fileName the midi setting file name
+ * @param organName the organ the midi settings file was saved of
+ * @return true if the churchNames are the same or the user agree with importing
+ *   the midi settings file
+ */
+bool GOMidiObjectsDialog::IsToImportSettingsFor(
+  const wxString &fileName, const wxString &savedOrganName) const {
+  bool isToImport = true;
+
+  if (savedOrganName != m_OrganName) {
+    wxLogWarning(
+      _("This midi settings file '%s' was originally made for another organ "
+        "'%s'"),
+      fileName,
+      savedOrganName);
+    isToImport = wxMessageBox(
+                   wxString::Format(
+                     _("This midi settings file '%s' was originally made for "
+                       "another organ '%s'. Importing it can cause various "
+                       "problems. Should it really be imported?"),
+                     fileName,
+                     savedOrganName),
+                   _("Import Midi Settings"),
+                   wxYES_NO,
+                   nullptr)
+      == wxYES;
+  }
+  return isToImport;
+}
+
+wxString GOMidiObjectsDialog::ImportMidiSettings(const wxString &fileName) {
+  GOConfigFileReader cmbFile;
+  wxString errMsg;
+
+  if (cmbFile.Read(fileName)) {
+    GOConfigReaderDB ini;
+    ini.ReadData(cmbFile, CMBSetting, false);
+    GOConfigReader cfg(ini);
+
+    wxString savedOrganName
+      = cfg.ReadString(CMBSetting, WX_ORGAN, WX_ORGAN_NAME);
+
+    if (IsToImportSettingsFor(fileName, savedOrganName)) {
+      for (const auto pObj : r_MidiObjects)
+        pObj->LoadMidiSettings(cfg);
+    }
+  } else {
+    errMsg.Printf(_("Unable to read '%s'"), fileName);
+    wxLogError(errMsg);
+  }
+  return errMsg;
+}
+
+static wxString concat_file_specs(const wxString &one, const wxString &two) {
+  return wxString::Format("%s|%s", one, two);
+}
+
+static wxString concat_file_spec(const wxString &descFmt, const wxString &pat) {
+  return concat_file_specs(wxString::Format(descFmt, pat), pat);
+}
+
+static const wxString WX_MIDI_SETTINGS_EXT = wxT(".midi.ini");
+static const wxString WX_MIDI_SETTINGS_FILE_PAT
+  = wxT("*") + WX_MIDI_SETTINGS_EXT;
+static const wxString WX_MIDI_FILES_SPEC
+  = concat_file_spec(_("Midi Settings files (%s)"), WX_MIDI_SETTINGS_FILE_PAT);
+static const wxString WX_CMB_FILE_PAT = wxT("*.cmb");
+static const wxString WX_CMB_FILES_SPEC
+  = concat_file_spec(_("Settings files (%s)"), WX_CMB_FILE_PAT);
+static const wxString WX_IMPORT_SPEC
+  = concat_file_specs(WX_MIDI_FILES_SPEC, WX_CMB_FILES_SPEC);
+static const wxString WX_ERROR = _("Error");
+
+void GOMidiObjectsDialog::OnExportButton(wxCommandEvent &event) {
+  wxFileDialog dlg(
+    this,
+    _("Export Midi Settings"),
+    m_ExportImportDir,
+    m_OrganName + WX_MIDI_SETTINGS_EXT,
+    WX_MIDI_FILES_SPEC,
+    wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+
+  if (dlg.ShowModal() == wxID_OK) {
+    wxString exportedFilePath = dlg.GetPath();
+
+    if (!exportedFilePath.EndsWith(WX_MIDI_SETTINGS_EXT, nullptr))
+      exportedFilePath += WX_MIDI_SETTINGS_EXT;
+    const wxString errMsg = ExportMidiSettings(exportedFilePath);
+
+    if (!errMsg.IsEmpty())
+      GOMessageBox(
+        wxString::Format(
+          _("Failed to export midi settings to '%s': %s"),
+          exportedFilePath,
+          errMsg),
+        WX_ERROR,
+        wxOK | wxICON_ERROR,
+        this);
+  }
+}
+
+void GOMidiObjectsDialog::OnImportButton(wxCommandEvent &event) {
+  wxFileDialog dlg(
+    this,
+    _("Import Midi Settings"),
+    m_ExportImportDir,
+    m_OrganName + WX_MIDI_SETTINGS_EXT,
+    WX_IMPORT_SPEC,
+    wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+  if (dlg.ShowModal() == wxID_OK) {
+    const wxString &importedFilePath = dlg.GetPath();
+    const wxString errMsg = ImportMidiSettings(importedFilePath);
+
+    if (!errMsg.IsEmpty())
+      GOMessageBox(
+        wxString::Format(
+          _("Failed to export midi settings to '%s': %s"),
+          importedFilePath,
+          errMsg),
+        WX_ERROR,
+        wxOK | wxICON_ERROR,
+        this);
+  }
 }

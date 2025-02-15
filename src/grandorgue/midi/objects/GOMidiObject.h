@@ -85,6 +85,14 @@ public:
     InitMidiObject(cfg, group, name);
   }
 
+  void LoadMidiSettings(GOConfigReader &cfg) {
+    LoadMidiObject(cfg, m_group, r_MidiMap);
+  }
+
+  void SaveMidiSettings(GOConfigWriter &cfg) {
+    SaveMidiObject(cfg, m_group, r_MidiMap);
+  }
+
   virtual void Load(
     GOConfigReader &cfg, const wxString &group, const wxString &name) {
     InitMidiObject(cfg, group, name);
