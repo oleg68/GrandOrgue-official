@@ -64,6 +64,13 @@ protected:
     const wxString &group,
     GOMidiMap &midiMap) const override;
 
+public:
+  virtual bool IsMidiConfigured() const {
+    return m_receiver.IsMidiConfigured()
+      || GOMidiSendingObject::IsMidiConfigured();
+  }
+
+protected:
   void PreparePlayback() override;
 
 private:

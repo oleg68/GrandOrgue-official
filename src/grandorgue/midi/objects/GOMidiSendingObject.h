@@ -34,6 +34,10 @@ protected:
     const wxString &group,
     GOMidiMap &midiMap) const override;
 
+  virtual bool IsMidiConfigured() const {
+    return m_sender.IsMidiConfigured() || GOMidiObject::IsMidiConfigured();
+  }
+
   void SendMidiValue(bool value) { m_sender.SetDisplay(value); }
   void SendMidiValue(int value) { m_sender.SetValue(value); }
   void SendMidiValue(const wxString &value) { m_sender.SetLabel(value); }
