@@ -126,6 +126,7 @@ void GOManual::Init(
 void GOManual::Load(GOConfigReader &cfg, const wxString &group) {
   GOMidiReceivingSendingObject::Load(
     cfg, group, cfg.ReadStringNotEmpty(ODFSetting, group, wxT("Name")), true);
+  m_MidiContext.SetTitle(GetName());
   m_nb_logical_keys
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfLogicalKeys"), 1, 192);
   m_first_accessible_logical_key_nb = cfg.ReadInteger(
