@@ -9,8 +9,10 @@
 
 #include "GOCallbackButtonControl.h"
 
-void GOElementCreator::CreateButtons(GOOrganModel &organModel) {
-  for (const ButtonDefinitionEntry *pEntry = GetButtonDefinitionList();
+void GOElementCreator::CreateButtons(
+  GOOrganModel &organModel, const ButtonDefinitionEntry *pEntries) {
+  p_ButtonDefinitions = pEntries;
+  for (const ButtonDefinitionEntry *pEntry = pEntries;
        !pEntry->name.IsEmpty() && pEntry->value >= 0;
        pEntry++) {
     GOCallbackButtonControl *pButton = new GOCallbackButtonControl(
@@ -26,16 +28,15 @@ void GOElementCreator::CreateButtons(GOOrganModel &organModel) {
 
 GOButtonControl *GOElementCreator::GetButtonControl(
   const wxString &name, bool is_panel) {
-  const struct ButtonDefinitionEntry *entries = GetButtonDefinitionList();
-  for (unsigned i = 0;
-       entries[i].name != wxEmptyString && entries[i].value >= 0;
-       i++)
-    if (name == entries[i].name) {
-      if (is_panel && !entries[i].is_public)
+  for (const ButtonDefinitionEntry *pEntry = p_ButtonDefinitions;
+       pEntry && !pEntry->name.IsEmpty() && pEntry->value >= 0;
+       pEntry++) {
+    if (pEntry->name == name) {
+      if (is_panel && !pEntry->is_public)
         return NULL;
-      return m_buttons[entries[i].value];
+      return m_buttons[pEntry->value];
     }
-
+  }
   return NULL;
 }
 
