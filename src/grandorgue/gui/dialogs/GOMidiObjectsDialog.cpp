@@ -38,6 +38,7 @@ enum {
   GRID_COL_TYPE = 0,
   GRID_COL_CONTEXT,
   GRID_COL_ELEMENT,
+  GRID_COL_CONFIGURED,
   GRID_N_COLS,
 };
 
@@ -60,16 +61,18 @@ GOMidiObjectsDialog::GOMidiObjectsDialog(
   topSizer->AddSpacer(5);
 
   m_ObjectsGrid
-    = new GOGrid(this, ID_LIST, wxDefaultPosition, wxSize(250, 200));
+    = new GOGrid(this, ID_LIST, wxDefaultPosition, wxSize(350, 200));
   m_ObjectsGrid->CreateGrid(0, GRID_N_COLS, wxGrid::wxGridSelectRows);
   m_ObjectsGrid->HideRowLabels();
   m_ObjectsGrid->EnableEditing(false);
   m_ObjectsGrid->SetColLabelValue(GRID_COL_TYPE, _("Type"));
   m_ObjectsGrid->SetColLabelValue(GRID_COL_CONTEXT, _("Context"));
   m_ObjectsGrid->SetColLabelValue(GRID_COL_ELEMENT, _("Element"));
+  m_ObjectsGrid->SetColLabelValue(GRID_COL_CONFIGURED, _("Configured"));
   m_ObjectsGrid->SetColSize(GRID_COL_TYPE, 100);
   m_ObjectsGrid->SetColSize(GRID_COL_CONTEXT, 150);
   m_ObjectsGrid->SetColSize(GRID_COL_ELEMENT, 100);
+  m_ObjectsGrid->SetColSize(GRID_COL_CONFIGURED, 30);
 
   topSizer->Add(m_ObjectsGrid, 1, wxEXPAND | wxALL, 5);
 
@@ -130,6 +133,8 @@ bool GOMidiObjectsDialog::TransferDataToWindow() {
       GRID_COL_CONTEXT,
       GOMidiObjectContext::getFullTitle(obj->GetContext()));
     m_ObjectsGrid->SetCellValue(i, GRID_COL_ELEMENT, obj->GetName());
+    m_ObjectsGrid->SetCellValue(
+      i, GRID_COL_CONFIGURED, obj->IsMidiConfigured() ? _("Yes") : _("No"));
   }
   return true;
 }
