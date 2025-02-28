@@ -15,6 +15,7 @@
 #include "midi/objects/GOMidiObject.h"
 
 #include "GOEvent.h"
+#include "midi/objects/GOMidiObjectContext.h"
 
 enum {
   ID_LIST = 200,
@@ -33,7 +34,12 @@ EVT_COMMAND_RANGE(
   ID_BUTTON, ID_BUTTON_LAST, wxEVT_BUTTON, GOMidiObjectsDialog::OnActionButton)
 END_EVENT_TABLE()
 
-enum { GRID_COL_TYPE = 0, GRID_COL_ELEMENT };
+enum {
+  GRID_COL_TYPE = 0,
+  GRID_COL_CONTEXT,
+  GRID_COL_ELEMENT,
+  GRID_N_COLS,
+};
 
 GOMidiObjectsDialog::GOMidiObjectsDialog(
   GODocumentBase *doc,
@@ -55,12 +61,14 @@ GOMidiObjectsDialog::GOMidiObjectsDialog(
 
   m_ObjectsGrid
     = new GOGrid(this, ID_LIST, wxDefaultPosition, wxSize(250, 200));
-  m_ObjectsGrid->CreateGrid(0, 2, wxGrid::wxGridSelectRows);
+  m_ObjectsGrid->CreateGrid(0, GRID_N_COLS, wxGrid::wxGridSelectRows);
   m_ObjectsGrid->HideRowLabels();
   m_ObjectsGrid->EnableEditing(false);
   m_ObjectsGrid->SetColLabelValue(GRID_COL_TYPE, _("Type"));
+  m_ObjectsGrid->SetColLabelValue(GRID_COL_CONTEXT, _("Context"));
   m_ObjectsGrid->SetColLabelValue(GRID_COL_ELEMENT, _("Element"));
   m_ObjectsGrid->SetColSize(GRID_COL_TYPE, 100);
+  m_ObjectsGrid->SetColSize(GRID_COL_CONTEXT, 150);
   m_ObjectsGrid->SetColSize(GRID_COL_ELEMENT, 100);
 
   topSizer->Add(m_ObjectsGrid, 1, wxEXPAND | wxALL, 5);
@@ -117,6 +125,10 @@ bool GOMidiObjectsDialog::TransferDataToWindow() {
     GOMidiObject *obj = r_MidiObjects[i];
 
     m_ObjectsGrid->SetCellValue(i, GRID_COL_TYPE, obj->GetMidiTypeName());
+    m_ObjectsGrid->SetCellValue(
+      i,
+      GRID_COL_CONTEXT,
+      GOMidiObjectContext::getFullTitle(obj->GetContext()));
     m_ObjectsGrid->SetCellValue(i, GRID_COL_ELEMENT, obj->GetName());
   }
   return true;
