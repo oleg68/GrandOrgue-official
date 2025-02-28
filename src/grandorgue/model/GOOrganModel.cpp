@@ -7,10 +7,13 @@
 
 #include "GOOrganModel.h"
 
+#include <wx/intl.h>
+
 #include "combinations/control/GOGeneralButtonControl.h"
 #include "config/GOConfig.h"
 #include "config/GOConfigReader.h"
 #include "control/GOPistonControl.h"
+#include "midi/objects/GOMidiObjectContext.h"
 #include "modification/GOModificationListener.h"
 
 #include "GODivisionalCoupler.h"
@@ -21,6 +24,9 @@
 #include "GOSwitch.h"
 #include "GOTremulant.h"
 #include "GOWindchest.h"
+
+static const GOMidiObjectContext MIDI_CONTEXT_MANUALS(
+  wxT("manuals"), _("manuals"));
 
 GOOrganModel::GOOrganModel(GOConfig &config)
   : m_config(config),
@@ -75,10 +81,10 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
   m_manuals.resize(0);
   m_manuals.resize(m_FirstManual); // Add empty slot for pedal, if necessary
   for (unsigned int i = m_FirstManual; i < m_ODFManualCount; i++)
-    m_manuals.push_back(new GOManual(*this));
+    m_manuals.push_back(new GOManual(*this, i, &MIDI_CONTEXT_MANUALS));
 
   for (unsigned int i = 0; i < 4; i++)
-    m_manuals.push_back(new GOManual(*this));
+    m_manuals.push_back(new GOManual(*this, i, &MIDI_CONTEXT_MANUALS));
 
   unsigned NumberOfEnclosures
     = cfg.ReadInteger(ODFSetting, WX_ORGAN, wxT("NumberOfEnclosures"), 0, 999);
@@ -121,7 +127,7 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
   // Switches must be loaded before manuals because manuals reference to
   // switches
   for (unsigned int i = m_FirstManual; i < m_ODFManualCount; i++)
-    m_manuals[i]->Load(cfg, wxString::Format(wxT("Manual%03d"), i), i);
+    m_manuals[i]->Load(cfg, wxString::Format(wxT("Manual%03d"), i));
 
   unsigned min_key = 0xff, max_key = 0;
   for (unsigned i = GetFirstManualIndex(); i < GetODFManualCount(); i++) {
@@ -138,7 +144,6 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
     GetManual(i)->Init(
       cfg,
       wxString::Format(wxT("SetterFloating%03d"), i - GetODFManualCount() + 1),
-      i,
       min_key,
       max_key - min_key);
 
