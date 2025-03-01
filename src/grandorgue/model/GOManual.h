@@ -43,6 +43,7 @@ private:
   GOMidiObjectContext m_MidiContext;
   GOMidiObjectContext m_MidiContextStops;
   GOMidiObjectContext m_MidiContextCouplers;
+  GOMidiObjectContext m_MidiContextVirtualCouplers;
   GOMidiObjectContext m_MidiContextDivisionals;
   unsigned m_first_accessible_logical_key_nb;
   unsigned m_nb_logical_keys;
@@ -93,6 +94,9 @@ public:
   unsigned GetManulNumber() const { return m_manual_number; }
   const GOMidiObjectContext *GetCouplersContext() const {
     return &m_MidiContextCouplers;
+  }
+  const GOMidiObjectContext *GetVirtualCouplersContext() const {
+    return &m_MidiContextVirtualCouplers;
   }
 
   using GOMidiReceivingSendingObject::Init; // avoiding a compilation warning

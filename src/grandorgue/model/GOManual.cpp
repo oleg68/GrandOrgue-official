@@ -47,6 +47,8 @@ GOManual::GOManual(
       pParentContext),
     m_MidiContextStops(wxT("stops"), _("stops"), &m_MidiContext),
     m_MidiContextCouplers(wxT("couplers"), _("couplers"), &m_MidiContext),
+    m_MidiContextVirtualCouplers(
+      wxT("virtual-couplers"), _("virtual-couplers"), &m_MidiContext),
     m_MidiContextDivisionals(
       wxT("divisionals"), _("divisionals"), &m_MidiContext),
     m_first_accessible_logical_key_nb(0),
