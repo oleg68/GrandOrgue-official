@@ -41,10 +41,11 @@ private:
   GOMidiReceiver::KeyMap m_MidiKeyMap;
   unsigned m_manual_number;
   GOMidiObjectContext m_MidiContext;
-  GOMidiObjectContext m_MidiContextStops;
   GOMidiObjectContext m_MidiContextCouplers;
-  GOMidiObjectContext m_MidiContextVirtualCouplers;
   GOMidiObjectContext m_MidiContextDivisionals;
+  GOMidiObjectContext m_MidiContextStops;
+  GOMidiObjectContext m_MidiContextSwitches;
+  GOMidiObjectContext m_MidiContextVirtualCouplers;
   unsigned m_first_accessible_logical_key_nb;
   unsigned m_nb_logical_keys;
   unsigned m_first_accessible_key_midi_note_nb;
@@ -95,6 +96,9 @@ public:
   const GOMidiObjectContext *GetManualContext() const { return &m_MidiContext; }
   const GOMidiObjectContext *GetCouplersContext() const {
     return &m_MidiContextCouplers;
+  }
+  const GOMidiObjectContext *GetSwitchesContext() const {
+    return &m_MidiContextSwitches;
   }
   const GOMidiObjectContext *GetVirtualCouplersContext() const {
     return &m_MidiContextVirtualCouplers;

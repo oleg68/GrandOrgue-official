@@ -45,12 +45,13 @@ GOManual::GOManual(
       wxString::Format(WX_MANUAL_NUM_FMT, manualNumber),
       wxString::Format(WX_MANUAL_NUM_FMT, manualNumber),
       pParentContext),
-    m_MidiContextStops(wxT("stops"), _("stops"), &m_MidiContext),
     m_MidiContextCouplers(wxT("couplers"), _("couplers"), &m_MidiContext),
-    m_MidiContextVirtualCouplers(
-      wxT("virtual-couplers"), _("virtual-couplers"), &m_MidiContext),
     m_MidiContextDivisionals(
       wxT("divisionals"), _("divisionals"), &m_MidiContext),
+    m_MidiContextStops(wxT("stops"), _("stops"), &m_MidiContext),
+    m_MidiContextSwitches(wxT("switches"), _("switches"), &m_MidiContext),
+    m_MidiContextVirtualCouplers(
+      wxT("virtual-couplers"), _("virtual-couplers"), &m_MidiContext),
     m_first_accessible_logical_key_nb(0),
     m_nb_logical_keys(0),
     m_first_accessible_key_midi_note_nb(0),

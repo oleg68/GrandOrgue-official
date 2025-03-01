@@ -25,8 +25,17 @@
 #include "GOTremulant.h"
 #include "GOWindchest.h"
 
+static const GOMidiObjectContext MIDI_CONTEXT_ENCLOSURES(
+  wxT("enclosures"), _("enclosures"));
+static const GOMidiObjectContext MIDI_CONTEXT_GENERALS(
+  wxT("generals"), _("generals"));
 static const GOMidiObjectContext MIDI_CONTEXT_MANUALS(
   wxT("manuals"), _("manuals"));
+static const GOMidiObjectContext MIDI_CONTEXT_RANKS(wxT("ranks"), _("ranks"));
+static const GOMidiObjectContext MIDI_CONTEXT_SWITCHES(
+  wxT("switches"), _("switches"));
+static const GOMidiObjectContext MIDI_CONTEXT_TREMULANTS(
+  wxT("tremulants"), _("tremulants"));
 
 GOOrganModel::GOOrganModel(GOConfig &config)
   : m_config(config),
@@ -88,11 +97,14 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
 
   unsigned NumberOfEnclosures
     = cfg.ReadInteger(ODFSetting, WX_ORGAN, wxT("NumberOfEnclosures"), 0, 999);
+
   m_enclosures.resize(0);
   for (unsigned i = 0; i < NumberOfEnclosures; i++) {
-    m_enclosures.push_back(new GOEnclosure(*this));
-    m_enclosures[i]->Load(
-      cfg, wxString::Format(wxT("Enclosure%03u"), i + 1), i);
+    GOEnclosure *pEnclosure = new GOEnclosure(*this);
+
+    pEnclosure->SetContext(&MIDI_CONTEXT_ENCLOSURES);
+    pEnclosure->Load(cfg, wxString::Format(wxT("Enclosure%03u"), i + 1), i);
+    m_enclosures.push_back(pEnclosure);
   }
 
   // Switches must be loaded before manuals because manuals reference to
@@ -108,9 +120,11 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
   unsigned NumberOfTremulants
     = cfg.ReadInteger(ODFSetting, WX_ORGAN, wxT("NumberOfTremulants"), 0, 999);
   for (unsigned i = 0; i < NumberOfTremulants; i++) {
-    m_tremulants.push_back(new GOTremulant(*this));
-    m_tremulants[i]->Load(
-      cfg, wxString::Format(wxT("Tremulant%03d"), i + 1), i + 1);
+    GOTremulant *pTremulant = new GOTremulant(*this);
+
+    pTremulant->SetContext(&MIDI_CONTEXT_TREMULANTS);
+    pTremulant->Load(cfg, wxString::Format(wxT("Tremulant%03d"), i + 1), i + 1);
+    m_tremulants.push_back(pTremulant);
   }
 
   for (unsigned i = 0; i < NumberOfWindchestGroups; i++)
@@ -120,8 +134,11 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
   m_ODFRankCount = cfg.ReadInteger(
     ODFSetting, WX_ORGAN, wxT("NumberOfRanks"), 0, 999, false);
   for (unsigned i = 0; i < m_ODFRankCount; i++) {
-    m_ranks.push_back(new GORank(*this));
-    m_ranks[i]->Load(cfg, wxString::Format(wxT("Rank%03d"), i + 1), -1);
+    GORank *pRank = new GORank(*this);
+
+    pRank->SetContext(&MIDI_CONTEXT_RANKS);
+    pRank->Load(cfg, wxString::Format(wxT("Rank%03d"), i + 1), -1);
+    m_ranks.push_back(pRank);
   }
 
   // Switches must be loaded before manuals because manuals reference to
@@ -169,9 +186,17 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
     m_enclosures[i]->SetElementId(
       GetRecorderElementID(wxString::Format(wxT("E%d"), i)));
 
-  for (unsigned i = 0; i < m_switches.size(); i++)
-    m_switches[i]->SetElementId(
+  for (unsigned i = 0; i < m_switches.size(); i++) {
+    GOSwitch *pSwitch = m_switches[i];
+    int switchManualIdx = pSwitch->GetAssociatedManualN();
+    const GOMidiObjectContext *pSwitchContext = switchManualIdx >= 0
+      ? m_manuals[switchManualIdx]->GetSwitchesContext()
+      : nullptr;
+
+    pSwitch->SetContext(pSwitchContext);
+    pSwitch->SetElementId(
       GetRecorderElementID(wxString::Format(wxT("S%d"), i)));
+  }
 
   for (unsigned i = 0; i < m_tremulants.size(); i++)
     m_tremulants[i]->SetElementId(
@@ -189,8 +214,11 @@ void GOOrganModel::LoadCmbButtons(GOConfigReader &cfg) {
   m_GeneralTemplate.InitGeneral();
   m_generals.resize(0);
   for (unsigned i = 0; i < NumberOfGenerals; i++) {
-    m_generals.push_back(new GOGeneralButtonControl(*this, false));
-    m_generals[i]->Load(cfg, wxString::Format(wxT("General%03d"), i + 1));
+    GOGeneralButtonControl *pGeneral = new GOGeneralButtonControl(*this, false);
+
+    pGeneral->SetContext(&MIDI_CONTEXT_GENERALS);
+    pGeneral->Load(cfg, wxString::Format(wxT("General%03d"), i + 1));
+    m_generals.push_back(pGeneral);
   }
 
   // Divisionals
@@ -290,7 +318,10 @@ GORank *GOOrganModel::GetRank(unsigned index) { return m_ranks[index]; }
 
 unsigned GOOrganModel::GetODFRankCount() { return m_ODFRankCount; }
 
-void GOOrganModel::AddRank(GORank *rank) { m_ranks.push_back(rank); }
+void GOOrganModel::AddRank(GORank *rank) {
+  rank->SetContext(&MIDI_CONTEXT_RANKS);
+  m_ranks.push_back(rank);
+}
 
 unsigned GOOrganModel::GetNumberOfReversiblePistons() {
   return m_pistons.size();
