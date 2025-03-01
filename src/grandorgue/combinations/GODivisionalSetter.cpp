@@ -43,8 +43,8 @@ enum {
   ID_FIRST = 0
 };
 
-static wxString WX_DIVISIONA_CTX_NAME = wxT("setter-divisionals");
-static wxString WX_DIVISIONA_CTX_TITLE = _("setter-divisionals");
+static wxString WX_DIVISIONAL_CTX_NAME = wxT("setter-divisionals");
+static wxString WX_DIVISIONAL_CTX_TITLE = _("setter-divisionals");
 
 // fills a button definition
 static void fill_button_definition(
@@ -104,9 +104,9 @@ GODivisionalSetter::GODivisionalSetter(
     unsigned odfManualIndex = m_FirstManualIndex + i;
     GOMidiObjectContext *pContext = m_ManualMidiContexts + i;
     *pContext = GOMidiObjectContext(
-      WX_DIVISIONA_CTX_NAME,
-      WX_DIVISIONA_CTX_TITLE,
-      organController->GetManual(odfManualIndex)->GetContext());
+      WX_DIVISIONAL_CTX_NAME,
+      WX_DIVISIONAL_CTX_TITLE,
+      organController->GetManual(odfManualIndex)->GetManualContext());
 
     for (unsigned divisionalIndex = 0; divisionalIndex < N_DIVISIONALS;
          divisionalIndex++)

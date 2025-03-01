@@ -92,6 +92,7 @@ public:
   ~GOManual();
 
   unsigned GetManulNumber() const { return m_manual_number; }
+  const GOMidiObjectContext *GetManualContext() const { return &m_MidiContext; }
   const GOMidiObjectContext *GetCouplersContext() const {
     return &m_MidiContextCouplers;
   }
