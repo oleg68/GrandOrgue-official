@@ -57,7 +57,6 @@ GOManual::GOManual(
     m_first_accessible_key_midi_note_nb(0),
     m_nb_accessible_keys(0),
     m_UnisonOff(0),
-    m_MIDIInputNumber(0),
     m_tremulant_ids(0),
     m_GlobalSwitchIds(0),
     m_stops(0),
@@ -67,7 +66,6 @@ GOManual::GOManual(
     m_displayed(false),
     m_DivisionalTemplate(organModel) {
   SetContext(pParentContext);
-  SetInitialMidiIndex(manualNumber); // Used in LoadMidiObject
   SetReceiverKeyMap(&m_MidiKeyMap);
   m_InputCouplers.push_back(NULL);
   r_OrganModel.RegisterCombinationButtonSet(this);
@@ -98,7 +96,6 @@ void GOManual::Init(
   const wxString &group,
   unsigned firstMidi,
   unsigned keys) {
-  m_MIDIInputNumber = 0;
   GOMidiReceivingSendingObject::Init(
     cfg,
     group,
@@ -130,8 +127,6 @@ void GOManual::Init(
 }
 
 void GOManual::Load(GOConfigReader &cfg, const wxString &group) {
-  m_MIDIInputNumber = cfg.ReadInteger(
-    ODFSetting, group, wxT("MIDIInputNumber"), 0, 200, false, 0);
   GOMidiReceivingSendingObject::Load(
     cfg, group, cfg.ReadStringNotEmpty(ODFSetting, group, wxT("Name")));
   m_MidiContext.SetTitle(GetName());
@@ -346,8 +341,6 @@ void GOManual::SetUnisonOff(bool on) {
   for (unsigned note = 0; note < m_Velocity.size(); note++)
     SetOutput(note, on ? m_RemoteVelocity[note] : m_Velocity[note]);
 }
-
-int GOManual::GetMIDIInputNumber() { return m_MIDIInputNumber; }
 
 unsigned GOManual::GetLogicalKeyCount() { return m_nb_logical_keys; }
 

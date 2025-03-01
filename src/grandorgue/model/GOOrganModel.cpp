@@ -103,7 +103,7 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
     GOEnclosure *pEnclosure = new GOEnclosure(*this);
 
     pEnclosure->SetContext(&MIDI_CONTEXT_ENCLOSURES);
-    pEnclosure->Load(cfg, wxString::Format(wxT("Enclosure%03u"), i + 1), i);
+    pEnclosure->Load(cfg, wxString::Format(wxT("Enclosure%03u"), i + 1));
     m_enclosures.push_back(pEnclosure);
   }
 
