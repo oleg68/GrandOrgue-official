@@ -10,7 +10,11 @@
 #include <wx/intl.h>
 
 #include "midi/elements/GOMidiReceiver.h"
+#include "midi/elements/GOMidiSender.h"
 #include "model/GOOrganModel.h"
+#include "yaml/go-wx-yaml.h"
+
+#include "GOMidiObjectContext.h"
 
 #include "GOMidiObjectContext.h"
 
@@ -48,6 +52,24 @@ void GOMidiObject::InitMidiObject(
   r_OrganModel.RegisterSaveableObject(this);
   LoadMidiObject(cfg, group, r_MidiMap);
 }
+
+const char *C_SEND = "send";
+
+void GOMidiObject::SubToYaml(
+  YAML::Node &yamlNode, const char *pSubName, const GOMidiElement *pEl) const {
+  if (pEl) {
+    YAML::Node subNode;
+
+    pEl->ToYaml(subNode, r_MidiMap);
+    put_to_map_if_not_null(yamlNode, pSubName, subNode);
+  }
+}
+
+void GOMidiObject::ToYaml(YAML::Node &yamlNode) const {
+  SubToYaml(yamlNode, C_SEND, p_MidiSender);
+}
+
+void GOMidiObject::FromYaml(const YAML::Node &yamlNode) {}
 
 void GOMidiObject::ShowConfigDialog() {
   const bool isReadOnly = IsReadOnly();

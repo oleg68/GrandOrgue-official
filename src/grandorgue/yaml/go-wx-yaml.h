@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -50,7 +50,7 @@ inline YAML::Node get_from_map_or_null(
  */
 extern void put_to_map_if_not_null(
   YAML::Node &container, const char *key, const YAML::Node &value);
-inline void putToMapIfNotNull(
+inline void put_to_map_if_not_null(
   YAML::Node &container, const wxString &key, const YAML::Node &value) {
   put_to_map_if_not_null(container, key.utf8_str().data(), value);
 }
@@ -82,4 +82,11 @@ inline void put_to_map_with_name(
   put_to_map_with_name(
     container, key.utf8_str().data(), nameValue, valueLabel, value);
 }
+
+extern void put_to_map_by_path_if_not_null(
+  YAML::Node &rootNode,
+  const std::vector<wxString> &path,
+  const wxString &lastKey,
+  const YAML::Node &node);
+
 #endif /* GOWXYAML_H */
