@@ -69,11 +69,12 @@ GOMidiEventKeyTab::GOMidiEventKeyTab(
 GOMidiEventKeyTab::~GOMidiEventKeyTab() {}
 
 void GOMidiEventKeyTab::FillKeylist(wxChoice *select, unsigned shortcut) {
-  const GOShortcutKey *keys = GetShortcutKeys();
-  unsigned count = GetShortcutKeyCount();
+  const std::vector<GOKeyConvert::Shortcut> &keys
+    = GOKeyConvert::getShortcuts();
+
   select->Append(_("None"), (void *)0);
   select->SetSelection(0);
-  for (unsigned i = 0; i < count; i++) {
+  for (unsigned l = keys.size(), i = 0; i < l; i++) {
     select->Append(wxGetTranslation(keys[i].name), (void *)&keys[i]);
     if (keys[i].key_code == shortcut)
       select->SetSelection(i + 1);
@@ -81,14 +82,15 @@ void GOMidiEventKeyTab::FillKeylist(wxChoice *select, unsigned shortcut) {
 }
 
 bool GOMidiEventKeyTab::TransferDataFromWindow() {
-  const GOShortcutKey *key = (const GOShortcutKey *)m_keyselect->GetClientData(
-    m_keyselect->GetSelection());
+  const GOKeyConvert::Shortcut *key
+    = (const GOKeyConvert::Shortcut *)m_keyselect->GetClientData(
+      m_keyselect->GetSelection());
   if (!key)
     m_key.SetShortcut(0);
   else
     m_key.SetShortcut(key->key_code);
   if (m_keyminusselect) {
-    key = (const GOShortcutKey *)m_keyminusselect->GetClientData(
+    key = (const GOKeyConvert::Shortcut *)m_keyminusselect->GetClientData(
       m_keyminusselect->GetSelection());
     if (!key)
       m_key.SetMinusKey(0);
@@ -131,14 +133,14 @@ void GOMidiEventKeyTab::Listen(bool enable) {
 }
 
 void GOMidiEventKeyTab::OnKeyDown(wxKeyEvent &event) {
-  unsigned code = WXKtoVK(event.GetKeyCode());
+  unsigned code = GOKeyConvert::wXKtoVK(event.GetKeyCode());
   if (code) {
     wxChoice *select = m_keyselect;
     if (m_minuslisten && m_minuslisten->GetValue())
       select = m_keyminusselect;
     for (unsigned i = 0; i < select->GetCount(); i++) {
-      const GOShortcutKey *key
-        = (const GOShortcutKey *)select->GetClientData(i);
+      const GOKeyConvert::Shortcut *key
+        = (const GOKeyConvert::Shortcut *)select->GetClientData(i);
       if (key && key->key_code == code)
         select->SetSelection(i);
     }
