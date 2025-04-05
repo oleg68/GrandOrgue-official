@@ -263,7 +263,8 @@ void GOMidiReceiver::ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const {
   for (const auto &e : m_events) {
     YAML::Node eventNode;
 
-    eventNode[C_DEVICE] = map.GetDeviceLogicalNameById(e.deviceId);
+    if (e.deviceId)
+      eventNode[C_DEVICE] = map.GetDeviceLogicalNameById(e.deviceId);
     eventNode[C_EVENT_TYPE] = MIDI_RECEIVE_TYPES.GetName(e.type);
     if (hasChannel(e.type))
       eventNode[C_CHANNEL] = e.channel;
