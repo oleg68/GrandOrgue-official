@@ -9,7 +9,7 @@
 
 #include <wx/intl.h>
 
-static const std::vector<GOKeyConvert::Shortcut> SHORTCUTS({
+const GOConfigEnum GOKeyConvert::SHORTCUTS({
   {wxTRANSLATE("back"), 8},
   {wxTRANSLATE("tab"), 9},
   {wxTRANSLATE("return"), 13},
@@ -129,10 +129,6 @@ static const std::vector<GOKeyConvert::Shortcut> SHORTCUTS({
   {wxTRANSLATE("#"), 222},
   {wxTRANSLATE("`"), 223},
 });
-
-const std::vector<GOKeyConvert::Shortcut> &GOKeyConvert::getShortcuts() {
-  return SHORTCUTS;
-}
 
 int GOKeyConvert::wXKtoVK(int what) {
   switch (what) {
