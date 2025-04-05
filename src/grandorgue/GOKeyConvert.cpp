@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -9,7 +9,7 @@
 
 #include <wx/intl.h>
 
-static GOShortcutKey shortcuts[] = {
+static const std::vector<GOKeyConvert::Shortcut> SHORTCUTS({
   {wxTRANSLATE("back"), 8},
   {wxTRANSLATE("tab"), 9},
   {wxTRANSLATE("return"), 13},
@@ -128,15 +128,13 @@ static GOShortcutKey shortcuts[] = {
   {wxTRANSLATE("}"), 221},
   {wxTRANSLATE("#"), 222},
   {wxTRANSLATE("`"), 223},
-};
+});
 
-unsigned GetShortcutKeyCount() {
-  return sizeof(shortcuts) / sizeof(shortcuts[0]);
+const std::vector<GOKeyConvert::Shortcut> &GOKeyConvert::getShortcuts() {
+  return SHORTCUTS;
 }
 
-const GOShortcutKey *GetShortcutKeys() { return shortcuts; }
-
-int WXKtoVK(int what) {
+int GOKeyConvert::wXKtoVK(int what) {
   switch (what) {
   case WXK_BACK:
     return 8;
