@@ -234,8 +234,34 @@ void GOMidiSender::ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const {
 
 void GOMidiSender::FromYaml(const YAML::Node &yamlNode, GOMidiMap &map) {
   m_events.clear();
-  for (const auto &eNode : yamlNode) {
-  }
+  if (yamlNode.IsDefined() && yamlNode.IsSequence())
+    for (const auto &eventNode : yamlNode)
+      if (eventNode.IsDefined() && eventNode.IsMap()) {
+        GOMidiSenderEventPattern e;
+        YAML::Node deviceNode = eventNode[C_DEVICE];
+
+        e.deviceId = deviceNode.IsScalar()
+          ? map.GetDeviceIdByLogicalName(deviceNode.as<wxString>())
+          : 0;
+        e.type = (GOMidiSenderMessageType)MIDI_SEND_TYPES.GetValue(
+          eventNode[C_EVENT_TYPE].as<wxString>(), e.type);
+
+        if (hasChannel(e.type))
+          eventNode[C_CHANNEL] >> e.channel;
+        if (HasKey(e.type))
+          eventNode[C_KEY] >> e.key;
+        if (isNote(e.type))
+          eventNode[C_USE_NOTE_OFF] >> e.useNoteOff;
+        if (hasLowValue(e.type))
+          eventNode[C_LOW_VALUE] >> e.low_value;
+        if (hasHighValue(e.type))
+          eventNode[C_HIGH_VALUE] >> e.high_value;
+        if (hasStart(e.type))
+          eventNode[C_START] >> e.start;
+        if (hasLength(e.type))
+          eventNode[C_LENGTH] >> e.length;
+        m_events.push_back(e);
+      }
 }
 
 bool GOMidiSender::hasChannel(GOMidiSenderMessageType type) {

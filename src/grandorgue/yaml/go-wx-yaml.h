@@ -89,4 +89,13 @@ extern void put_to_map_by_path_if_not_null(
   const wxString &lastKey,
   const YAML::Node &node);
 
+extern YAML::Node get_from_map_by_path_or_null(
+  const YAML::Node &rootNode,
+  const std::vector<wxString> &path,
+  const wxString &lastKey);
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, unsigned &value);
+const YAML::Node &operator>>(const YAML::Node &yamlNode, int &value);
+const YAML::Node &operator>>(const YAML::Node &yamlNode, bool &value);
+
 #endif /* GOWXYAML_H */

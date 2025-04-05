@@ -64,6 +64,15 @@ void GOMidiObject::SubToYaml(
   }
 }
 
+void GOMidiObject::SubFromYaml(
+  const YAML::Node &yamlNode, const char *pSubName, GOMidiElement *pEl) {
+  if (pEl) {
+    YAML::Node subNode = get_from_map_or_null(yamlNode, pSubName);
+
+    pEl->FromYaml(subNode, r_MidiMap);
+  }
+}
+
 const char *C_RECEIVE = "receive";
 const char *C_SEND = "send";
 const char *C_SHORTCUT = "shortcut";
@@ -80,7 +89,15 @@ void GOMidiObject::ToYaml(YAML::Node &yamlNode) const {
     yamlNode, GOMidiObjectContext::getNames(p_context), GetName(), objNode);
 }
 
-void GOMidiObject::FromYaml(const YAML::Node &yamlNode) {}
+void GOMidiObject::FromYaml(const YAML::Node &yamlNode) {
+  YAML::Node objNode = get_from_map_by_path_or_null(
+    yamlNode, GOMidiObjectContext::getNames(p_context), GetName());
+
+  SubFromYaml(objNode, C_RECEIVE, p_MidiReceiver);
+  SubFromYaml(objNode, C_SEND, p_MidiSender);
+  SubFromYaml(objNode, C_SHORTCUT, p_ShortcutReceiver);
+  SubFromYaml(objNode, C_DIVISION, p_DivisionSender);
+}
 
 void GOMidiObject::ShowConfigDialog() {
   const bool isReadOnly = IsReadOnly();

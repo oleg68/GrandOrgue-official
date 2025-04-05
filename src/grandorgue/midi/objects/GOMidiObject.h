@@ -86,6 +86,8 @@ protected:
 private:
   void SubToYaml(
     YAML::Node &yamlNode, const char *pSubName, const GOMidiElement *pEl) const;
+  void SubFromYaml(
+    const YAML::Node &yamlNode, const char *pSubName, GOMidiElement *pEl);
   void ToYaml(YAML::Node &yamlNode) const override;
   void FromYaml(const YAML::Node &yamlNode) override;
 

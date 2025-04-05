@@ -98,3 +98,32 @@ void put_to_map_by_path_if_not_null(
     put_to_map_by_path(rootNode, current, path.cend(), lastKey, node);
   }
 }
+
+YAML::Node get_from_map_by_path_or_null(
+  const YAML::Node &rootNode,
+  const std::vector<wxString> &path,
+  const wxString &lastKey) {
+  YAML::Node node = rootNode;
+
+  for (auto &name : path)
+    node = get_from_map_or_null(node, name);
+  return get_from_map_or_null(node, lastKey);
+}
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, unsigned &value) {
+  if (yamlNode.IsDefined() && yamlNode.IsScalar())
+    value = yamlNode.as<unsigned>();
+  return yamlNode;
+}
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, int &value) {
+  if (yamlNode.IsDefined() && yamlNode.IsScalar())
+    value = yamlNode.as<int>();
+  return yamlNode;
+}
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, bool &value) {
+  if (yamlNode.IsDefined() && yamlNode.IsScalar())
+    value = yamlNode.as<bool>();
+  return yamlNode;
+}
