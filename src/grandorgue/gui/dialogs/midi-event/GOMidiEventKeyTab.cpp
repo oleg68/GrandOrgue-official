@@ -69,13 +69,14 @@ GOMidiEventKeyTab::GOMidiEventKeyTab(
 GOMidiEventKeyTab::~GOMidiEventKeyTab() {}
 
 void GOMidiEventKeyTab::FillKeylist(wxChoice *select, unsigned shortcut) {
-  const GOKeyConvert::Shortcut *keys = GOKeyConvert::getShortcutKeys();
-  unsigned count = GOKeyConvert::getShortcutKeyCount();
+  const std::vector<GOKeyConvert::Shortcut> &keys
+    = GOKeyConvert::getShortcuts();
+
   select->Append(_("None"), (void *)0);
   select->SetSelection(0);
-  for (unsigned i = 0; i < count; i++) {
+  for (unsigned l = keys.size(), i = 0; i < l; i++) {
     select->Append(wxGetTranslation(keys[i].name), (void *)&keys[i]);
-    if (keys[i].key_code == shortcut)
+    if ((unsigned)keys[i].value == shortcut)
       select->SetSelection(i + 1);
   }
 }
@@ -87,14 +88,14 @@ bool GOMidiEventKeyTab::TransferDataFromWindow() {
   if (!key)
     m_key.SetShortcut(0);
   else
-    m_key.SetShortcut(key->key_code);
+    m_key.SetShortcut(key->value);
   if (m_keyminusselect) {
     key = (const GOKeyConvert::Shortcut *)m_keyminusselect->GetClientData(
       m_keyminusselect->GetSelection());
     if (!key)
       m_key.SetMinusKey(0);
     else
-      m_key.SetMinusKey(key->key_code);
+      m_key.SetMinusKey(key->value);
   }
   if (m_original->RenewFrom(m_key))
     GOModificationProxy::OnIsModifiedChanged(true);
@@ -140,7 +141,7 @@ void GOMidiEventKeyTab::OnKeyDown(wxKeyEvent &event) {
     for (unsigned i = 0; i < select->GetCount(); i++) {
       const GOKeyConvert::Shortcut *key
         = (const GOKeyConvert::Shortcut *)select->GetClientData(i);
-      if (key && key->key_code == code)
+      if (key && (unsigned)key->value == code)
         select->SetSelection(i);
     }
 
