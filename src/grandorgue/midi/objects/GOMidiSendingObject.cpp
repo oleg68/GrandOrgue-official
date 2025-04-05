@@ -8,6 +8,7 @@
 #include "GOMidiSendingObject.h"
 
 #include "model/GOOrganModel.h"
+#include "yaml/go-wx-yaml.h"
 
 GOMidiSendingObject::GOMidiSendingObject(
   GOOrganModel &organModel,

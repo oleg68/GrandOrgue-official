@@ -9,8 +9,13 @@
 
 #include <wx/intl.h>
 
-#include "midi/GOMidiReceiver.h"
+#include "midi/elements/GOMidiReceiver.h"
+#include "midi/elements/GOMidiSender.h"
+#include "midi/elements/GOMidiShortcutReceiver.h"
 #include "model/GOOrganModel.h"
+#include "yaml/go-wx-yaml.h"
+
+#include "GOMidiObjectContext.h"
 
 #include "GOMidiObjectContext.h"
 
@@ -47,6 +52,51 @@ void GOMidiObject::InitMidiObject(
   m_name = name;
   r_OrganModel.RegisterSaveableObject(this);
   LoadMidiObject(cfg, group, r_MidiMap);
+}
+
+void GOMidiObject::SubToYaml(
+  YAML::Node &yamlNode, const char *pSubName, const GOMidiElement *pEl) const {
+  if (pEl) {
+    YAML::Node subNode;
+
+    pEl->ToYaml(subNode, r_MidiMap);
+    put_to_map_if_not_null(yamlNode, pSubName, subNode);
+  }
+}
+
+void GOMidiObject::SubFromYaml(
+  const YAML::Node &yamlNode, const char *pSubName, GOMidiElement *pEl) {
+  if (pEl) {
+    YAML::Node subNode = get_from_map_or_null(yamlNode, pSubName);
+
+    pEl->FromYaml(subNode, r_MidiMap);
+  }
+}
+
+const char *C_RECEIVE = "receive";
+const char *C_SEND = "send";
+const char *C_SHORTCUT = "shortcut";
+const char *C_DIVISION = "division";
+
+void GOMidiObject::ToYaml(YAML::Node &yamlNode) const {
+  YAML::Node objNode;
+
+  SubToYaml(objNode, C_RECEIVE, p_MidiReceiver);
+  SubToYaml(objNode, C_SEND, p_MidiSender);
+  SubToYaml(objNode, C_SHORTCUT, p_ShortcutReceiver);
+  SubToYaml(objNode, C_DIVISION, p_DivisionSender);
+  put_to_map_by_path_if_not_null(
+    yamlNode, GOMidiObjectContext::getNames(p_context), GetName(), objNode);
+}
+
+void GOMidiObject::FromYaml(const YAML::Node &yamlNode) {
+  YAML::Node objNode = get_from_map_by_path_or_null(
+    yamlNode, GOMidiObjectContext::getNames(p_context), GetName());
+
+  SubFromYaml(objNode, C_RECEIVE, p_MidiReceiver);
+  SubFromYaml(objNode, C_SEND, p_MidiSender);
+  SubFromYaml(objNode, C_SHORTCUT, p_ShortcutReceiver);
+  SubFromYaml(objNode, C_DIVISION, p_DivisionSender);
 }
 
 void GOMidiObject::ShowConfigDialog() {

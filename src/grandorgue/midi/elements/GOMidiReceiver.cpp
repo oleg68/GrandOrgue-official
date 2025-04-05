@@ -5,22 +5,16 @@
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
-#include "GOMidiReceiverBase.h"
+#include "GOMidiReceiver.h"
 
-#include "GOMidiEvent.h"
-#include "GOMidiMap.h"
-#include "GORodgers.h"
+#include "config/GOConfig.h"
 #include "config/GOConfigEnum.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
-
-GOMidiReceiverBase::GOMidiReceiverBase(GOMidiReceiverType type)
-  : GOMidiReceiverEventPatternList(type),
-    m_ElementID(-1),
-    m_last(),
-    m_Internal() {}
-
-void GOMidiReceiverBase::SetElementID(int id) { m_ElementID = id; }
+#include "midi/GOMidiMap.h"
+#include "midi/events/GOMidiEvent.h"
+#include "midi/events/GORodgers.h"
+#include "yaml/go-wx-yaml.h"
 
 static const GOConfigEnum MIDI_RECEIVE_TYPES({
   {wxT("ControlChange"), MIDI_M_CTRL_CHANGE},
@@ -62,9 +56,22 @@ static const GOConfigEnum MIDI_RECEIVE_TYPES({
   {wxT("NoteNormal"), MIDI_M_NOTE_NORMAL},
 });
 
-void GOMidiReceiverBase::Load(
+GOMidiReceiver::GOMidiReceiver(GOConfig &config, GOMidiReceiverType type)
+  : GOMidiReceiverEventPatternList(type), r_config(config), m_ElementID(-1) {}
+
+void GOMidiReceiver::Load(
   GOConfigReader &cfg, const wxString &group, GOMidiMap &map) {
-  m_events.resize(0);
+  if (!r_config.ODFCheck()) {
+    /* Skip old style entries */
+    if (m_type == MIDI_RECV_DRAWSTOP)
+      cfg.ReadInteger(
+        ODFSetting, group, wxT("StopControlMIDIKeyNumber"), -1, 127, false);
+    if (m_type == MIDI_RECV_BUTTON || m_type == MIDI_RECV_SETTER)
+      cfg.ReadInteger(
+        ODFSetting, group, wxT("MIDIProgramChangeNumber"), 0, 128, false);
+  }
+
+  m_events.clear();
 
   int event_cnt = cfg.ReadInteger(
     CMBSetting, group, wxT("NumberOfMIDIEvents"), 0, 255, false);
@@ -180,7 +187,9 @@ void GOMidiReceiverBase::Load(
   }
 }
 
-void GOMidiReceiverBase::Save(
+int GOMidiReceiver::GetTranspose() const { return r_config.Transpose(); }
+
+void GOMidiReceiver::Save(
   GOConfigWriter &cfg, const wxString &group, GOMidiMap &map) const {
   if (!m_events.empty()) {
     cfg.WriteInteger(group, wxT("NumberOfMIDIEvents"), m_events.size());
@@ -239,7 +248,52 @@ void GOMidiReceiverBase::Save(
   }
 }
 
-bool GOMidiReceiverBase::hasChannel(GOMidiReceiverMessageType type) {
+static const char *C_DEVICE = "device";
+static const char *C_EVENT_TYPE = "event_type";
+static const char *C_CHANNEL = "channel";
+static const char *C_KEY_TRANSPOSE = "transpose";
+static const char *C_KEY = "key";
+static const char *C_LOW_KEY = "low_key";
+static const char *C_HIGH_KEY = "high_key";
+static const char *C_LOW_VALUE = "low_value";
+static const char *C_HIGH_VALUE = "high_value";
+static const char *C_DEBOUNCE_TIME = "debounce_time";
+
+void GOMidiReceiver::ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const {
+  for (const auto &e : m_events) {
+    YAML::Node eventNode;
+
+    if (e.deviceId)
+      eventNode[C_DEVICE] = map.GetDeviceLogicalNameById(e.deviceId);
+    eventNode[C_EVENT_TYPE] = MIDI_RECEIVE_TYPES.GetName(e.type);
+    if (hasChannel(e.type))
+      eventNode[C_CHANNEL] = e.channel;
+    if (m_type == MIDI_RECV_MANUAL)
+      eventNode[C_KEY_TRANSPOSE] = e.key;
+    else if (hasKey(e.type))
+      eventNode[C_KEY] = e.key;
+    if (HasLowKey(e.type))
+      eventNode[C_LOW_KEY] = e.low_key;
+    if (HasHighKey(e.type))
+      eventNode[C_HIGH_KEY] = e.high_key;
+    if (hasLowerLimit(e.type))
+      eventNode[C_LOW_VALUE] = e.low_value;
+    if (hasUpperLimit(e.type))
+      eventNode[C_HIGH_VALUE] = e.high_value;
+    if (HasDebounce(e.type))
+      eventNode[C_DEBOUNCE_TIME] = e.debounce_time;
+
+    yamlNode.push_back(eventNode);
+  }
+}
+
+void GOMidiReceiver::FromYaml(const YAML::Node &yamlNode, GOMidiMap &map) {
+  m_events.clear();
+  for (const auto &eventNode : yamlNode) {
+  }
+}
+
+bool GOMidiReceiver::hasChannel(GOMidiReceiverMessageType type) {
   if (
     type == MIDI_M_NOTE || type == MIDI_M_CTRL_CHANGE
     || type == MIDI_M_PGM_CHANGE || type == MIDI_M_PGM_RANGE
@@ -260,7 +314,7 @@ bool GOMidiReceiverBase::hasChannel(GOMidiReceiverMessageType type) {
   return false;
 }
 
-bool GOMidiReceiverBase::hasKey(GOMidiReceiverMessageType type) {
+bool GOMidiReceiver::hasKey(GOMidiReceiverMessageType type) {
   if (
     type == MIDI_M_NOTE || type == MIDI_M_CTRL_CHANGE
     || type == MIDI_M_PGM_CHANGE || type == MIDI_M_RPN_RANGE
@@ -283,7 +337,7 @@ bool GOMidiReceiverBase::hasKey(GOMidiReceiverMessageType type) {
   return false;
 }
 
-bool GOMidiReceiverBase::HasLowKey(GOMidiReceiverMessageType type) const {
+bool GOMidiReceiver::HasLowKey(GOMidiReceiverMessageType type) const {
   if (m_type != MIDI_RECV_MANUAL)
     return false;
   if (
@@ -293,7 +347,7 @@ bool GOMidiReceiverBase::HasLowKey(GOMidiReceiverMessageType type) const {
   return false;
 }
 
-bool GOMidiReceiverBase::HasHighKey(GOMidiReceiverMessageType type) const {
+bool GOMidiReceiver::HasHighKey(GOMidiReceiverMessageType type) const {
   if (m_type != MIDI_RECV_MANUAL)
     return false;
   if (
@@ -303,7 +357,7 @@ bool GOMidiReceiverBase::HasHighKey(GOMidiReceiverMessageType type) const {
   return false;
 }
 
-bool GOMidiReceiverBase::HasDebounce(GOMidiReceiverMessageType type) const {
+bool GOMidiReceiver::HasDebounce(GOMidiReceiverMessageType type) const {
   if (m_type == MIDI_RECV_MANUAL)
     return false;
   if (m_type == MIDI_RECV_ENCLOSURE)
@@ -325,7 +379,7 @@ bool GOMidiReceiverBase::HasDebounce(GOMidiReceiverMessageType type) const {
   return false;
 }
 
-bool GOMidiReceiverBase::hasLowerLimit(GOMidiReceiverMessageType type) {
+bool GOMidiReceiver::hasLowerLimit(GOMidiReceiverMessageType type) {
   if (
     type == MIDI_M_NOTE || type == MIDI_M_PGM_RANGE || type == MIDI_M_RPN_RANGE
     || type == MIDI_M_NRPN_RANGE || type == MIDI_M_CTRL_CHANGE
@@ -348,7 +402,7 @@ bool GOMidiReceiverBase::hasLowerLimit(GOMidiReceiverMessageType type) {
   return false;
 }
 
-bool GOMidiReceiverBase::hasUpperLimit(GOMidiReceiverMessageType type) {
+bool GOMidiReceiver::hasUpperLimit(GOMidiReceiverMessageType type) {
   if (
     type == MIDI_M_NOTE || type == MIDI_M_PGM_RANGE || type == MIDI_M_RPN_RANGE
     || type == MIDI_M_NRPN_RANGE || type == MIDI_M_CTRL_CHANGE
@@ -368,7 +422,7 @@ bool GOMidiReceiverBase::hasUpperLimit(GOMidiReceiverMessageType type) {
   return false;
 }
 
-unsigned GOMidiReceiverBase::keyLimit(GOMidiReceiverMessageType type) {
+unsigned GOMidiReceiver::keyLimit(GOMidiReceiverMessageType type) {
   if (type == MIDI_M_PGM_CHANGE)
     return 0x200000;
   if (
@@ -379,7 +433,7 @@ unsigned GOMidiReceiverBase::keyLimit(GOMidiReceiverMessageType type) {
   return 0x7f;
 }
 
-unsigned GOMidiReceiverBase::lowerValueLimit(GOMidiReceiverMessageType type) {
+unsigned GOMidiReceiver::lowerValueLimit(GOMidiReceiverMessageType type) {
   if (
     type == MIDI_M_RPN_RANGE || type == MIDI_M_NRPN_RANGE
     || type == MIDI_M_SYSEX_AHLBORN_GALANTI
@@ -401,7 +455,7 @@ unsigned GOMidiReceiverBase::lowerValueLimit(GOMidiReceiverMessageType type) {
   return 0x7f;
 }
 
-unsigned GOMidiReceiverBase::upperValueLimit(GOMidiReceiverMessageType type) {
+unsigned GOMidiReceiver::upperValueLimit(GOMidiReceiverMessageType type) {
   if (
     type == MIDI_M_RPN_RANGE || type == MIDI_M_NRPN_RANGE
     || type == MIDI_M_SYSEX_AHLBORN_GALANTI
@@ -417,7 +471,7 @@ unsigned GOMidiReceiverBase::upperValueLimit(GOMidiReceiverMessageType type) {
   return 0x7f;
 }
 
-GOMidiMatchType GOMidiReceiverBase::debounce(
+GOMidiMatchType GOMidiReceiver::debounce(
   const GOMidiEvent &e, GOMidiMatchType event, unsigned index) {
   if (m_events.size() != m_last.size())
     m_last.resize(m_events.size());
@@ -427,7 +481,7 @@ GOMidiMatchType GOMidiReceiverBase::debounce(
   return event;
 }
 
-void GOMidiReceiverBase::deleteInternal(unsigned device) {
+void GOMidiReceiver::deleteInternal(unsigned device) {
   for (unsigned i = 0; i < m_Internal.size(); i++)
     if (m_Internal[i].device == device) {
       m_Internal[i] = m_Internal[m_Internal.size() - 1];
@@ -435,7 +489,7 @@ void GOMidiReceiverBase::deleteInternal(unsigned device) {
       break;
     }
 }
-unsigned GOMidiReceiverBase::createInternal(unsigned device) {
+unsigned GOMidiReceiver::createInternal(unsigned device) {
   unsigned pos = 0;
   while (pos < m_Internal.size() && m_Internal[pos].device != device)
     pos++;
@@ -446,17 +500,17 @@ unsigned GOMidiReceiverBase::createInternal(unsigned device) {
   return pos;
 }
 
-GOMidiMatchType GOMidiReceiverBase::Match(const GOMidiEvent &e) {
+GOMidiMatchType GOMidiReceiver::Match(const GOMidiEvent &e) {
   int tmp;
   return Match(e, tmp);
 }
 
-GOMidiMatchType GOMidiReceiverBase::Match(const GOMidiEvent &e, int &value) {
+GOMidiMatchType GOMidiReceiver::Match(const GOMidiEvent &e, int &value) {
   int tmp;
   return Match(e, NULL, tmp, value);
 }
 
-GOMidiMatchType GOMidiReceiverBase::Match(
+GOMidiMatchType GOMidiReceiver::Match(
   const GOMidiEvent &e, const KeyMap *pMidiMap, int &key, int &value) {
   const GOMidiEvent::MidiType eMidiType = e.GetMidiType();
 
@@ -896,4 +950,4 @@ GOMidiMatchType GOMidiReceiverBase::Match(
   return MIDI_MATCH_NONE;
 }
 
-void GOMidiReceiverBase::PreparePlayback() { m_Internal.resize(0); }
+void GOMidiReceiver::PreparePlayback() { m_Internal.clear(); }

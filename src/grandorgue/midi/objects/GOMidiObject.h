@@ -11,21 +11,25 @@
 #include <wx/string.h>
 
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "midi/dialog-creator/GOMidiDialogListener.h"
 #include "sound/GOSoundStateHandler.h"
+#include "yaml/GOSaveableToYaml.h"
 
 #include "GOSaveableObject.h"
 
+class GOMidiElement;
 class GOMidiMap;
 class GOMidiObjectContext;
 class GOMidiReceiver;
-class GOMidiSender;
 class GOMidiShortcutReceiver;
+class GOMidiSender;
 class GOOrganModel;
 
 class GOMidiObject : public GOSoundStateHandler,
                      public GOSaveableObject,
+                     public GOSaveableToYaml,
                      protected GOMidiDialogListener {
 protected:
   GOOrganModel &r_OrganModel;
@@ -79,6 +83,14 @@ protected:
   virtual void SaveMidiObject(
     GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {}
 
+private:
+  void SubToYaml(
+    YAML::Node &yamlNode, const char *pSubName, const GOMidiElement *pEl) const;
+  void SubFromYaml(
+    const YAML::Node &yamlNode, const char *pSubName, GOMidiElement *pEl);
+  void ToYaml(YAML::Node &yamlNode) const override;
+  void FromYaml(const YAML::Node &yamlNode) override;
+
 public:
   GOMidiMap &GetMidiMap() { return r_MidiMap; }
   const wxString &GetMidiTypeCode() const { return r_MidiTypeCode; }
@@ -96,6 +108,14 @@ public:
   virtual void Init(
     GOConfigReader &cfg, const wxString &group, const wxString &name) {
     InitMidiObject(cfg, group, name);
+  }
+
+  void LoadMidiSettings(GOConfigReader &cfg) {
+    LoadMidiObject(cfg, m_group, r_MidiMap);
+  }
+
+  void SaveMidiSettings(GOConfigWriter &cfg) {
+    SaveMidiObject(cfg, m_group, r_MidiMap);
   }
 
   virtual void Load(

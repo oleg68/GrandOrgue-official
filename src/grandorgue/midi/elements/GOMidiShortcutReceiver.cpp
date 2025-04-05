@@ -9,6 +9,9 @@
 
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
+#include "yaml/go-wx-yaml.h"
+
+#include "GOKeyConvert.h"
 
 void GOMidiShortcutReceiver::Load(GOConfigReader &cfg, const wxString &group) {
   if (m_type == KEY_RECV_ENCLOSURE) {
@@ -36,6 +39,25 @@ void GOMidiShortcutReceiver::Save(
     }
   }
 }
+
+static const char *C_PLUS_KEY = "plus_key";
+static const char *C_MINUS_KEY = "minus_key";
+static const char *C_SHORTCUT_KEY = "shortcut_key";
+
+void GOMidiShortcutReceiver::ToYaml(
+  YAML::Node &yamlNode, GOMidiMap &map) const {
+  if (m_ShortcutKey) {
+    if (m_type == KEY_RECV_ENCLOSURE) {
+      yamlNode[C_PLUS_KEY] = GOKeyConvert::SHORTCUTS.GetName(m_ShortcutKey);
+      if (m_MinusKey)
+        yamlNode[C_MINUS_KEY] = GOKeyConvert::SHORTCUTS.GetName(m_MinusKey);
+    } else
+      yamlNode[C_SHORTCUT_KEY] = GOKeyConvert::SHORTCUTS.GetName(m_ShortcutKey);
+  }
+}
+
+void GOMidiShortcutReceiver::FromYaml(
+  const YAML::Node &yamlNode, GOMidiMap &map) {}
 
 GOMidiShortcutReceiver::MatchType GOMidiShortcutReceiver::Match(unsigned key) {
   if (m_ShortcutKey == key)

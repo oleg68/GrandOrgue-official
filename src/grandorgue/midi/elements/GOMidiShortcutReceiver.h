@@ -10,17 +10,23 @@
 
 #include <wx/string.h>
 
-#include "GOMidiShortcutPattern.h"
+#include "midi/events/GOMidiShortcutPattern.h"
+
+#include "GOMidiElement.h"
 
 class GOConfigReader;
 class GOConfigWriter;
 
-class GOMidiShortcutReceiver : public GOMidiShortcutPattern {
+class GOMidiShortcutReceiver : public GOMidiShortcutPattern,
+                               public GOMidiElement {
 public:
   GOMidiShortcutReceiver(ReceiverType type) : GOMidiShortcutPattern(type) {}
 
   void Load(GOConfigReader &cfg, const wxString &group);
   void Save(GOConfigWriter &cfg, const wxString &group) const;
+
+  void ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const override;
+  void FromYaml(const YAML::Node &yamlNode, GOMidiMap &map) override;
 
   MatchType Match(unsigned key);
 

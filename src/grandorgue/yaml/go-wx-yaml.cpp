@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -66,4 +66,64 @@ void put_to_map_with_name(
     childNode[NAME] = nameValue;
     childNode[valueLabel] = value;
   }
+}
+
+static void put_to_map_by_path(
+  YAML::Node &container,
+  std::vector<wxString>::const_iterator &current,
+  const std::vector<wxString>::const_iterator &end,
+  const wxString &lastKey,
+  const YAML::Node &node) {
+  if (current != end) {
+    const char *pKey = current->utf8_str().data();
+    YAML::Node child = container[pKey];
+    const bool isNew = !child.IsDefined();
+
+    if (isNew)
+      container[pKey] = child;
+    current++;
+    put_to_map_by_path(child, current, end, lastKey, node);
+  } else
+    put_to_map_if_not_null(container, lastKey, node);
+}
+
+void put_to_map_by_path_if_not_null(
+  YAML::Node &rootNode,
+  const std::vector<wxString> &path,
+  const wxString &lastKey,
+  const YAML::Node &node) {
+  if (!node.IsNull()) {
+    std::vector<wxString>::const_iterator current = path.cbegin();
+
+    put_to_map_by_path(rootNode, current, path.cend(), lastKey, node);
+  }
+}
+
+YAML::Node get_from_map_by_path_or_null(
+  const YAML::Node &rootNode,
+  const std::vector<wxString> &path,
+  const wxString &lastKey) {
+  YAML::Node node = rootNode;
+
+  for (auto &name : path)
+    node = get_from_map_or_null(node, name);
+  return get_from_map_or_null(node, lastKey);
+}
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, unsigned &value) {
+  if (yamlNode.IsDefined() && yamlNode.IsScalar())
+    value = yamlNode.as<unsigned>();
+  return yamlNode;
+}
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, int &value) {
+  if (yamlNode.IsDefined() && yamlNode.IsScalar())
+    value = yamlNode.as<int>();
+  return yamlNode;
+}
+
+const YAML::Node &operator>>(const YAML::Node &yamlNode, bool &value) {
+  if (yamlNode.IsDefined() && yamlNode.IsScalar())
+    value = yamlNode.as<bool>();
+  return yamlNode;
 }

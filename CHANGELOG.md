@@ -1,3 +1,4 @@
+- Added support of exporting current midi settings to a text file and of importing them from both text and .cmb files https://github.com/GrandOrgue/grandorgue/issues/1199
 - Added capability of customising minimum amplitude level of enclosures added internally by GrandOrgue https://github.com/GrandOrgue/grandorgue/issues/782
 - Added resending midi events when exiting from MidiEventDialog https://github.com/GrandOrgue/grandorgue/issues/2062
 - Fixed incorrect default audio channels config https://github.com/GrandOrgue/grandorgue/issues/2115

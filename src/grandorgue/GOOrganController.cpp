@@ -49,9 +49,9 @@
 #include "loader/cache/GOCache.h"
 #include "loader/cache/GOCacheWriter.h"
 #include "midi/GOMidi.h"
-#include "midi/GOMidiEvent.h"
 #include "midi/GOMidiPlayer.h"
 #include "midi/GOMidiRecorder.h"
+#include "midi/events/GOMidiEvent.h"
 #include "model/GOCoupler.h"
 #include "model/GODivisionalCoupler.h"
 #include "model/GOEnclosure.h"
@@ -65,7 +65,6 @@
 #include "sound/GOSoundReleaseAlignTable.h"
 #include "temperaments/GOTemperament.h"
 #include "yaml/GOYamlModel.h"
-#include "yaml/go-wx-yaml.h"
 
 #include "go_defs.h"
 
