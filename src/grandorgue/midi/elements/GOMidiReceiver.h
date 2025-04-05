@@ -10,9 +10,11 @@
 
 #include <cstdint>
 
-#include "GOTime.h"
 #include "midi/events/GOMidiMatchType.h"
 #include "midi/events/GOMidiReceiverEventPatternList.h"
+
+#include "GOMidiElement.h"
+#include "GOTime.h"
 
 class GOConfig;
 class GOConfigReader;
@@ -20,7 +22,8 @@ class GOConfigWriter;
 class GOMidiEvent;
 class GOMidiMap;
 
-class GOMidiReceiver : public GOMidiReceiverEventPatternList {
+class GOMidiReceiver : public GOMidiReceiverEventPatternList,
+                       public GOMidiElement {
 public:
   constexpr static unsigned KEY_MAP_SIZE = 128;
   using KeyMap = uint8_t[KEY_MAP_SIZE];
@@ -51,6 +54,11 @@ public:
 
   void Load(GOConfigReader &cfg, const wxString &group, GOMidiMap &map);
   void Save(GOConfigWriter &cfg, const wxString &group, GOMidiMap &map) const;
+
+  void ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const override;
+  void FromYaml(const YAML::Node &yamlNode, GOMidiMap &map) override;
+
+public:
   void PreparePlayback();
 
   void SetElementID(int id) { m_ElementID = id; }

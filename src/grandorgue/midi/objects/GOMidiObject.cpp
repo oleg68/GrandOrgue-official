@@ -11,6 +11,7 @@
 
 #include "midi/elements/GOMidiReceiver.h"
 #include "midi/elements/GOMidiSender.h"
+#include "midi/elements/GOMidiShortcutReceiver.h"
 #include "model/GOOrganModel.h"
 #include "yaml/go-wx-yaml.h"
 
@@ -53,8 +54,6 @@ void GOMidiObject::InitMidiObject(
   LoadMidiObject(cfg, group, r_MidiMap);
 }
 
-const char *C_SEND = "send";
-
 void GOMidiObject::SubToYaml(
   YAML::Node &yamlNode, const char *pSubName, const GOMidiElement *pEl) const {
   if (pEl) {
@@ -65,8 +64,20 @@ void GOMidiObject::SubToYaml(
   }
 }
 
+const char *C_RECEIVE = "receive";
+const char *C_SEND = "send";
+const char *C_SHORTCUT = "shortcut";
+const char *C_DIVISION = "division";
+
 void GOMidiObject::ToYaml(YAML::Node &yamlNode) const {
-  SubToYaml(yamlNode, C_SEND, p_MidiSender);
+  YAML::Node objNode;
+
+  SubToYaml(objNode, C_RECEIVE, p_MidiReceiver);
+  SubToYaml(objNode, C_SEND, p_MidiSender);
+  SubToYaml(objNode, C_SHORTCUT, p_ShortcutReceiver);
+  SubToYaml(objNode, C_DIVISION, p_DivisionSender);
+  put_to_map_by_path_if_not_null(
+    yamlNode, GOMidiObjectContext::getNames(p_context), GetName(), objNode);
 }
 
 void GOMidiObject::FromYaml(const YAML::Node &yamlNode) {}

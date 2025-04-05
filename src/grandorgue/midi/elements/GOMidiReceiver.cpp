@@ -14,9 +14,7 @@
 #include "midi/GOMidiMap.h"
 #include "midi/events/GOMidiEvent.h"
 #include "midi/events/GORodgers.h"
-#include "model/GOEnclosure.h"
-#include "model/GOManual.h"
-#include "model/GOOrganModel.h"
+#include "yaml/go-wx-yaml.h"
 
 static const GOConfigEnum MIDI_RECEIVE_TYPES({
   {wxT("ControlChange"), MIDI_M_CTRL_CHANGE},
@@ -247,6 +245,50 @@ void GOMidiReceiver::Save(
           wxString::Format(wxT("MIDIUpperLimit%03d"), i + 1),
           pattern.high_value);
     }
+  }
+}
+
+static const char *C_DEVICE = "device";
+static const char *C_EVENT_TYPE = "event_type";
+static const char *C_CHANNEL = "channel";
+static const char *C_KEY_TRANSPOSE = "transpose";
+static const char *C_KEY = "key";
+static const char *C_LOW_KEY = "low_key";
+static const char *C_HIGH_KEY = "high_key";
+static const char *C_LOW_VALUE = "low_value";
+static const char *C_HIGH_VALUE = "high_value";
+static const char *C_DEBOUNCE_TIME = "debounce_time";
+
+void GOMidiReceiver::ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const {
+  for (const auto &e : m_events) {
+    YAML::Node eventNode;
+
+    eventNode[C_DEVICE] = map.GetDeviceLogicalNameById(e.deviceId);
+    eventNode[C_EVENT_TYPE] = MIDI_RECEIVE_TYPES.GetName(e.type);
+    if (hasChannel(e.type))
+      eventNode[C_CHANNEL] = e.channel;
+    if (m_type == MIDI_RECV_MANUAL)
+      eventNode[C_KEY_TRANSPOSE] = e.key;
+    else if (hasKey(e.type))
+      eventNode[C_KEY] = e.key;
+    if (HasLowKey(e.type))
+      eventNode[C_LOW_KEY] = e.low_key;
+    if (HasHighKey(e.type))
+      eventNode[C_HIGH_KEY] = e.high_key;
+    if (hasLowerLimit(e.type))
+      eventNode[C_LOW_VALUE] = e.low_value;
+    if (hasUpperLimit(e.type))
+      eventNode[C_HIGH_VALUE] = e.high_value;
+    if (HasDebounce(e.type))
+      eventNode[C_DEBOUNCE_TIME] = e.debounce_time;
+
+    yamlNode.push_back(eventNode);
+  }
+}
+
+void GOMidiReceiver::FromYaml(const YAML::Node &yamlNode, GOMidiMap &map) {
+  m_events.clear();
+  for (const auto &eventNode : yamlNode) {
   }
 }
 
