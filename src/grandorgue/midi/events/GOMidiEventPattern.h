@@ -1,12 +1,16 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2023 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
 #ifndef GOMIDIEVENTPATTERN_H
 #define GOMIDIEVENTPATTERN_H
+
+#include <yaml-cpp/yaml.h>
+
+class GOMidiMap;
 
 struct GOMidiEventPattern {
   enum { MIN_VALUE = 0, MAX_VALUE = 127 };
@@ -33,6 +37,9 @@ struct GOMidiEventPattern {
       useNoteOff(iUseNoteOff) {}
 
   bool operator==(const GOMidiEventPattern &other) const;
+
+  void DeviceIdToYaml(YAML::Node &eventNode, const GOMidiMap &map) const;
+  void DeviceIdFromYaml(const YAML::Node &eventNode, GOMidiMap &map);
 
   /**
    * Convert a midi value between ranges: from [srcLow, srcHigh] to

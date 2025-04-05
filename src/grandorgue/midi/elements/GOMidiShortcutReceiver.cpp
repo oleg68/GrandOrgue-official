@@ -9,6 +9,9 @@
 
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
+#include "yaml/go-wx-yaml.h"
+
+#include "GOKeyConvert.h"
 
 void GOMidiShortcutReceiver::Load(GOConfigReader &cfg, const wxString &group) {
   if (m_type == KEY_RECV_ENCLOSURE) {
@@ -34,6 +37,38 @@ void GOMidiShortcutReceiver::Save(
     } else {
       cfg.WriteInteger(group, wxT("ShortcutKey"), m_ShortcutKey);
     }
+  }
+}
+
+static const char *C_PLUS_KEY = "plus_key";
+static const char *C_MINUS_KEY = "minus_key";
+static const char *C_SHORTCUT_KEY = "shortcut_key";
+
+void GOMidiShortcutReceiver::ToYaml(
+  YAML::Node &yamlNode, GOMidiMap &map) const {
+  if (m_ShortcutKey) {
+    if (m_type == KEY_RECV_ENCLOSURE) {
+      yamlNode[C_PLUS_KEY] = GOKeyConvert::SHORTCUTS.GetName(m_ShortcutKey);
+      if (m_MinusKey)
+        yamlNode[C_MINUS_KEY] = GOKeyConvert::SHORTCUTS.GetName(m_MinusKey);
+    } else
+      yamlNode[C_SHORTCUT_KEY] = GOKeyConvert::SHORTCUTS.GetName(m_ShortcutKey);
+  }
+}
+
+void GOMidiShortcutReceiver::FromYaml(
+  const YAML::Node &yamlNode, GOMidiMap &map) {
+  m_MinusKey = 0;
+  m_ShortcutKey = 0;
+  if (yamlNode.IsDefined() && yamlNode.IsMap()) {
+    if (m_type == KEY_RECV_ENCLOSURE) {
+      m_ShortcutKey = GOKeyConvert::SHORTCUTS.GetValue(
+        yamlNode[C_PLUS_KEY].as<wxString>(), 0);
+      m_MinusKey = GOKeyConvert::SHORTCUTS.GetValue(
+        yamlNode[C_MINUS_KEY].as<wxString>(), 0);
+    } else
+      m_ShortcutKey = GOKeyConvert::SHORTCUTS.GetValue(
+        yamlNode[C_SHORTCUT_KEY].as<wxString>(), 0);
   }
 }
 

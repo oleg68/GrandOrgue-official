@@ -8,19 +8,19 @@
 #include "GOMidiSender.h"
 
 #include <wx/intl.h>
+#include <yaml-cpp/node/node.h>
 
 #include "config/GOConfigEnum.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 #include "midi/GOMidiMap.h"
 #include "midi/events/GOMidiEvent.h"
+#include "yaml/go-wx-yaml.h"
 
 #include "GOMidiSendProxy.h"
 
 GOMidiSender::GOMidiSender(GOMidiSendProxy &proxy, GOMidiSenderType type)
   : GOMidiSenderEventPatternList(type), r_proxy(proxy), m_ElementID(-1) {}
-
-GOMidiSender::~GOMidiSender() {}
 
 static const GOConfigEnum MIDI_SEND_TYPES({
   {wxT("Note"), MIDI_S_NOTE},
@@ -195,6 +195,69 @@ void GOMidiSender::Save(
           m_events[i].length);
     }
   }
+}
+
+static const char *C_EVENT_TYPE = "event_type";
+static const char *C_CHANNEL = "channel";
+static const char *C_KEY = "key";
+static const char *C_USE_NOTE_OFF = "note_off";
+static const char *C_LOW_VALUE = "low_value";
+static const char *C_HIGH_VALUE = "high_value";
+static const char *C_START = "start";
+static const char *C_LENGTH = "length";
+
+void GOMidiSender::ToYaml(YAML::Node &yamlNode, GOMidiMap &map) const {
+  for (const auto &e : m_events) {
+    YAML::Node eventNode;
+
+    e.DeviceIdToYaml(eventNode, map);
+    eventNode[C_EVENT_TYPE] = MIDI_SEND_TYPES.GetName(e.type);
+
+    if (hasChannel(e.type))
+      eventNode[C_CHANNEL] = e.channel;
+    if (HasKey(e.type))
+      eventNode[C_KEY] = e.key;
+    if (isNote(e.type))
+      eventNode[C_USE_NOTE_OFF] = e.useNoteOff;
+    if (hasLowValue(e.type))
+      eventNode[C_LOW_VALUE] = e.low_value;
+    if (hasHighValue(e.type))
+      eventNode[C_HIGH_VALUE] = e.high_value;
+    if (hasStart(e.type))
+      eventNode[C_START] = e.start;
+    if (hasLength(e.type))
+      eventNode[C_LENGTH] = e.length;
+    yamlNode.push_back(eventNode);
+  }
+}
+
+void GOMidiSender::FromYaml(const YAML::Node &yamlNode, GOMidiMap &map) {
+  m_events.clear();
+  if (yamlNode.IsDefined() && yamlNode.IsSequence())
+    for (const auto &eventNode : yamlNode)
+      if (eventNode.IsDefined() && eventNode.IsMap()) {
+        GOMidiSenderEventPattern e;
+
+        e.DeviceIdFromYaml(eventNode, map);
+        e.type = (GOMidiSenderMessageType)MIDI_SEND_TYPES.GetValue(
+          eventNode[C_EVENT_TYPE].as<wxString>(), e.type);
+
+        if (hasChannel(e.type))
+          eventNode[C_CHANNEL] >> e.channel;
+        if (HasKey(e.type))
+          eventNode[C_KEY] >> e.key;
+        if (isNote(e.type))
+          eventNode[C_USE_NOTE_OFF] >> e.useNoteOff;
+        if (hasLowValue(e.type))
+          eventNode[C_LOW_VALUE] >> e.low_value;
+        if (hasHighValue(e.type))
+          eventNode[C_HIGH_VALUE] >> e.high_value;
+        if (hasStart(e.type))
+          eventNode[C_START] >> e.start;
+        if (hasLength(e.type))
+          eventNode[C_LENGTH] >> e.length;
+        m_events.push_back(e);
+      }
 }
 
 bool GOMidiSender::hasChannel(GOMidiSenderMessageType type) {
