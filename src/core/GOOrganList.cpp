@@ -7,6 +7,8 @@
 
 #include "GOOrganList.h"
 
+#include <algorithm>
+
 #include <wx/dir.h>
 #include <wx/stdpaths.h>
 
