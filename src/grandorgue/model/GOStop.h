@@ -44,7 +44,7 @@ public:
     unsigned first_midi_note_number,
     GOMidiObjectContext *pContext);
   GORank *GetRank(unsigned index);
-  void Load(GOConfigReader &cfg, const wxString &group);
+  void Load(GOConfigReader &cfg, const wxString &group) override;
   void SetKey(unsigned note, unsigned velocity);
   ~GOStop(void);
 

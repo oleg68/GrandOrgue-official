@@ -123,7 +123,7 @@ public:
     InitMidiObject(cfg, group, name);
   }
 
-  virtual void Save(GOConfigWriter &cfg) {
+  virtual void Save(GOConfigWriter &cfg) override {
     SaveMidiObject(cfg, m_group, r_MidiMap);
   }
 
