@@ -46,6 +46,13 @@ wxString GOMidiObject::GetContextTitle() const {
   return GOMidiObjectContext::getFullTitle(p_context);
 }
 
+bool GOMidiObject::IsMidiConfigured() const {
+  return p_MidiSender && p_MidiSender->IsMidiConfigured()
+    || p_MidiReceiver && p_MidiReceiver->IsMidiConfigured()
+    || p_ShortcutReceiver && p_ShortcutReceiver->IsMidiConfigured()
+    || p_DivisionSender && p_DivisionSender->IsMidiConfigured();
+}
+
 void GOMidiObject::InitMidiObject(
   GOConfigReader &cfg, const wxString &group, const wxString &name) {
   SetGroup(group);
