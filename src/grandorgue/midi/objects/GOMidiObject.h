@@ -89,6 +89,8 @@ public:
   const GOMidiObjectContext *GetContext() const { return p_context; }
   void SetContext(const GOMidiObjectContext *pContext) { p_context = pContext; }
 
+  virtual const wxString &GetNameForContext() const { return GetName(); }
+
   wxString GetContextTitle() const;
 
   virtual bool IsMidiConfigured() const { return false; }
