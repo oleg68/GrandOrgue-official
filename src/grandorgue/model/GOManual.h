@@ -40,6 +40,7 @@ private:
   std::vector<std::vector<unsigned>> m_Velocities;
   GOMidiReceiver::KeyMap m_MidiKeyMap;
   unsigned m_manual_number;
+  wxString m_ShortName;
   GOMidiObjectContext m_MidiContext;
   GOMidiObjectContext m_MidiContextCouplers;
   GOMidiObjectContext m_MidiContextDivisionals;
@@ -94,6 +95,7 @@ public:
   ~GOManual();
 
   unsigned GetManulNumber() const { return m_manual_number; }
+  const wxString &GetNameForContext() const override { return m_ShortName; }
   const GOMidiObjectContext *GetManualContext() const { return &m_MidiContext; }
   const GOMidiObjectContext *GetCouplersContext() const {
     return &m_MidiContextCouplers;
