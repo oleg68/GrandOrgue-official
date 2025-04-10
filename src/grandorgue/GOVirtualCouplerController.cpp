@@ -69,7 +69,7 @@ void GOVirtualCouplerController::Init(
       couplers.m_CouplersContext
         = std::unique_ptr<GOMidiObjectContext>(new GOMidiObjectContext(
           wxString::Format(WX_03U, dstManualN),
-          organModel.GetManual(dstManualN)->GetName(),
+          organModel.GetManual(dstManualN)->GetNameForContext(),
           pSrcVirtCouplerContext));
 
       load_coupler(

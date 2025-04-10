@@ -41,10 +41,8 @@ GOManual::GOManual(
     m_DivisionState(),
     m_Velocities(),
     m_manual_number(manualNumber),
-    m_MidiContext(
-      wxString::Format(WX_MANUAL_NUM_FMT, manualNumber),
-      wxString::Format(WX_MANUAL_NUM_FMT, manualNumber),
-      pParentContext),
+    m_ShortName(wxString::Format(WX_MANUAL_NUM_FMT, manualNumber)),
+    m_MidiContext(m_ShortName, m_ShortName, pParentContext),
     m_MidiContextCouplers(wxT("couplers"), _("couplers"), &m_MidiContext),
     m_MidiContextDivisionals(
       wxT("divisionals"), _("divisionals"), &m_MidiContext),
@@ -102,7 +100,6 @@ void GOManual::Init(
     wxString::Format(
       _("Coupling manual %d"),
       m_manual_number - r_OrganModel.GetODFManualCount() + 1));
-  m_MidiContext.SetTitle(GetName());
   m_nb_logical_keys = keys;
   m_first_accessible_logical_key_nb = 1;
   m_first_accessible_key_midi_note_nb = firstMidi;
@@ -129,7 +126,6 @@ void GOManual::Init(
 void GOManual::Load(GOConfigReader &cfg, const wxString &group) {
   GOMidiReceivingSendingObject::Load(
     cfg, group, cfg.ReadStringNotEmpty(ODFSetting, group, wxT("Name")), true);
-  m_MidiContext.SetTitle(GetName());
   m_nb_logical_keys
     = cfg.ReadInteger(ODFSetting, group, wxT("NumberOfLogicalKeys"), 1, 192);
   m_first_accessible_logical_key_nb = cfg.ReadInteger(
