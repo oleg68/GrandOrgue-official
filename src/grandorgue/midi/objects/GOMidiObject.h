@@ -105,7 +105,7 @@ public:
 
   wxString GetContextTitle() const;
 
-  virtual bool IsMidiConfigured() const { return false; }
+  bool IsMidiConfigured() const;
 
   virtual void Init(
     GOConfigReader &cfg, const wxString &group, const wxString &name) {
