@@ -119,6 +119,7 @@ gui/panels/GOGUIHW1Background.cpp
 gui/panels/GOGUIHW1DisplayMetrics.cpp
 gui/panels/GOGUIImage.cpp
 gui/panels/GOGUILayoutEngine.cpp
+gui/panels/GOGUIMidiControl.cpp
 gui/panels/GOGUIPanelView.cpp
 gui/panels/GOGUISetterDisplayMetrics.cpp
 gui/panels/GOGUILabel.cpp
@@ -144,7 +145,6 @@ loader/GOLoadWorker.cpp
 loader/cache/GOCache.cpp
 loader/cache/GOCacheCleaner.cpp
 loader/cache/GOCacheWriter.cpp
-midi/dialog-creator/GOMidiDialogCreatorProxy.cpp
 midi/dialog-creator/GOMidiConfigDispatcher.cpp
 midi/elements/GOMidiReceiver.cpp
 midi/elements/GOMidiShortcutReceiver.cpp
