@@ -20,7 +20,7 @@
 #include "GOGUIPanel.h"
 
 GOGUIEnclosure::GOGUIEnclosure(GOGUIPanel *panel, GOEnclosure *control)
-  : GOGUIControl(panel, control),
+  : GOGUIMidiControl(panel, control),
     m_enclosure(control),
     m_FontSize(0),
     m_FontName(),

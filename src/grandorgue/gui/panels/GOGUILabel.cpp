@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -20,7 +20,7 @@
 #include "GOOrganController.h"
 
 GOGUILabel::GOGUILabel(GOGUIPanel *panel, GOLabelControl *label)
-  : GOGUIControl(panel, label),
+  : GOGUIMidiControl(panel, label),
     m_DispXpos(0),
     m_DispYpos(0),
     m_Label(label),
