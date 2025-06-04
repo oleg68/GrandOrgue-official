@@ -8,6 +8,8 @@
 #ifndef GOCONFIGMIDIOBJECT_H
 #define GOCONFIGMIDIOBJECT_H
 
+#include "midi/events/GOMidiReceiverType.h"
+#include "midi/events/GOMidiSenderType.h"
 #include "midi/objects/GOMidiObject.h"
 
 /** It is a dummy MIDI object that is used only for storing MIDI configuration
@@ -21,11 +23,48 @@ private:
   GOMidiShortcutReceiver *mp_ShortcutReceiver;
   GOMidiSender *mp_DivisionSender;
 
+  template <typename MidiElementType>
+  void ClearMidiElement(MidiElementType *pMidiElement);
+
+  template <typename MidiElementType>
+  void ReplaceMidiElement(
+    MidiElementType *pNewElement,
+    MidiElementType *&slot,
+    void (GOMidiObject::*setPointerFun)(MidiElementType *pNewElement));
+
+  void ReplaceMidiSender(GOMidiSender *pNewElement) {
+    ReplaceMidiElement(
+      pNewElement, mp_MidiSender, &GOConfigMidiObject::SetMidiSender);
+  }
+
+  void ReplaceMidiSender(GOMidiReceiver *pNewElement) {
+    ReplaceMidiElement(
+      pNewElement, mp_MidiReceiver, &GOConfigMidiObject::SetMidiReceiver);
+  }
+
+  void ReplaceShortcutReceiver(GOMidiShortcutReceiver *pNewElement) {
+    ReplaceMidiElement(
+      pNewElement,
+      mp_ShortcutReceiver,
+      &GOConfigMidiObject::SetMidiShortcutReceiver);
+  }
+
+  void ReplaceDivisionSender(GOMidiSender *pNewElement) {
+    ReplaceMidiElement(
+      pNewElement, mp_DivisionSender, &GOConfigMidiObject::SetDivisionSender);
+  }
+
 public:
   GOConfigMidiObject(
     GOMidiMap &midiMap,
     const wxString &midiTypeCode,
-    const wxString &midiTypeName);
+    const wxString &midiTypeName,
+    GOMidiSenderType senderType,
+    GOMidiReceiverType receiverType,
+    bool hasReceiver,
+    bool hasShortcut,
+    bool hasDivision);
+  ~GOConfigMidiObject();
 };
 
 #endif /* GOCONFIGMIDIOBJECT_H */

@@ -7,12 +7,44 @@
 
 #include "GOConfigMidiObject.h"
 
+#include "midi/elements/GOMidiReceiver.h"
+#include "midi/elements/GOMidiSender.h"
+#include "midi/elements/GOMidiShortcutReceiver.h"
+
+template <typename MidiElementType>
+void GOConfigMidiObject::ClearMidiElement(MidiElementType *pMidiElement) {
+  if (pMidiElement)
+    delete pMidiElement;
+}
+
+template <typename MidiElementType>
+void GOConfigMidiObject::ReplaceMidiElement(
+  MidiElementType *pNewElement,
+  MidiElementType *&slot,
+  void (GOMidiObject::*setPointerFun)(MidiElementType *pNewElement)) {
+  ClearMidiElement(slot);
+  slot = pNewElement;
+  (this->*setPointerFun)(pNewElement);
+}
+
 GOConfigMidiObject::GOConfigMidiObject(
   GOMidiMap &midiMap,
   const wxString &midiTypeCode,
-  const wxString &midiTypeName)
+  const wxString &midiTypeName,
+  GOMidiSenderType senderType,
+  GOMidiReceiverType receiverType,
+  bool hasReceiver,
+  bool hasShortcut,
+  bool hasDivision)
   : GOMidiObject(midiMap, midiTypeCode, midiTypeName),
     mp_MidiSender(nullptr),
     mp_MidiReceiver(nullptr),
     mp_ShortcutReceiver(nullptr),
     mp_DivisionSender(nullptr) {}
+
+GOConfigMidiObject::~GOConfigMidiObject() {
+  ClearMidiElement(mp_DivisionSender);
+  ClearMidiElement(mp_ShortcutReceiver);
+  ClearMidiElement(mp_MidiReceiver);
+  ClearMidiElement(mp_MidiSender);
+}

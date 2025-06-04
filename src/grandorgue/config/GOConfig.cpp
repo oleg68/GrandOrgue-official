@@ -463,7 +463,7 @@ void GOConfig::LoadDefaults() {
   m_ConfigFileName = GOStdPath::GetConfigDir() + wxFileName::GetPathSeparator()
     + wxT("GrandOrgueConfig") + m_InstanceName;
   for (unsigned i = 0; i < GetEventCount(); i++)
-    m_MIDIEvents.push_back(new GOMidiReceiver(m_MIDISettings[i].type));
+    m_MIDIEvents.push_back(new GOMidiReceiver(INTERNAL_MIDI_DESCS[i].type));
   m_ResourceDir = GOStdPath::GetResourceDir();
 
   OrganPath.SetDefaultValue(GOStdPath::GetGrandOrgueSubDir(_("Organs")));
