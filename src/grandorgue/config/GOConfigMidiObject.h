@@ -10,6 +10,7 @@
 
 #include "midi/events/GOMidiReceiverType.h"
 #include "midi/events/GOMidiSenderType.h"
+#include "midi/events/GOMidiShortcutReceiverType.h"
 #include "midi/objects/GOMidiObject.h"
 
 /** It is a dummy MIDI object that is used only for storing MIDI configuration
@@ -37,7 +38,7 @@ private:
       pNewElement, mp_MidiSender, &GOConfigMidiObject::SetMidiSender);
   }
 
-  void ReplaceMidiSender(GOMidiReceiver *pNewElement) {
+  void ReplaceMidiReceiver(GOMidiReceiver *pNewElement) {
     ReplaceMidiElement(
       pNewElement, mp_MidiReceiver, &GOConfigMidiObject::SetMidiReceiver);
   }
@@ -61,9 +62,11 @@ public:
     const wxString &midiTypeName,
     GOMidiSenderType senderType,
     GOMidiReceiverType receiverType,
+    GOMidiShortcutReceiverType shortcutType,
     bool hasReceiver,
     bool hasShortcut,
     bool hasDivision);
+
   ~GOConfigMidiObject();
 };
 

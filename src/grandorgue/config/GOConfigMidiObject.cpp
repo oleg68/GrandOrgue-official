@@ -33,6 +33,7 @@ GOConfigMidiObject::GOConfigMidiObject(
   const wxString &midiTypeName,
   GOMidiSenderType senderType,
   GOMidiReceiverType receiverType,
+  GOMidiShortcutReceiverType shortcutType,
   bool hasReceiver,
   bool hasShortcut,
   bool hasDivision)
@@ -40,7 +41,15 @@ GOConfigMidiObject::GOConfigMidiObject(
     mp_MidiSender(nullptr),
     mp_MidiReceiver(nullptr),
     mp_ShortcutReceiver(nullptr),
-    mp_DivisionSender(nullptr) {}
+    mp_DivisionSender(nullptr) {
+  ReplaceMidiSender(new GOMidiSender(senderType));
+  if (hasReceiver)
+    ReplaceMidiReceiver(new GOMidiReceiver(receiverType));
+  if (hasShortcut)
+    ReplaceShortcutReceiver(new GOMidiShortcutReceiver(shortcutType));
+  if (hasDivision)
+    ReplaceDivisionSender(new GOMidiSender(MIDI_SEND_MANUAL));
+}
 
 GOConfigMidiObject::~GOConfigMidiObject() {
   ClearMidiElement(mp_DivisionSender);
