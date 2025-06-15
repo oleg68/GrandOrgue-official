@@ -47,6 +47,8 @@ public:
   virtual void SetElementId(int id) override;
 
 protected:
+  virtual const GOMidiObject *FindInitialMidiObject() const override;
+
   // Now it is present only for the symmetry with Load
   // TODO: add the initialMidiNumber parameter
   void Init(

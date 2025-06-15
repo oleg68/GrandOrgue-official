@@ -7,6 +7,7 @@
 
 #include "GOConfig.h"
 
+#include <algorithm>
 #include <functional>
 
 #include <wx/filename.h>
@@ -432,7 +433,7 @@ void GOConfig::Load() {
     load_ports_config(
       cfg, MIDI_PORTS, GOMidiPortFactory::getInstance(), m_MidiPortsConfig);
 
-    for (unsigned i = 0; i < GetEventCount(); i++)
+    for (unsigned i = 0; i < GetMidiBuiltinCount(); i++)
       m_InitialMidiObjects[i]->GetMidiReceiver()->Load(
         ODFCheck(), cfg, GetEventSection(i), m_MidiMap);
 
@@ -536,12 +537,12 @@ void GOConfig::SetLanguageId(int langId) {
                                  : wxLocale::GetLanguageCanonicalName(langId));
 }
 
-unsigned GOConfig::GetEventCount() const {
+unsigned GOConfig::GetMidiBuiltinCount() const {
   return sizeof(INTERNAL_MIDI_DESCS) / sizeof(INTERNAL_MIDI_DESCS[0]);
 }
 
 wxString GOConfig::GetEventSection(unsigned index) {
-  assert(index < GetEventCount());
+  assert(index < GetMidiBuiltinCount());
   const auto &desc = INTERNAL_MIDI_DESCS[index];
 
   return wxString::Format(
@@ -549,37 +550,41 @@ wxString GOConfig::GetEventSection(unsigned index) {
 }
 
 const wxString &GOConfig::GetEventGroup(unsigned index) const {
-  assert(index < GetEventCount());
+  assert(index < GetMidiBuiltinCount());
 
   return INITIAL_MIDI_GROUP_DESCS[INTERNAL_MIDI_DESCS[index].m_group]
     .m_GroupName;
 }
 
 wxString GOConfig::GetEventTitle(unsigned index) {
-  assert(index < GetEventCount());
+  assert(index < GetMidiBuiltinCount());
   return INTERNAL_MIDI_DESCS[index].m_name;
 }
 
-const GOMidiReceiver *GOConfig::GetMidiEvent(unsigned index) const {
-  assert(index < GetEventCount());
-  return m_InitialMidiObjects[index]->GetMidiReceiver();
+const GOConfigMidiObject *GOConfig::GetMidiInitialObject(unsigned index) const {
+  assert(index < m_InitialMidiObjects.size());
+  return m_InitialMidiObjects[index];
 }
 
-const GOMidiReceiver *GOConfig::FindMidiEvent(
-  GOMidiReceiverType type, unsigned index) const {
-  GOMidiReceiver *pRec = nullptr;
+const GOConfigMidiObject *GOConfig::FindMidiInitialObject(
+  GOMidiReceiverType receiverType, unsigned midiInputNumber) const {
+  auto builInEnd = INTERNAL_MIDI_DESCS + GetMidiBuiltinCount();
+  auto foundDesc = std::find_if(
+    INTERNAL_MIDI_DESCS, builInEnd, [=](const internal_midi_object_desc &desc) {
+      return INITIAL_MIDI_GROUP_DESCS[desc.m_group].m_ReceiverType
+        == receiverType
+        && desc.m_index == midiInputNumber;
+    });
+  return foundDesc != builInEnd
+    ? m_InitialMidiObjects[foundDesc - INTERNAL_MIDI_DESCS]
+    : nullptr;
+}
 
-  for (unsigned i = 0; i < GetEventCount(); i++) {
-    const auto &desc = INTERNAL_MIDI_DESCS[i];
+const GOConfigMidiObject *GOConfig::FindMidiInitialObject(
+  const wxString &path) const {
+  auto it = m_InitialMidiObjectsByPath.find(path);
 
-    if (
-      INITIAL_MIDI_GROUP_DESCS[desc.m_group].m_ReceiverType == type
-      && desc.m_index == index) {
-      pRec = m_InitialMidiObjects[i]->GetMidiReceiver();
-      break;
-    }
-  }
-  return pRec;
+  return it != m_InitialMidiObjectsByPath.end() ? it->second : nullptr;
 }
 
 const wxString GOConfig::GetPackageDirectory() {
@@ -646,7 +651,7 @@ void GOConfig::Flush() {
 
   m_Temperaments.Save(cfg);
 
-  for (unsigned i = 0; i < GetEventCount(); i++)
+  for (unsigned i = 0; i < GetMidiBuiltinCount(); i++)
     m_InitialMidiObjects[i]->GetMidiReceiver()->Save(
       cfg, GetEventSection(i), m_MidiMap);
 
