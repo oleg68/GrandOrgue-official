@@ -41,11 +41,25 @@ bool GOMidiObject::IsMidiConfigured() const {
     || (p_DivisionSender && p_DivisionSender->IsMidiConfigured());
 }
 
+void GOMidiObject::CopyMidiSettingFrom(const GOMidiObject &objFrom) {
+  if (p_MidiSender && objFrom.p_MidiSender)
+    p_MidiSender->RenewFrom(*objFrom.p_MidiSender);
+  if (!IsReadOnly()) {
+    if (p_MidiReceiver && objFrom.p_MidiReceiver)
+      p_MidiReceiver->RenewFrom(*objFrom.p_MidiReceiver);
+    if (p_ShortcutReceiver && objFrom.p_ShortcutReceiver)
+      p_ShortcutReceiver->RenewFrom(*objFrom.p_ShortcutReceiver);
+  }
+  if (p_DivisionSender && objFrom.p_DivisionSender)
+    p_DivisionSender->RenewFrom(*objFrom.p_DivisionSender);
+}
+
 void GOMidiObject::InitMidiObject(
   GOConfigReader &cfg, const wxString &group, const wxString &name) {
   SetGroup(group);
   m_name = name;
   LoadMidiObject(cfg, group, r_MidiMap);
+  AfterMidiLoaded();
 }
 
 void GOMidiObject::SubToYaml(
@@ -115,4 +129,5 @@ void GOMidiObject::FromYaml(
   SubFromYaml(objNode, objPath, WX_SHORTCUT, p_ShortcutReceiver, usedPaths);
   SubFromYaml(objNode, objPath, WX_DIVISION, p_DivisionSender, usedPaths);
   check_all_used(objNode, objPath, usedPaths);
+  AfterMidiLoaded();
 }
