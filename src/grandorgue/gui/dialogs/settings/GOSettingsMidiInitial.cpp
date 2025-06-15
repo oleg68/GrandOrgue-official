@@ -14,7 +14,6 @@
 
 #include "config/GOConfig.h"
 #include "gui/dialogs/midi-event/GOMidiEventDialog.h"
-#include "midi/elements/GOMidiReceiver.h"
 
 BEGIN_EVENT_TABLE(GOSettingsMidiInitial, wxPanel)
 EVT_LIST_ITEM_SELECTED(ID_EVENTS, GOSettingsMidiInitial::OnEventsClick)
@@ -52,13 +51,13 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
   m_Properties->Disable();
   topSizer->Add(m_Properties, 0, wxALIGN_RIGHT | wxALL, 5);
 
-  for (unsigned i = 0; i < m_config.GetEventCount(); i++) {
-    const GOMidiReceiver *recv = m_config.GetMidiEvent(i);
+  for (unsigned l = m_config.GetMidiInitialCount(), i = 0; i < l; i++) {
+    const GOConfigMidiObject *pObj = m_config.GetMidiInitialObject(i);
 
     m_Events->InsertItem(i, m_config.GetEventGroup(i));
-    m_Events->SetItemPtrData(i, (wxUIntPtr)recv);
+    m_Events->SetItemPtrData(i, (wxUIntPtr)pObj);
     m_Events->SetItem(i, 1, m_config.GetEventTitle(i));
-    m_Events->SetItem(i, 2, recv->GetEventCount() > 0 ? _("Yes") : _("No"));
+    m_Events->SetItem(i, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
   }
 
   topSizer->AddSpacer(5);
@@ -78,8 +77,8 @@ void GOSettingsMidiInitial::OnEventsDoubleClick(wxListEvent &event) {
   m_Properties->Enable();
   int index = m_Events->GetFirstSelected();
 
-  GOMidiReceiver *recv
-    = (GOMidiReceiver *)m_Events->GetItemData(m_Events->GetFirstSelected());
+  GOConfigMidiObject *pObj
+    = (GOConfigMidiObject *)m_Events->GetItemData(m_Events->GetFirstSelected());
   GOMidiEventDialog dlg(
     NULL,
     this,
@@ -87,12 +86,12 @@ void GOSettingsMidiInitial::OnEventsDoubleClick(wxListEvent &event) {
       _("Initial MIDI settings for %s"), m_config.GetEventTitle(index)),
     m_config,
     wxT("InitialSettings"),
-    recv,
+    pObj->GetMidiReceiver(),
     NULL,
     NULL);
   dlg.RegisterMIDIListener(&m_midi);
   dlg.ShowModal();
-  m_Events->SetItem(index, 2, recv->GetEventCount() > 0 ? _("Yes") : _("No"));
+  m_Events->SetItem(index, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
 }
 
 void GOSettingsMidiInitial::OnProperties(wxCommandEvent &event) {
