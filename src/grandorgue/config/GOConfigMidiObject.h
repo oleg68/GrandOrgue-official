@@ -17,6 +17,9 @@
  */
 
 class GOConfigMidiObject : public GOMidiObject {
+public:
+  static constexpr int ELEMENT_TYPE_NONE = -1;
+
 private:
   wxString m_path;
   GOMidiSender *mp_MidiSender;
@@ -28,45 +31,45 @@ private:
   void ClearMidiElement(MidiElementType *pMidiElement);
 
   template <typename MidiElementType>
-  void ReplaceMidiElement(
-    MidiElementType *pNewElement,
+  int GetElementType(const MidiElementType *pEl) const;
+
+  template <typename MidiElementType, typename MidiElementTypeEnum>
+  void SetElementType(
+    int newElementType,
     MidiElementType *&slot,
     void (GOMidiObject::*setPointerFun)(MidiElementType *pNewElement));
 
-  void ReplaceMidiSender(GOMidiSender *pNewElement) {
-    ReplaceMidiElement(
-      pNewElement, mp_MidiSender, &GOConfigMidiObject::SetMidiSender);
-  }
-
-  void ReplaceMidiReceiver(GOMidiReceiver *pNewElement) {
-    ReplaceMidiElement(
-      pNewElement, mp_MidiReceiver, &GOConfigMidiObject::SetMidiReceiver);
-  }
-
-  void ReplaceShortcutReceiver(GOMidiShortcutReceiver *pNewElement) {
-    ReplaceMidiElement(
-      pNewElement,
-      mp_ShortcutReceiver,
-      &GOConfigMidiObject::SetMidiShortcutReceiver);
-  }
-
-  void ReplaceDivisionSender(GOMidiSender *pNewElement) {
-    ReplaceMidiElement(
-      pNewElement, mp_DivisionSender, &GOConfigMidiObject::SetDivisionSender);
-  }
-
 public:
-  GOConfigMidiObject(
-    GOMidiMap &midiMap,
-    ObjectType objectType,
-    GOMidiSenderType senderType,
-    GOMidiReceiverType receiverType,
-    GOMidiShortcutReceiverType shortcutType,
-    bool hasReceiver,
-    bool hasShortcut,
-    bool hasDivision);
+  GOConfigMidiObject(GOMidiMap &midiMap, ObjectType objectType);
 
   ~GOConfigMidiObject();
+
+  int GetSenderType() const { return GetElementType(mp_MidiSender); }
+  void SetSenderType(int senderType);
+
+  int GetReceiverType() const { return GetElementType(mp_MidiReceiver); }
+  void SetReceiverType(int receiverType);
+
+  int GetShortcutReceiverType() const {
+    return GetElementType(mp_ShortcutReceiver);
+  }
+
+  void SetShortcutReceiverType(int shortcutReceiverType);
+
+  int GetDivisionSenderType() const {
+    return GetElementType(mp_DivisionSender);
+  }
+
+  // Only MIDI_SEND_MANUAL and ELEMENT_TYPE_NONE are allowed
+  void SetDivisionSenderType(int senderType);
+
+  virtual void LoadMidiObject(
+    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
+
+  virtual void SaveMidiObject(
+    GOConfigWriter &cfg,
+    const wxString &group,
+    GOMidiMap &midiMap) const override;
 };
 
 #endif /* GOCONFIGMIDIOBJECT_H */
