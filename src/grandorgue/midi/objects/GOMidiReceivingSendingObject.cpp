@@ -38,7 +38,7 @@ const GOMidiObject *GOMidiReceivingSendingObject::FindInitialMidiObject()
   if (
     !(pInitialObj && pInitialObj->IsMidiConfigured()) && m_MidiInputNumber >= 0)
     pInitialObj = r_OrganModel.GetConfig().FindMidiInitialObject(
-      m_ReceiverType, m_MidiInputNumber);
+      GetObjectType(), m_MidiInputNumber);
   return pInitialObj;
 }
 

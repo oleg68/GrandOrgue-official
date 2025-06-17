@@ -66,6 +66,7 @@ protected:
   GOMidiObject(GOMidiMap &midiMap, ObjectType objectType);
 
 public:
+  ObjectType GetObjectType() const { return m_ObjectType; }
   GOMidiSender *GetMidiSender() const { return p_MidiSender; }
   void SetMidiSender(GOMidiSender *pMidiSender) { p_MidiSender = pMidiSender; }
   GOMidiReceiver *GetMidiReceiver() const { return p_MidiReceiver; }
@@ -83,7 +84,6 @@ public:
     p_DivisionSender = pDivisionSender;
   }
 
-protected:
   virtual void LoadMidiObject(
     GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap);
   virtual void SaveMidiObject(
