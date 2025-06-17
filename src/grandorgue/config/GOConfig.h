@@ -79,8 +79,6 @@ private:
   void LoadOrgans(GOConfigReader &cfg);
   void SaveOrgans(GOConfigWriter &cfg);
 
-  wxString GetEventSection(unsigned index);
-
   void LoadDefaults();
 
 public:
@@ -181,7 +179,7 @@ public:
   const wxString GetPackageDirectory();
 
   // return count of MIDI built-in objects
-  unsigned GetMidiBuiltinCount() const;
+  static unsigned getMidiBuiltinCount();
   // return count of all initial MIDI objects, both built-in and user-addeds
   unsigned GetMidiInitialCount() const { return m_InitialMidiObjects.size(); }
   const wxString &GetEventGroup(unsigned index) const;
@@ -189,7 +187,7 @@ public:
   const GOConfigMidiObject *GetMidiInitialObject(unsigned index) const;
   // search among built-in MIDI objects
   GOConfigMidiObject *FindMidiInitialObject(
-    GOMidiReceiverType type, unsigned index);
+    GOMidiObject::ObjectType type, unsigned index);
   // search among user-added MIDI objects
   GOConfigMidiObject *FindMidiInitialObject(const wxString &path);
 
