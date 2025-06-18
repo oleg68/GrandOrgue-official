@@ -188,10 +188,10 @@ public:
   wxString GetEventTitle(unsigned index);
   const GOConfigMidiObject *GetMidiInitialObject(unsigned index) const;
   // search among built-in MIDI objects
-  const GOConfigMidiObject *FindMidiInitialObject(
-    GOMidiReceiverType type, unsigned index) const;
+  GOConfigMidiObject *FindMidiInitialObject(
+    GOMidiReceiverType type, unsigned index);
   // search among user-added MIDI objects
-  const GOConfigMidiObject *FindMidiInitialObject(const wxString &path) const;
+  GOConfigMidiObject *FindMidiInitialObject(const wxString &path);
 
   const std::vector<wxString> &GetAudioGroups();
   void SetAudioGroups(const std::vector<wxString> &audio_groups);
