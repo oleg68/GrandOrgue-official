@@ -17,6 +17,8 @@
 
 #include "GOMidiObjectContext.h"
 
+static const wxString WX_DIVISIONAL_GROUP_SUFFIX = wxT("Divisional");
+
 const GOConfigEnum GOMidiObject::OBJECT_TYPES({
   {wxT("Label"), (int)OBJECT_TYPE_LABEL},
   {wxT("Rank"), (int)OBJECT_TYPE_RANK},
@@ -64,6 +66,38 @@ wxString GOMidiObject::GetPath() const {
 
 wxString GOMidiObject::GetContextTitle() const {
   return GOMidiObjectContext::getFullTitle(p_context);
+}
+
+static wxString divisional_group(const wxString &group) {
+  return group + WX_DIVISIONAL_GROUP_SUFFIX;
+}
+
+void GOMidiObject::LoadMidiObject(
+  GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {
+  if (p_MidiSender)
+    p_MidiSender->Load(cfg, group, midiMap);
+  if (!IsReadOnly()) {
+    if (p_MidiReceiver)
+      p_MidiReceiver->Load(false, cfg, group, midiMap);
+    if (p_ShortcutReceiver)
+      p_ShortcutReceiver->Load(cfg, group);
+  }
+  if (p_DivisionSender)
+    p_DivisionSender->Load(cfg, divisional_group(group), midiMap);
+}
+
+void GOMidiObject::SaveMidiObject(
+  GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {
+  if (p_MidiSender)
+    p_MidiSender->Save(cfg, group, midiMap);
+  if (!IsReadOnly()) {
+    if (p_MidiReceiver)
+      p_MidiReceiver->Save(cfg, group, midiMap);
+    if (p_ShortcutReceiver)
+      p_ShortcutReceiver->Save(cfg, group);
+  }
+  if (p_DivisionSender)
+    p_DivisionSender->Save(cfg, divisional_group(group), midiMap);
 }
 
 bool GOMidiObject::IsMidiConfigured() const {

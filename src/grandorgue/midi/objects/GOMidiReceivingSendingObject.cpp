@@ -65,21 +65,6 @@ void GOMidiReceivingSendingObject::Load(
   GOMidiSendingObject::Load(cfg, group, name);
 }
 
-void GOMidiReceivingSendingObject::LoadMidiObject(
-  GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {
-  GOMidiSendingObject::LoadMidiObject(cfg, group, midiMap);
-  if (!IsReadOnly())
-    m_receiver.Load(r_OrganModel.GetConfig().ODFCheck(), cfg, group, midiMap);
-}
-
-void GOMidiReceivingSendingObject::SaveMidiObject(
-  GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {
-  GOMidiSendingObject::SaveMidiObject(cfg, group, midiMap);
-  if (!IsReadOnly()) {
-    m_receiver.Save(cfg, group, midiMap);
-  }
-}
-
 void GOMidiReceivingSendingObject::SetElementId(int id) {
   if (!IsReadOnly()) {
     m_receiver.SetElementID(id);

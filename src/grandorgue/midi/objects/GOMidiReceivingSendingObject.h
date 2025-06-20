@@ -58,12 +58,6 @@ protected:
     const wxString &group,
     const wxString &name,
     bool mayHaveOdfMidiInputNumber);
-  virtual void LoadMidiObject(
-    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
-  virtual void SaveMidiObject(
-    GOConfigWriter &cfg,
-    const wxString &group,
-    GOMidiMap &midiMap) const override;
 
   void PreparePlayback() override;
 

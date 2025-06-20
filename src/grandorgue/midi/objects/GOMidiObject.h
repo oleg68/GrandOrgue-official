@@ -85,9 +85,9 @@ public:
 
 protected:
   virtual void LoadMidiObject(
-    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) {}
+    GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap);
   virtual void SaveMidiObject(
-    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const {}
+    GOConfigWriter &cfg, const wxString &group, GOMidiMap &midiMap) const;
   virtual void AfterMidiLoaded() {}
 
 private:
