@@ -80,15 +80,13 @@ void GOSettingsMidiInitial::OnEventsDoubleClick(wxListEvent &event) {
   GOConfigMidiObject *pObj
     = (GOConfigMidiObject *)m_Events->GetItemData(m_Events->GetFirstSelected());
   GOMidiEventDialog dlg(
-    NULL,
+    nullptr,
     this,
     wxString::Format(
       _("Initial MIDI settings for %s"), m_config.GetEventTitle(index)),
     m_config,
     wxT("InitialSettings"),
-    pObj->GetMidiReceiver(),
-    NULL,
-    NULL);
+    *pObj);
   dlg.RegisterMIDIListener(&m_midi);
   dlg.ShowModal();
   m_Events->SetItem(index, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
