@@ -25,7 +25,7 @@ class GOSettingsMidiInitial : public wxPanel {
 private:
   GOConfig &m_config;
   GOMidi &m_midi;
-  wxListView *m_Events;
+  wxListView *m_Initials;
   wxButton *m_Properties;
 
   void OnEventsClick(wxListEvent &event);

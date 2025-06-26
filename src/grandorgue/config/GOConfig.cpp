@@ -585,14 +585,14 @@ unsigned GOConfig::getMidiBuiltinCount() {
   return sizeof(INTERNAL_MIDI_DESCS) / sizeof(INTERNAL_MIDI_DESCS[0]);
 }
 
-const wxString &GOConfig::GetEventGroup(unsigned index) const {
+const wxString &GOConfig::GetInitialMidiGroup(unsigned index) const {
   assert(index < getMidiBuiltinCount());
 
   return INITIAL_MIDI_GROUP_DESCS[INTERNAL_MIDI_DESCS[index].m_group]
     .m_GroupName;
 }
 
-wxString GOConfig::GetEventTitle(unsigned index) {
+wxString GOConfig::GetInitialMidiName(unsigned index) {
   assert(index < getMidiBuiltinCount());
   return INTERNAL_MIDI_DESCS[index].m_name;
 }
