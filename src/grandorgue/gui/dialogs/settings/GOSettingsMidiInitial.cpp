@@ -115,7 +115,7 @@ void GOSettingsMidiInitial::ConfigureInitial() {
     nullptr,
     this,
     wxString::Format(
-      _("Initial MIDI settings for %s"), r_config.GetEventTitle(index)),
+      _("Initial MIDI settings for %s"), r_config.GetInitialMidiName(index)),
     r_config,
     wxT("InitialSettings"),
     *pObj);
