@@ -37,16 +37,16 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
     wxALL);
   topSizer->AddSpacer(5);
 
-  m_Events = new wxListView(
+  m_Initials = new wxListView(
     this,
     ID_EVENTS,
     wxDefaultPosition,
     wxDefaultSize,
     wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
-  m_Events->InsertColumn(0, _("Group"));
-  m_Events->InsertColumn(1, _("Element"));
-  m_Events->InsertColumn(2, _("MIDI Event"));
-  topSizer->Add(m_Events, 1, wxEXPAND | wxALL, 5);
+  m_Initials->InsertColumn(0, _("Group"));
+  m_Initials->InsertColumn(1, _("Element"));
+  m_Initials->InsertColumn(2, _("MIDI Event"));
+  topSizer->Add(m_Initials, 1, wxEXPAND | wxALL, 5);
   m_Properties = new wxButton(this, ID_PROPERTIES, _("P&roperties..."));
   m_Properties->Disable();
   topSizer->Add(m_Properties, 0, wxALIGN_RIGHT | wxALL, 5);
@@ -54,19 +54,19 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
   for (unsigned l = m_config.GetMidiInitialCount(), i = 0; i < l; i++) {
     const GOConfigMidiObject *pObj = m_config.GetMidiInitialObject(i);
 
-    m_Events->InsertItem(i, m_config.GetEventGroup(i));
-    m_Events->SetItemPtrData(i, (wxUIntPtr)pObj);
-    m_Events->SetItem(i, 1, m_config.GetEventTitle(i));
-    m_Events->SetItem(i, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
+    m_Initials->InsertItem(i, m_config.GetInitialMidiGroup(i));
+    m_Initials->SetItemPtrData(i, (wxUIntPtr)pObj);
+    m_Initials->SetItem(i, 1, m_config.GetInitialMidiName(i));
+    m_Initials->SetItem(i, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
   }
 
   topSizer->AddSpacer(5);
   this->SetSizer(topSizer);
   topSizer->Fit(this);
 
-  m_Events->SetColumnWidth(0, wxLIST_AUTOSIZE);
-  m_Events->SetColumnWidth(1, wxLIST_AUTOSIZE);
-  m_Events->SetColumnWidth(2, wxLIST_AUTOSIZE_USEHEADER);
+  m_Initials->SetColumnWidth(0, wxLIST_AUTOSIZE);
+  m_Initials->SetColumnWidth(1, wxLIST_AUTOSIZE);
+  m_Initials->SetColumnWidth(2, wxLIST_AUTOSIZE_USEHEADER);
 }
 
 void GOSettingsMidiInitial::OnEventsClick(wxListEvent &event) {
@@ -75,21 +75,21 @@ void GOSettingsMidiInitial::OnEventsClick(wxListEvent &event) {
 
 void GOSettingsMidiInitial::OnEventsDoubleClick(wxListEvent &event) {
   m_Properties->Enable();
-  int index = m_Events->GetFirstSelected();
+  int index = m_Initials->GetFirstSelected();
 
-  GOConfigMidiObject *pObj
-    = (GOConfigMidiObject *)m_Events->GetItemData(m_Events->GetFirstSelected());
+  GOConfigMidiObject *pObj = (GOConfigMidiObject *)m_Initials->GetItemData(
+    m_Initials->GetFirstSelected());
   GOMidiEventDialog dlg(
     nullptr,
     this,
     wxString::Format(
-      _("Initial MIDI settings for %s"), m_config.GetEventTitle(index)),
+      _("Initial MIDI settings for %s"), m_config.GetInitialMidiName(index)),
     m_config,
     wxT("InitialSettings"),
     *pObj);
   dlg.RegisterMIDIListener(&m_midi);
   dlg.ShowModal();
-  m_Events->SetItem(index, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
+  m_Initials->SetItem(index, 2, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
 }
 
 void GOSettingsMidiInitial::OnProperties(wxCommandEvent &event) {
