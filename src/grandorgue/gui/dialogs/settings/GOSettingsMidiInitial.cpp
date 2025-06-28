@@ -25,7 +25,14 @@ END_EVENT_TABLE()
 
 const wxString WX_INITIALS = wxT("Initials");
 
-enum { GRID_COL_GROUP = 0, GRID_COL_NAME, GRID_COL_CONFIGURED, GRID_N_COLS };
+enum {
+  GRID_COL_GROUP = 0,
+  GRID_COL_TYPE,
+  GRID_COL_NAME,
+  GRID_COL_MATCH,
+  GRID_COL_CONFIGURED,
+  GRID_N_COLS
+};
 
 GOSettingsMidiInitial::GOSettingsMidiInitial(
   GOConfig &settings,
@@ -55,8 +62,12 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
   m_Initials->EnableEditing(false);
   m_Initials->SetColSize(GRID_COL_GROUP, 100);
   m_Initials->SetColLabelValue(GRID_COL_GROUP, _("Group"));
-  m_Initials->SetColSize(GRID_COL_NAME, 150);
+  m_Initials->SetColSize(GRID_COL_TYPE, 100);
+  m_Initials->SetColLabelValue(GRID_COL_TYPE, _("Type"));
+  m_Initials->SetColSize(GRID_COL_NAME, 100);
   m_Initials->SetColLabelValue(GRID_COL_NAME, _("Name"));
+  m_Initials->SetColSize(GRID_COL_MATCH, 100);
+  m_Initials->SetColLabelValue(GRID_COL_MATCH, _("Matching"));
   m_Initials->SetColSize(GRID_COL_CONFIGURED, 100);
   m_Initials->SetColLabelValue(GRID_COL_CONFIGURED, _("Configured"));
 
@@ -94,7 +105,9 @@ bool GOSettingsMidiInitial::TransferDataToWindow() {
     const GOConfigMidiObject *pObj = r_config.GetMidiInitialObject(i);
 
     m_Initials->SetCellValue(i, GRID_COL_GROUP, pObj->GetObjectGroup());
+    m_Initials->SetCellValue(i, GRID_COL_TYPE, pObj->GetMidiTypeName());
     m_Initials->SetCellValue(i, GRID_COL_NAME, pObj->GetName());
+    m_Initials->SetCellValue(i, GRID_COL_MATCH, pObj->GetMatchingBy());
     m_Initials->SetCellValue(
       i, GRID_COL_CONFIGURED, pObj->IsMidiConfigured() ? _("Yes") : _("No"));
   }
