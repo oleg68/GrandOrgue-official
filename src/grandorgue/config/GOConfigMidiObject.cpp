@@ -46,12 +46,20 @@ void GOConfigMidiObject::SetElementType(
 }
 
 GOConfigMidiObject::GOConfigMidiObject(
-  GOMidiMap &midiMap, ObjectType objectType)
+  GOMidiMap &midiMap,
+  ObjectType objectType,
+  const wxString &objectGroup,
+  const wxString &matchingBy,
+  const wxString &name)
   : GOMidiObject(midiMap, objectType),
+    r_ObjectGroup(objectGroup),
+    m_MatchingBy(matchingBy),
     mp_MidiSender(nullptr),
     mp_MidiReceiver(nullptr),
     mp_ShortcutReceiver(nullptr),
-    mp_DivisionSender(nullptr) {}
+    mp_DivisionSender(nullptr) {
+  SetName(name);
+}
 
 GOConfigMidiObject::~GOConfigMidiObject() {
   ClearMidiElement(mp_DivisionSender);

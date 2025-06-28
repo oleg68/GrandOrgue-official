@@ -21,7 +21,8 @@ public:
   static constexpr int ELEMENT_TYPE_NONE = -1;
 
 private:
-  wxString m_path;
+  const wxString &r_ObjectGroup;
+  wxString m_MatchingBy;
   GOMidiSender *mp_MidiSender;
   GOMidiReceiver *mp_MidiReceiver;
   GOMidiShortcutReceiver *mp_ShortcutReceiver;
@@ -40,9 +41,17 @@ private:
     void (GOMidiObject::*setPointerFun)(MidiElementType *pNewElement));
 
 public:
-  GOConfigMidiObject(GOMidiMap &midiMap, ObjectType objectType);
+  GOConfigMidiObject(
+    GOMidiMap &midiMap,
+    ObjectType objectType,
+    const wxString &objectGgroup,
+    const wxString &matchingBy,
+    const wxString &name);
 
   ~GOConfigMidiObject();
+
+  const wxString &GetObjectGroup() const { return r_ObjectGroup; }
+  const wxString &GetMatchingBy() const { return m_MatchingBy; }
 
   int GetSenderType() const { return GetElementType(mp_MidiSender); }
   void SetSenderType(int senderType);
