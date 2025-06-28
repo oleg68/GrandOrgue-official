@@ -24,17 +24,12 @@ void GOConfigMidiObject::ClearMidiElement(MidiElementType *pMidiElement) {
     delete pMidiElement;
 }
 
-template <typename MidiElementType>
-int GOConfigMidiObject::GetElementType(const MidiElementType *pEl) const {
-  return pEl ? (int)pEl->GetType() : ELEMENT_TYPE_NONE;
-}
-
 template <typename MidiElementType, typename MidiElementTypeEnum>
 void GOConfigMidiObject::SetElementType(
   int newElementType,
   MidiElementType *&slot,
   void (GOMidiObject::*setPointerFun)(MidiElementType *pNewElement)) {
-  if (GetElementType(slot) != newElementType) {
+  if (getElementType(slot) != newElementType) {
     MidiElementType *pEl = newElementType == ELEMENT_TYPE_NONE
       ? nullptr
       : new MidiElementType((MidiElementTypeEnum)newElementType);
@@ -89,6 +84,14 @@ void GOConfigMidiObject::SetShortcutReceiverType(int shortcutReceiverType) {
 void GOConfigMidiObject::SetDivisionSenderType(int senderType) {
   SetElementType<GOMidiSender, GOMidiSenderType>(
     senderType, mp_DivisionSender, &GOConfigMidiObject::SetDivisionSender);
+}
+
+void GOConfigMidiObject::AssignFrom(const GOMidiObject &objFrom) {
+  SetSenderType(objFrom.GetSenderType());
+  SetReceiverType(objFrom.GetReceiverType());
+  SetShortcutReceiverType(objFrom.GetShortcutReceiverType());
+  SetDivisionSenderType(objFrom.GetDivisionSenderType());
+  CopyMidiSettingFrom(objFrom);
 }
 
 void GOConfigMidiObject::LoadMidiObject(

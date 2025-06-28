@@ -60,6 +60,11 @@ GOMidiObject::GOMidiObject(GOMidiMap &midiMap, ObjectType objectType)
     p_DivisionSender(nullptr),
     p_context(nullptr) {}
 
+template <typename MidiElementType>
+int GOMidiObject::getElementType(const MidiElementType *pEl) {
+  return pEl ? (int)pEl->GetType() : ELEMENT_TYPE_NONE;
+}
+
 wxString GOMidiObject::GetPath() const {
   return GOMidiObjectContext::getPath(p_context, GetNameForContext());
 }
@@ -70,6 +75,17 @@ wxString GOMidiObject::GetContextTitle() const {
 
 static wxString divisional_group(const wxString &group) {
   return group + WX_DIVISIONAL_GROUP_SUFFIX;
+}
+
+int GOMidiObject::GetSenderType() const { return getElementType(p_MidiSender); }
+int GOMidiObject::GetReceiverType() const {
+  return getElementType(p_MidiReceiver);
+}
+int GOMidiObject::GetShortcutReceiverType() const {
+  return getElementType(p_ShortcutReceiver);
+}
+int GOMidiObject::GetDivisionSenderType() const {
+  return getElementType(p_DivisionSender);
 }
 
 void GOMidiObject::LoadMidiObject(

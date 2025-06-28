@@ -17,9 +17,6 @@
  */
 
 class GOConfigMidiObject : public GOMidiObject {
-public:
-  static constexpr int ELEMENT_TYPE_NONE = -1;
-
 private:
   const wxString &r_ObjectGroup;
   wxString m_MatchingBy;
@@ -30,9 +27,6 @@ private:
 
   template <typename MidiElementType>
   void ClearMidiElement(MidiElementType *pMidiElement);
-
-  template <typename MidiElementType>
-  int GetElementType(const MidiElementType *pEl) const;
 
   template <typename MidiElementType, typename MidiElementTypeEnum>
   void SetElementType(
@@ -53,24 +47,13 @@ public:
   const wxString &GetObjectGroup() const { return r_ObjectGroup; }
   const wxString &GetMatchingBy() const { return m_MatchingBy; }
 
-  int GetSenderType() const { return GetElementType(mp_MidiSender); }
   void SetSenderType(int senderType);
-
-  int GetReceiverType() const { return GetElementType(mp_MidiReceiver); }
   void SetReceiverType(int receiverType);
-
-  int GetShortcutReceiverType() const {
-    return GetElementType(mp_ShortcutReceiver);
-  }
-
   void SetShortcutReceiverType(int shortcutReceiverType);
-
-  int GetDivisionSenderType() const {
-    return GetElementType(mp_DivisionSender);
-  }
-
   // Only MIDI_SEND_MANUAL and ELEMENT_TYPE_NONE are allowed
   void SetDivisionSenderType(int senderType);
+
+  void AssignFrom(const GOMidiObject &objFrom);
 
   virtual void LoadMidiObject(
     GOConfigReader &cfg, const wxString &group, GOMidiMap &midiMap) override;
