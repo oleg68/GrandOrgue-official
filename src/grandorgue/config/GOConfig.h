@@ -188,6 +188,7 @@ public:
     GOMidiObject::ObjectType type, unsigned index);
   // search among user-added MIDI objects
   GOConfigMidiObject *FindMidiInitialObject(const wxString &path);
+  void AssignToInitial(const GOMidiObject &pObjFrom);
 
   const std::vector<wxString> &GetAudioGroups();
   void SetAudioGroups(const std::vector<wxString> &audio_groups);
