@@ -484,6 +484,7 @@ void GOConfig::Load() {
             pObj = new GOConfigMidiObject(
               m_MidiMap, objectType, WX_USER_ADDED, path, name);
             m_InitialMidiObjectsByPath[path] = pObj;
+            m_InitialMidiObjects.push_back(pObj);
           }
         }
         if (pObj)
@@ -614,6 +615,23 @@ GOConfigMidiObject *GOConfig::FindMidiInitialObject(const wxString &path) {
   auto it = m_InitialMidiObjectsByPath.find(path);
 
   return it != m_InitialMidiObjectsByPath.end() ? it->second : nullptr;
+}
+
+void GOConfig::AssignToInitial(const GOMidiObject &objFrom) {
+  const wxString path = objFrom.GetPath();
+  GOConfigMidiObject *pObj = FindMidiInitialObject(path);
+
+  if (!pObj) {
+    pObj = new GOConfigMidiObject(
+      m_MidiMap,
+      objFrom.GetObjectType(),
+      WX_USER_ADDED,
+      path,
+      objFrom.GetName());
+    m_InitialMidiObjectsByPath[path] = pObj;
+    m_InitialMidiObjects.push_back(pObj);
+  }
+  pObj->AssignFrom(objFrom);
 }
 
 const wxString GOConfig::GetPackageDirectory() {
