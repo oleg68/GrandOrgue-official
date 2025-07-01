@@ -633,6 +633,14 @@ void GOConfig::AssignToInitial(const GOMidiObject &objFrom) {
   pObj->AssignFrom(objFrom);
 }
 
+void GOConfig::DelMidiInitial(unsigned index) {
+  if (index >= getMidiBuiltinCount() && index < m_InitialMidiObjects.size()) {
+    m_InitialMidiObjectsByPath.erase(
+      m_InitialMidiObjects[index]->GetMatchingBy());
+    m_InitialMidiObjects.erase(index);
+  }
+}
+
 const wxString GOConfig::GetPackageDirectory() {
   return m_ResourceDir + wxFileName::GetPathSeparator() + wxT("packages");
 }
