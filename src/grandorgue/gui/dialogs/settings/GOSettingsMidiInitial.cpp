@@ -19,6 +19,8 @@
 
 BEGIN_EVENT_TABLE(GOSettingsMidiInitial, GODialogTab)
 EVT_GRID_CMD_SELECT_CELL(ID_INITIALS, GOSettingsMidiInitial::OnInitialsSelected)
+EVT_GRID_CMD_RANGE_SELECT(
+  ID_INITIALS, GOSettingsMidiInitial::OnInitialsRangeSelected)
 EVT_GRID_CMD_CELL_LEFT_DCLICK(
   ID_INITIALS, GOSettingsMidiInitial::OnInitialsDoubleClick)
 EVT_BUTTON(ID_PROPERTIES, GOSettingsMidiInitial::OnProperties)
@@ -81,8 +83,8 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
   m_Properties->Disable();
   pButtons->Add(m_Properties, 0, wxALL, 5);
 
-  m_ButtonDel = new wxButton(this, ID_PROPERTIES, _("P&roperties..."));
-  m_Properties->Disable();
+  m_ButtonDel = new wxButton(this, ID_DELETE, _("Delete"));
+  m_ButtonDel->Disable();
   pButtons->Add(m_ButtonDel, 0, wxALL, 5);
 
   topSizer->Add(pButtons, 0, wxALL, 5);
@@ -128,6 +130,18 @@ void GOSettingsMidiInitial::OnInitialsSelected(wxGridEvent &event) {
   int index = m_Initials->GetGridCursorRow();
 
   m_Properties->Enable(index >= 0);
+}
+
+void GOSettingsMidiInitial::OnInitialsRangeSelected(
+  wxGridRangeSelectEvent &event) {
+  int nInternals = GOConfig::getMidiBuiltinCount();
+  wxArrayInt selectedRows = m_Initials->GetSelectedRows();
+  auto it = std::find_if(
+    selectedRows.begin(), selectedRows.end(), [nInternals](int x) {
+      return x >= nInternals;
+    });
+
+  m_ButtonDel->Enable(it != selectedRows.end());
 }
 
 void GOSettingsMidiInitial::ConfigureInitial() {

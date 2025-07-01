@@ -12,6 +12,7 @@
 
 class wxButton;
 class wxGridEvent;
+class wxGridRangeSelectEvent;
 
 class GOConfig;
 class GOGrid;
@@ -39,6 +40,7 @@ private:
   bool TransferDataToWindow() override;
 
   void OnInitialsSelected(wxGridEvent &event);
+  void OnInitialsRangeSelected(wxGridRangeSelectEvent &event);
 
   void ConfigureInitial();
 
