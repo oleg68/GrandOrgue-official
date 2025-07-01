@@ -8,6 +8,7 @@
 #include "GOSettingsMidiInitial.h"
 
 #include <wx/button.h>
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 
@@ -21,6 +22,7 @@ EVT_GRID_CMD_SELECT_CELL(ID_INITIALS, GOSettingsMidiInitial::OnInitialsSelected)
 EVT_GRID_CMD_CELL_LEFT_DCLICK(
   ID_INITIALS, GOSettingsMidiInitial::OnInitialsDoubleClick)
 EVT_BUTTON(ID_PROPERTIES, GOSettingsMidiInitial::OnProperties)
+EVT_BUTTON(ID_DELETE, GOSettingsMidiInitial::OnDelete)
 END_EVENT_TABLE()
 
 const wxString WX_INITIALS = wxT("Initials");
@@ -72,11 +74,19 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
   m_Initials->SetColLabelValue(GRID_COL_CONFIGURED, _("Configured"));
 
   topSizer->Add(m_Initials, 1, wxEXPAND | wxALL, 5);
+
+  wxBoxSizer *pButtons = new wxBoxSizer(wxHORIZONTAL);
+
   m_Properties = new wxButton(this, ID_PROPERTIES, _("P&roperties..."));
   m_Properties->Disable();
-  topSizer->Add(m_Properties, 0, wxALIGN_RIGHT | wxALL, 5);
+  pButtons->Add(m_Properties, 0, wxALL, 5);
 
-  topSizer->AddSpacer(5);
+  m_ButtonDel = new wxButton(this, ID_PROPERTIES, _("P&roperties..."));
+  m_Properties->Disable();
+  pButtons->Add(m_ButtonDel, 0, wxALL, 5);
+
+  topSizer->Add(pButtons, 0, wxALL, 5);
+
   this->SetSizer(topSizer);
   topSizer->Fit(this);
 }
@@ -138,4 +148,38 @@ void GOSettingsMidiInitial::ConfigureInitial() {
     index,
     GRID_COL_CONFIGURED,
     pObj->IsMidiConfigured() > 0 ? _("Yes") : _("No"));
+}
+
+void GOSettingsMidiInitial::OnDelete(wxCommandEvent &event) {
+  int nInternals = GOConfig::getMidiBuiltinCount();
+  wxArrayInt selectedRows = m_Initials->GetSelectedRows();
+  wxArrayInt selectedUserAdded;
+
+  // copy the user-added selected elements to selectedUserAdded
+  std::copy_if(
+    selectedRows.begin(),
+    selectedRows.end(),
+    std::back_inserter(selectedUserAdded),
+    [nInternals](int x) { return x >= nInternals; });
+
+  if (
+    !selectedUserAdded.IsEmpty()
+    && wxMessageBox(
+         wxString::Format(
+           _("Are you sure to delete %u initial MIDI objects settings?"),
+           selectedUserAdded.size()),
+         _("Delete initial MIDI settings"),
+         wxYES_NO,
+         this)
+      == wxYES) {
+    std::sort(selectedUserAdded.begin(), selectedUserAdded.end());
+
+    // Do deletion in reverse order
+    for (int i = selectedUserAdded.GetCount() - 1; i >= 0; i--) {
+      unsigned row = (unsigned)selectedUserAdded[i];
+
+      r_config.DelMidiInitial(row);
+      m_Initials->DeleteRows(row);
+    }
+  }
 }
