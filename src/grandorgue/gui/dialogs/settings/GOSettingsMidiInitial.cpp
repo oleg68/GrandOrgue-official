@@ -64,13 +64,13 @@ GOSettingsMidiInitial::GOSettingsMidiInitial(
   m_Initials->CreateGrid(0, GRID_N_COLS, wxGrid::wxGridSelectRows);
   m_Initials->HideRowLabels();
   m_Initials->EnableEditing(false);
-  m_Initials->SetColSize(GRID_COL_GROUP, 100);
+  m_Initials->SetColSize(GRID_COL_GROUP, 150);
   m_Initials->SetColLabelValue(GRID_COL_GROUP, _("Group"));
   m_Initials->SetColSize(GRID_COL_TYPE, 100);
   m_Initials->SetColLabelValue(GRID_COL_TYPE, _("Type"));
-  m_Initials->SetColSize(GRID_COL_NAME, 100);
+  m_Initials->SetColSize(GRID_COL_NAME, 200);
   m_Initials->SetColLabelValue(GRID_COL_NAME, _("Name"));
-  m_Initials->SetColSize(GRID_COL_MATCH, 100);
+  m_Initials->SetColSize(GRID_COL_MATCH, 200);
   m_Initials->SetColLabelValue(GRID_COL_MATCH, _("Matching"));
   m_Initials->SetColSize(GRID_COL_CONFIGURED, 100);
   m_Initials->SetColLabelValue(GRID_COL_CONFIGURED, _("Configured"));
