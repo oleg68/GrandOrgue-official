@@ -81,7 +81,6 @@ void GOSettingsMidiInitial::OnEventsDoubleClick(wxListEvent &event) {
   GOMidiReceiver *recv
     = (GOMidiReceiver *)m_Events->GetItemData(m_Events->GetFirstSelected());
   GOMidiEventDialog dlg(
-    nullptr,
     this,
     wxString::Format(
       _("Initial MIDI settings for %s"), m_config.GetEventTitle(index)),
