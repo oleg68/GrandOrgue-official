@@ -569,10 +569,10 @@ void GOConfig::Load() {
               _("Internal MIDI object %s:%u exists"),
               GOMidiObject::OBJECT_TYPES.GetName(objectType),
               midiInputNumber);
-        } else { // A user-added MIDI object. Match it by path
-          if (
-            m_InitialMidiObjectsByPath.find(path)
-            == m_InitialMidiObjectsByPath.end()) {
+        } else { // Patch is present. Match the object by path
+          auto it = m_InitialMidiObjectsByPath.find(path);
+
+          if (it == m_InitialMidiObjectsByPath.end()) {
             const wxString name
               = cfg.ReadString(CMBSetting, group, WX_NAME, false);
 
@@ -580,7 +580,8 @@ void GOConfig::Load() {
               m_MidiMap, objectType, WX_USER_ADDED, path, name);
             m_InitialMidiObjects.push_back(pObj);
             m_InitialMidiObjectsByPath[path] = pObj;
-          }
+          } else // A built-in initial MIDI object (button) matched by path
+            pObj = it->second;
         }
         if (pObj)
           pObj->LoadMidiObject(cfg, group, m_MidiMap);
