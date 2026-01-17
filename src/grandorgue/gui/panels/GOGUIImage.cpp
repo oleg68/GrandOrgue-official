@@ -7,11 +7,12 @@
 
 #include "GOGUIImage.h"
 
+#include "config/GOConfigReader.h"
 #include "primitives/GODC.h"
 
 #include "GOGUIDisplayMetrics.h"
 #include "GOGUIPanel.h"
-#include "config/GOConfigReader.h"
+#include "GOImageCache.h"
 
 GOGUIImage::GOGUIImage(GOGUIPanel *panel)
   : GOGUIControl(panel, NULL), m_TileOffsetX(0), m_TileOffsetY(0) {}
@@ -26,7 +27,8 @@ void GOGUIImage::Load(GOConfigReader &cfg, wxString group) {
   image_mask_file
     = cfg.ReadStringTrim(ODFSetting, group, wxT("Mask"), false, wxEmptyString);
 
-  m_Bitmap.SetSourceImage(m_panel->LoadImage(image_file, image_mask_file));
+  m_Bitmap.SetSourceImage(
+    m_panel->GetImageCache().LoadImage(image_file, image_mask_file));
 
   x = cfg.ReadInteger(
     ODFSetting,
