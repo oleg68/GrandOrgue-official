@@ -18,6 +18,7 @@
 #include "GOGUILayoutEngine.h"
 #include "GOGUIMouseState.h"
 #include "GOGUIPanel.h"
+#include "GOImageCache.h"
 
 GOGUIEnclosure::GOGUIEnclosure(GOGUIPanel *panel, GOEnclosure *control)
   : GOGUIMidiControl(panel, control, control),
@@ -45,7 +46,8 @@ void GOGUIEnclosure::Init(GOConfigReader &cfg, wxString group) {
       wxT(GOBitmapPrefix "enclosure%c%02d"), wxT('B'), i - 1);
 
     m_Bitmaps.emplace_back();
-    m_Bitmaps.back().SetSourceImage(m_panel->LoadImage(bitmap, wxEmptyString));
+    m_Bitmaps.back().SetSourceImage(
+      m_panel->GetImageCache().LoadImage(bitmap, wxEmptyString));
   }
 
   for (unsigned i = 1; i < m_Bitmaps.size(); i++)
@@ -121,7 +123,8 @@ void GOGUIEnclosure::Load(GOConfigReader &cfg, wxString group) {
       false,
       wxEmptyString);
     m_Bitmaps.emplace_back();
-    m_Bitmaps.back().SetSourceImage(m_panel->LoadImage(bitmap, mask));
+    m_Bitmaps.back().SetSourceImage(
+      m_panel->GetImageCache().LoadImage(bitmap, mask));
   }
 
   for (unsigned i = 1; i < m_Bitmaps.size(); i++)

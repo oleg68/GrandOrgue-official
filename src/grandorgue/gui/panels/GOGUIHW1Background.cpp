@@ -12,6 +12,7 @@
 #include "GOGUIDisplayMetrics.h"
 #include "GOGUILayoutEngine.h"
 #include "GOGUIPanel.h"
+#include "GOImageCache.h"
 
 GOGUIHW1Background::GOGUIHW1Background(GOGUIPanel *panel)
   : GOGUIControl(panel, NULL), m_Images() {}
@@ -24,12 +25,15 @@ bool is_rect_valid(wxRect &rect) { return rect.width > 0 && rect.height > 0; }
 
 void GOGUIHW1Background::Layout() {
   m_Images.clear();
+
+  GOImageCache &imageCache = m_panel->GetImageCache();
   wxRect rect;
 
   rect = wxRect(0, 0, m_layout->GetCenterX(), m_metrics->GetScreenHeight());
   if (is_rect_valid(rect))
     m_Images.emplace_back(
-      rect, m_panel->GetWoodImage(m_metrics->GetDrawstopBackgroundImageNum()));
+      rect,
+      imageCache.GetWoodImage(m_metrics->GetDrawstopBackgroundImageNum()));
   rect = wxRect(
     m_layout->GetCenterX() + m_layout->GetCenterWidth(),
     0,
@@ -38,7 +42,8 @@ void GOGUIHW1Background::Layout() {
     m_metrics->GetScreenHeight());
   if (is_rect_valid(rect))
     m_Images.emplace_back(
-      rect, m_panel->GetWoodImage(m_metrics->GetDrawstopBackgroundImageNum()));
+      rect,
+      imageCache.GetWoodImage(m_metrics->GetDrawstopBackgroundImageNum()));
   rect = wxRect(
     m_layout->GetCenterX(),
     0,
@@ -46,7 +51,7 @@ void GOGUIHW1Background::Layout() {
     m_metrics->GetScreenHeight());
   if (is_rect_valid(rect))
     m_Images.emplace_back(
-      rect, m_panel->GetWoodImage(m_metrics->GetConsoleBackgroundImageNum()));
+      rect, imageCache.GetWoodImage(m_metrics->GetConsoleBackgroundImageNum()));
 
   if (m_metrics->HasPairDrawstopCols()) {
     for (unsigned i = 0; i < (m_metrics->NumberOfDrawstopColsToDisplay() >> 2);
@@ -60,7 +65,7 @@ void GOGUIHW1Background::Layout() {
       if (is_rect_valid(rect))
         m_Images.emplace_back(
           rect,
-          m_panel->GetWoodImage(
+          imageCache.GetWoodImage(
             m_metrics->GetDrawstopInsetBackgroundImageNum()));
       rect = wxRect(
         i * (2 * m_metrics->GetDrawstopWidth() + 18) + m_layout->GetJambRightX()
@@ -71,7 +76,7 @@ void GOGUIHW1Background::Layout() {
       if (is_rect_valid(rect))
         m_Images.emplace_back(
           rect,
-          m_panel->GetWoodImage(
+          imageCache.GetWoodImage(
             m_metrics->GetDrawstopInsetBackgroundImageNum()));
     }
   }
@@ -84,7 +89,8 @@ void GOGUIHW1Background::Layout() {
       8);
     if (is_rect_valid(rect))
       m_Images.emplace_back(
-        rect, m_panel->GetWoodImage(m_metrics->GetKeyVertBackgroundImageNum()));
+        rect,
+        imageCache.GetWoodImage(m_metrics->GetKeyVertBackgroundImageNum()));
   }
 
   if (m_layout->GetJambTopHeight() + m_layout->GetPistonTopHeight()) {
@@ -96,7 +102,7 @@ void GOGUIHW1Background::Layout() {
     if (is_rect_valid(rect))
       m_Images.emplace_back(
         rect,
-        m_panel->GetWoodImage(m_metrics->GetKeyHorizBackgroundImageNum()));
+        imageCache.GetWoodImage(m_metrics->GetKeyHorizBackgroundImageNum()));
   }
 }
 

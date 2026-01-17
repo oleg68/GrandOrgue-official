@@ -14,6 +14,7 @@
 #include "GOGUIDisplayMetrics.h"
 #include "GOGUILayoutEngine.h"
 #include "GOGUIPanel.h"
+#include "GOImageCache.h"
 
 GOGUIManualBackground::GOGUIManualBackground(
   GOGUIPanel *panel, unsigned manual_number)
@@ -28,13 +29,15 @@ void GOGUIManualBackground::Load(GOConfigReader &cfg, wxString group) {
 }
 
 void GOGUIManualBackground::Layout() {
+  GOImageCache &imageCache = m_panel->GetImageCache();
   const GOGUILayoutEngine::MANUAL_RENDER_INFO &mri
     = m_layout->GetManualRenderInfo(m_ManualNumber);
+
   m_BoundingRect = wxRect(mri.x, mri.y, mri.width, mri.height);
   m_VRect = wxRect(
     m_layout->GetCenterX(), mri.y, m_layout->GetCenterWidth(), mri.height);
   m_VBackground.SetSourceImage(
-    m_panel->GetWoodImage(m_metrics->GetKeyVertBackgroundImageNum()));
+    imageCache.GetWoodImage(m_metrics->GetKeyVertBackgroundImageNum()));
   m_HRect = wxRect(
     m_layout->GetCenterX(),
     mri.piston_y,
@@ -43,7 +46,7 @@ void GOGUIManualBackground::Layout() {
       ? 2 * m_metrics->GetButtonHeight()
       : m_metrics->GetButtonHeight());
   m_HBackground.SetSourceImage(
-    m_panel->GetWoodImage(m_metrics->GetKeyHorizBackgroundImageNum()));
+    imageCache.GetWoodImage(m_metrics->GetKeyHorizBackgroundImageNum()));
 }
 
 void GOGUIManualBackground::PrepareDraw(double scale, GOBitmap *background) {
