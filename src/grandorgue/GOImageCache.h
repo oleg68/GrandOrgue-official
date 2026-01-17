@@ -13,13 +13,13 @@
 
 #include "ptrvector.h"
 
-class GOOrganController;
+class GOFileStore;
 
 class GOImageCache {
 private:
   static const wxString WX_EMPTY_STRING;
 
-  GOOrganController *m_OrganController;
+  const GOFileStore &r_FileStore;
   ptr_vector<const wxImage> m_images;
   std::vector<wxString> m_filenames;
   std::vector<wxString> m_masknames;
@@ -33,7 +33,7 @@ private:
   bool LoadImageFromFile(wxImage &img, const wxString &filename);
 
 public:
-  GOImageCache(GOOrganController *organController);
+  GOImageCache(const GOFileStore &fileStore);
 
   const wxImage *GetWoodImage(unsigned woodImageNum) const;
 
