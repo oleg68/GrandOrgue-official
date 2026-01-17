@@ -40,7 +40,8 @@
 #include "Images.h"
 
 GOGUIPanel::GOGUIPanel(GOOrganController *organController)
-  : m_OrganController(organController),
+  : r_ImageCache(organController->GetImageCache()),
+    m_OrganController(organController),
     m_MouseState(organController->GetMouseState()),
     m_controls(0),
     m_BackgroundControls(0),
@@ -65,11 +66,6 @@ GOOrganController *GOGUIPanel::GetOrganFile() { return m_OrganController; }
 const wxString &GOGUIPanel::GetName() { return m_Name; }
 
 const wxString &GOGUIPanel::GetGroupName() { return m_GroupName; }
-
-const wxImage *GOGUIPanel::LoadImage(
-  const wxString &filename, const wxString &maskname) {
-  return m_OrganController->GetImageCache().LoadImage(filename, maskname);
-}
 
 GODocumentBase *GOGUIPanel::GetDocument() const {
   return m_view ? m_view->GetDocument() : nullptr;
@@ -845,8 +841,4 @@ void GOGUIPanel::HandleMouseScroll(int x, int y, int amount) {
   for (unsigned i = 0; i < m_controls.size(); i++)
     if (m_controls[i]->HandleMouseScroll(x, y, amount))
       return;
-}
-
-const wxImage *GOGUIPanel::GetWoodImage(unsigned woodImageNumber) const {
-  return m_OrganController->GetImageCache().GetWoodImage(woodImageNumber);
 }

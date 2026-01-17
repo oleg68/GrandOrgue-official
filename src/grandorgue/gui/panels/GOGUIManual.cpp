@@ -18,6 +18,7 @@
 #include "GOGUILayoutEngine.h"
 #include "GOGUIMouseState.h"
 #include "GOGUIPanel.h"
+#include "GOImageCache.h"
 
 GOGUIManual::GOGUIManual(
   GOGUIPanel *panel, GOManual *manual, unsigned manual_number)
@@ -100,10 +101,12 @@ void GOGUIManual::Init(GOConfigReader &cfg, wxString group) {
     on_mask_file = wxEmptyString;
     off_mask_file = on_mask_file;
 
+    GOImageCache &imageCache = m_panel->GetImageCache();
+
     m_Keys[i].OnBitmap.SetSourceImage(
-      m_panel->LoadImage(on_file, on_mask_file));
+      imageCache.LoadImage(on_file, on_mask_file));
     m_Keys[i].OffBitmap.SetSourceImage(
-      m_panel->LoadImage(off_file, off_mask_file));
+      imageCache.LoadImage(off_file, off_mask_file));
 
     if (
       m_Keys[i].OnBitmap.GetSourceWidth()
@@ -307,10 +310,12 @@ void GOGUIManual::Load(GOConfigReader &cfg, wxString group) {
       false,
       off_mask_file);
 
+    GOImageCache &imageCache = m_panel->GetImageCache();
+
     m_Keys[i].OnBitmap.SetSourceImage(
-      m_panel->LoadImage(on_file, on_mask_file));
+      imageCache.LoadImage(on_file, on_mask_file));
     m_Keys[i].OffBitmap.SetSourceImage(
-      m_panel->LoadImage(off_file, off_mask_file));
+      imageCache.LoadImage(off_file, off_mask_file));
 
     if (
       m_Keys[i].OnBitmap.GetSourceWidth()
