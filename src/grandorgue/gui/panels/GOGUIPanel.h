@@ -27,12 +27,15 @@ class GOGUILayoutEngine;
 class GOGUIMouseState;
 class GOGUIPanelView;
 class GOGUIPanelWidget;
+class GOImageCache;
 class GOOrganController;
 
 #define GOBitmapPrefix "../GO:"
 
 class GOGUIPanel : public GOSizeKeeper {
 private:
+  GOImageCache &r_ImageCache;
+
   void BasicLoad(
     GOConfigReader &cfg, const wxString &group, bool isOpenByDefault);
   void LoadButton(
@@ -73,6 +76,9 @@ protected:
 public:
   GOGUIPanel(GOOrganController *organController);
   virtual ~GOGUIPanel();
+
+  GOImageCache &GetImageCache() const { return r_ImageCache; }
+
   void Init(
     GOConfigReader &cfg,
     GOGUIDisplayMetrics *metrics,
@@ -99,8 +105,6 @@ public:
   GOGUILayoutEngine *GetLayoutEngine();
   void PrepareDraw(double scale, GOBitmap *background);
   void Draw(GODC &dc);
-  const wxImage *GetWoodImage(unsigned woodImageNumber) const;
-  const wxImage *LoadImage(const wxString &filename, const wxString &maskname);
   void HandleKey(int key);
   void HandleMousePress(int x, int y, bool right);
   void HandleMouseRelease(bool right);
