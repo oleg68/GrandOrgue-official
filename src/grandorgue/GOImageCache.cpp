@@ -5,7 +5,7 @@
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
-#include "GOBitmapCache.h"
+#include "GOImageCache.h"
 
 #include <wx/intl.h>
 #include <wx/mstream.h>
@@ -150,31 +150,25 @@ BITMAP_LIST
 #define GOBitmapPrefix "../GO:"
 
 #define DECLARE_IMAGE(A, B)                                                    \
-  RegisterBitmap(new wxImage(GetImage_##A()), wxT(GOBitmapPrefix B));
+  RegisterImage(                                                               \
+    new wxImage(GetImage_##A()), wxT(GOBitmapPrefix B), WX_EMPTY_STRING);
 #define DECLARE_IMAGE_ROT(A, B)                                                \
   static wxImage A##_r(GetImage_##A().Rotate90());                             \
-  RegisterBitmap(new wxImage(A##_r), wxT(GOBitmapPrefix B));
+  RegisterImage(new wxImage(A##_r), wxT(GOBitmapPrefix B), WX_EMPTY_STRING);
 
-GOBitmapCache::GOBitmapCache(GOOrganController *organController)
+const wxString GOImageCache::WX_EMPTY_STRING = wxEmptyString;
+
+GOImageCache::GOImageCache(GOOrganController *organController)
   : m_OrganController(organController),
-    m_Bitmaps(),
-    m_Filenames(),
-    m_Masknames() {
+    m_images(),
+    m_filenames(),
+    m_masknames() {
   if (organController) {
     BITMAP_LIST;
   }
 }
 
-GOBitmapCache::~GOBitmapCache() {}
-
-void GOBitmapCache::RegisterBitmap(
-  wxImage *bitmap, wxString filename, wxString maskname) {
-  m_Bitmaps.push_back(bitmap);
-  m_Filenames.push_back(filename);
-  m_Masknames.push_back(maskname);
-}
-
-bool GOBitmapCache::loadFile(wxImage &img, const wxString &filename) {
+bool GOImageCache::LoadImageFromFile(wxImage &img, const wxString &filename) {
   bool result;
   GOLog *const log = dynamic_cast<GOLog *>(wxLog::GetActiveTarget());
 
@@ -206,19 +200,27 @@ bool GOBitmapCache::loadFile(wxImage &img, const wxString &filename) {
   return result;
 }
 
-const wxImage *GOBitmapCache::GetBitmap(wxString filename, wxString maskName) {
-  for (unsigned i = 0; i < m_Filenames.size(); i++)
-    if (m_Filenames[i] == filename && m_Masknames[i] == maskName)
-      return m_Bitmaps[i];
+void GOImageCache::RegisterImage(
+  wxImage *bitmap, const wxString &filename, const wxString &maskname) {
+  m_images.push_back(bitmap);
+  m_filenames.push_back(filename);
+  m_masknames.push_back(maskname);
+}
+
+const wxImage *GOImageCache::LoadImage(
+  const wxString &filename, const wxString &maskName) {
+  for (unsigned i = 0; i < m_filenames.size(); i++)
+    if (m_filenames[i] == filename && m_masknames[i] == maskName)
+      return m_images[i];
 
   wxImage image, maskimage;
 
-  if (!loadFile(image, filename))
+  if (!LoadImageFromFile(image, filename))
     throw wxString::Format(
       _("Failed to open the graphic '%s'"), filename.c_str());
 
   if (maskName != wxEmptyString) {
-    if (!loadFile(maskimage, maskName))
+    if (!LoadImageFromFile(maskimage, maskName))
       throw wxString::Format(
         _("Failed to open the graphic '%s'"), maskName.c_str());
 
@@ -237,6 +239,6 @@ const wxImage *GOBitmapCache::GetBitmap(wxString filename, wxString maskName) {
 
   if (bitmap->HasMask())
     bitmap->InitAlpha();
-  RegisterBitmap(bitmap, filename, maskName);
+  RegisterImage(bitmap, filename, maskName);
   return bitmap;
 }
