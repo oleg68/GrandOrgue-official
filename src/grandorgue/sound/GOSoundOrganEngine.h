@@ -18,7 +18,10 @@
 #include "GOSoundSampler.h"
 #include "GOSoundSamplerPool.h"
 
-class GOWindchest;
+class GOConfig;
+class GOMemoryPool;
+class GOOrganModel;
+class GOSoundBufferMutable;
 class GOSoundProvider;
 class GOSoundRecorder;
 class GOSoundGroupTask;
@@ -28,9 +31,7 @@ class GOSoundTouchTask;
 class GOSoundTremulantTask;
 class GOSoundWindchestTask;
 class GOSoundTask;
-class GOOrganController;
-class GOConfig;
-class GOSoundBufferMutable;
+class GOWindchest;
 
 typedef struct {
   unsigned channels;
@@ -123,7 +124,10 @@ public:
   GOSoundOrganEngine();
   ~GOSoundOrganEngine();
   void Reset();
-  void Setup(GOOrganController *organController, unsigned release_count = 1);
+  void Setup(
+    GOOrganModel &organModel,
+    GOMemoryPool &memoryPool,
+    unsigned releaseCount = 1);
   void ClearSetup();
   void SetAudioOutput(std::vector<GOAudioOutputConfiguration> audio_outputs);
   void SetupReverb(GOConfig &settings);
