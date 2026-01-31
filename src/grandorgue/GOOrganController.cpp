@@ -865,7 +865,7 @@ void GOOrganController::Abort() {
   m_AudioRecorder->StopRecording();
   m_AudioRecorder->SetAudioRecorder(NULL);
   if (p_OnStateButton)
-    p_OnStateButton->AbortPlaybackExt();
+    p_OnStateButton->AbortPlayback();
   GOOrganModel::GOSoundOrganInterfaceProxy::Disconnect();
   GOOrganModel::SetMidi(nullptr, nullptr);
   m_midi = NULL;
@@ -893,7 +893,7 @@ void GOOrganController::PreparePlayback(
   m_MidiSamplesetMatch.clear();
   GOOrganModel::SetMidi(midi, m_MidiRecorder);
   GOOrganModel::GOSoundOrganInterfaceProxy::Connect(engine);
-  GOEventDistributor::PreparePlayback(engine);
+  GOEventDistributor::PreparePlayback();
 
   m_setter->UpdateModified(m_OrganModified);
 
@@ -903,9 +903,9 @@ void GOOrganController::PreparePlayback(
 
   // Light the OnState button
   if (p_OnStateButton) {
-    p_OnStateButton->PreparePlaybackExt(engine);
-    p_OnStateButton->StartPlaybackExt();
-    p_OnStateButton->PrepareRecordingExt();
+    p_OnStateButton->PreparePlayback();
+    p_OnStateButton->StartPlayback();
+    p_OnStateButton->PrepareRecording();
   }
 }
 

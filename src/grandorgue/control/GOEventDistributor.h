@@ -30,7 +30,7 @@ protected:
   void ResolveReferences();
   void UpdateHash(GOHash &hash);
 
-  void PreparePlayback(GOSoundOrganEngine *pSoundEngine);
+  void PreparePlayback();
   void StartPlayback();
   void AbortPlayback();
   void PrepareRecording();
