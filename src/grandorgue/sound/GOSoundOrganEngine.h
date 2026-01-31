@@ -13,6 +13,7 @@
 
 #include "scheduler/GOSoundScheduler.h"
 
+#include "GOSoundOrganInterface.h"
 #include "GOSoundResample.h"
 #include "GOSoundSampler.h"
 #include "GOSoundSamplerPool.h"
@@ -42,7 +43,7 @@ typedef struct {
  * (WindChests, Tremulants)
  */
 
-class GOSoundOrganEngine {
+class GOSoundOrganEngine : public GOSoundOrganInterface {
 private:
   static constexpr int DETACHED_RELEASE_TASK_ID = 0;
 
@@ -130,7 +131,7 @@ public:
   void SetSampleRate(unsigned sample_rate);
   void SetSamplesPerBuffer(unsigned sample_per_buffer);
   void SetInterpolationType(unsigned type);
-  unsigned GetSampleRate();
+  unsigned GetSampleRate() const override { return m_SampleRate; }
   void SetAudioGroupCount(unsigned groups);
   unsigned GetAudioGroupCount();
   void SetHardPolyphony(unsigned polyphony);
@@ -142,7 +143,7 @@ public:
   const std::vector<double> &GetMeterInfo();
   void SetAudioRecorder(GOSoundRecorder *recorder, bool downmix);
 
-  inline GOSoundSampler *StartPipeSample(
+  GOSoundSampler *StartPipeSample(
     const GOSoundProvider *pipeProvider,
     unsigned windchestN,
     unsigned audioGroup,
@@ -150,7 +151,7 @@ public:
     unsigned delay,
     uint64_t prevEventTime,
     bool isRelease = false,
-    uint64_t *pStartTimeSamples = nullptr) {
+    uint64_t *pStartTimeSamples = nullptr) override {
     return CreateTaskSample(
       pipeProvider,
       windchestN,
@@ -165,15 +166,19 @@ public:
   inline GOSoundSampler *StartTremulantSample(
     const GOSoundProvider *tremProvider,
     unsigned tremulantN,
-    uint64_t prevEventTime) {
+    uint64_t prevEventTime) override {
     return CreateTaskSample(
       tremProvider, -tremulantN, 0, 0x7f, 0, prevEventTime, false, nullptr);
   }
 
-  uint64_t StopSample(const GOSoundProvider *pipe, GOSoundSampler *handle);
-  void SwitchSample(const GOSoundProvider *pipe, GOSoundSampler *handle);
+  uint64_t StopSample(
+    const GOSoundProvider *pipe, GOSoundSampler *handle) override;
+  void SwitchSample(
+    const GOSoundProvider *pipe, GOSoundSampler *handle) override;
   void UpdateVelocity(
-    const GOSoundProvider *pipe, GOSoundSampler *handle, unsigned velocity);
+    const GOSoundProvider *pipe,
+    GOSoundSampler *handle,
+    unsigned velocity) override;
 
   void GetAudioOutput(
     unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);

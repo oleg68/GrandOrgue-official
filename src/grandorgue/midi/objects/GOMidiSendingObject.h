@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -55,12 +55,12 @@ protected:
 
   void OnSettingsApplied() override;
 
+public:
+  virtual void SetElementId(int id);
+
   void PreparePlayback() override;
   void PrepareRecording() override;
   void AbortPlayback() override;
-
-public:
-  virtual void SetElementId(int id);
 };
 
 #endif /* GOMIDISENDINGOBJECT_H */
