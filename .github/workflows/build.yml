@@ -1,21 +1,40 @@
 name: Build
 
-on: [push]
+on:
+  push:
+  workflow_dispatch:
+
 jobs:
   tests:
+    needs: [calc_ver]
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: true
+
       - name: Install Test Dependencies
         run: ${{github.workspace}}/build-scripts/for-linux/prepare-debian-based.sh tests
 
       - name: Build
         working-directory: ${{github.workspace}}
-        run: ${{github.workspace}}/build-scripts/for-linux/build-for-tests.sh amd64
-  
+        run: ${{github.workspace}}/build-scripts/for-linux/build-for-tests.sh amd64 ${{ matrix.build_type }}
+
+      - name: Upload test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: grandorgue-test-${{ matrix.build_type }}-${{needs.calc_ver.outputs.full_ver}}-linux.x86_64
+          path: ${{github.workspace}}/grandorgue*.tar.gz
+          retention-days: 7
+          if-no-files-found: error
+
       - name: Run tests
         working-directory: ${{github.workspace}}
         run: ${{github.workspace}}/build-scripts/for-linux/do-tests.sh
@@ -28,7 +47,9 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - uses: codecov/codecov-action@v3
+      - name: Upload coverage (Debug only)
+        if: ${{ matrix.build_type == 'Debug' }}
+        uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
         
