@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -314,7 +314,7 @@ void GOSoundEngine::SetAudioOutput(
       audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
     channels += audio_outputs[i].channels;
   }
-  std::vector<GOSoundBufferItem *> outputs;
+  std::vector<GOSoundBufferTaskBase *> outputs;
   for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
     outputs.push_back(m_AudioGroupTasks[i]);
   for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
@@ -324,7 +324,7 @@ void GOSoundEngine::SetAudioOutput(
 
 void GOSoundEngine::SetAudioRecorder(GOSoundRecorder *recorder, bool downmix) {
   m_AudioRecorder = recorder;
-  std::vector<GOSoundBufferItem *> outputs;
+  std::vector<GOSoundBufferTaskBase *> outputs;
   if (downmix)
     outputs.push_back(m_AudioOutputTasks[0]);
   else {

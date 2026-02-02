@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -13,7 +13,7 @@
 
 GOSoundGroupTask::GOSoundGroupTask(
   GOSoundEngine &sound_engine, unsigned samples_per_buffer)
-  : GOSoundBufferItem(samples_per_buffer, 2),
+  : GOSoundBufferTaskBase(samples_per_buffer, 2),
     m_engine(sound_engine),
     m_Condition(m_Mutex),
     m_ActiveCount(0),
