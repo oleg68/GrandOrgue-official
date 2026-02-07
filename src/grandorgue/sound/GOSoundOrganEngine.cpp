@@ -11,6 +11,7 @@
 
 #include "model/GOPipe.h"
 #include "model/GOWindchest.h"
+#include "sound/buffer/GOSoundBufferMutable.h"
 #include "sound/scheduler/GOSoundGroupTask.h"
 #include "sound/scheduler/GOSoundOutputTask.h"
 #include "sound/scheduler/GOSoundReleaseTask.h"
@@ -350,21 +351,16 @@ unsigned GOSoundOrganEngine::GetBufferSizeFor(
     * m_AudioOutputTasks[outputIndex + 1]->GetChannels();
 }
 
-void GOSoundOrganEngine::GetEmptyAudioOutput(
-  unsigned outputIndex, unsigned nFrames, float *pOutputBuffer) {
-  memset(pOutputBuffer, 0, GetBufferSizeFor(outputIndex, nFrames));
-}
-
 void GOSoundOrganEngine::GetAudioOutput(
-  float *output_buffer, unsigned n_frames, unsigned audio_output, bool last) {
+  unsigned outputIndex, bool isLast, GOSoundBufferMutable &outOutputBuffer) {
   if (m_HasBeenSetup.load()) {
-    m_AudioOutputTasks[audio_output + 1]->Finish(last);
-    memcpy(
-      output_buffer,
-      m_AudioOutputTasks[audio_output + 1]->m_Buffer,
-      GetBufferSizeFor(audio_output, n_frames));
+    m_AudioOutputTasks[outputIndex + 1]->Finish(isLast);
+    outOutputBuffer.CopyFrom(GOSoundBuffer(
+      m_AudioOutputTasks[outputIndex + 1]->m_Buffer,
+      outOutputBuffer.GetNChannels(),
+      outOutputBuffer.GetNSamples()));
   } else
-    GetEmptyAudioOutput(audio_output, n_frames, output_buffer);
+    outOutputBuffer.FillWithSilence();
 }
 
 void GOSoundOrganEngine::NextPeriod() {
