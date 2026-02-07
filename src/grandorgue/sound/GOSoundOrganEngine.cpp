@@ -350,7 +350,7 @@ void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
 unsigned GOSoundOrganEngine::GetBufferSizeFor(
   unsigned outputIndex, unsigned nFrames) {
   return sizeof(float) * nFrames
-    * m_AudioOutputTasks[outputIndex + 1]->GetChannels();
+    * m_AudioOutputTasks[outputIndex + 1]->GetNChannels();
 }
 
 void GOSoundOrganEngine::GetAudioOutput(
@@ -359,8 +359,7 @@ void GOSoundOrganEngine::GetAudioOutput(
     GOSoundOutputTask *pOutputTask = m_AudioOutputTasks[outputIndex + 1];
 
     pOutputTask->Finish(isLast);
-    outBuffer.CopyFrom(GOSoundBuffer(
-      pOutputTask->m_Buffer, outBuffer.GetNChannels(), outBuffer.GetNFrames()));
+    outBuffer.CopyFrom(*pOutputTask);
   } else
     outBuffer.FillWithSilence();
 }
