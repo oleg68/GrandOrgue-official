@@ -8,27 +8,16 @@
 #ifndef GOSOUNDBUFFERTASKBASE_H
 #define GOSOUNDBUFFERTASKBASE_H
 
+#include "sound/buffer/GOSoundBufferManaged.h"
+
 class GOSoundThread;
 
-class GOSoundBufferTaskBase {
-protected:
-  unsigned m_SamplesPerBuffer;
-  unsigned m_Channels;
-
+class GOSoundBufferTaskBase : public GOSoundBufferManaged {
 public:
-  GOSoundBufferTaskBase(unsigned samples_per_buffer, unsigned channels)
-    : m_SamplesPerBuffer(samples_per_buffer), m_Channels(channels) {
-    m_Buffer = new float[m_SamplesPerBuffer * m_Channels];
-  }
-  virtual ~GOSoundBufferTaskBase() { delete[] m_Buffer; }
+  GOSoundBufferTaskBase(unsigned nChannels, unsigned nSamples)
+    : GOSoundBufferManaged(nChannels, nSamples) {}
 
   virtual void Finish(bool stop, GOSoundThread *pThread = nullptr) = 0;
-
-  float *m_Buffer;
-
-  unsigned GetSamplesPerBuffer() { return m_SamplesPerBuffer; }
-
-  unsigned GetChannels() { return m_Channels; }
 };
 
 #endif /* GOSOUNDBUFFERTASKBASE_H */

@@ -346,7 +346,7 @@ void GOSoundEngine::SetupReverb(GOConfig &settings) {
 unsigned GOSoundEngine::GetBufferSizeFor(
   unsigned outputIndex, unsigned nFrames) {
   return sizeof(float) * nFrames
-    * m_AudioOutputTasks[outputIndex + 1]->GetChannels();
+    * m_AudioOutputTasks[outputIndex + 1]->GetNChannels();
 }
 
 void GOSoundEngine::GetEmptyAudioOutput(
@@ -360,7 +360,7 @@ void GOSoundEngine::GetAudioOutput(
     m_AudioOutputTasks[audio_output + 1]->Finish(last);
     memcpy(
       output_buffer,
-      m_AudioOutputTasks[audio_output + 1]->m_Buffer,
+      m_AudioOutputTasks[audio_output + 1]->GetData(),
       GetBufferSizeFor(audio_output, n_frames));
   } else
     GetEmptyAudioOutput(audio_output, n_frames, output_buffer);
