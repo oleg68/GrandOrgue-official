@@ -181,7 +181,7 @@ public:
     unsigned velocity) override;
 
   void GetAudioOutput(
-    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outOutputBuffer);
+    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
   void NextPeriod();
   GOSoundScheduler &GetScheduler();
 
