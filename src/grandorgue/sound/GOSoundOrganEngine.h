@@ -176,7 +176,7 @@ public:
     const GOSoundProvider *pipe, GOSoundSampler *handle, unsigned velocity);
 
   void GetAudioOutput(
-    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outOutputBuffer);
+    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
   void NextPeriod();
   GOSoundScheduler &GetScheduler();
 
