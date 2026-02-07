@@ -40,6 +40,7 @@ class GOConfig;
  */
 
 class GOSoundSystem {
+private:
   class GOSoundOutput {
   public:
     GOSoundPort *port;
@@ -68,15 +69,16 @@ class GOSoundSystem {
     }
   };
 
-private:
+  // Have all output audio devices opened successfully
   bool m_open;
+  // Is the sound engine ready yo accept audio callback calls
   std::atomic_bool m_IsRunning;
 
   // counter of audio callbacks that have been entered but have not yet been
   // exited
   std::atomic_uint m_NCallbacksEntered;
 
-  // For waiting for and notifying when m_NCallbacksEntered bacomes 0
+  // For waiting for and notifying when m_NCallbacksEntered becomes 0
   GOMutex m_CallbackMutex;
   GOCondition m_CallbackCondition;
 
@@ -114,8 +116,48 @@ private:
 
   void OpenMidi();
 
-  void OpenSound();
-  void CloseSound();
+  // Starting step 1.
+  // Open output device ports and MIDI and do other initialising with using
+  // neither m_SoundEngine nor m_OrganController
+  // Sets m_open = true at the end
+  void OpenSoundSystem();
+
+  // Starting step 2.
+  // Do specific initialising steps for m_SoundEngine using m_OrganController.
+  // After this call the organ sound engine is ready to accept audio callbacks.
+  // Can only be called when m_OrganController is set and m_open is true
+  void PrepareEngine();
+
+  // Starting step 3.
+  // After this step output devece callbacks start to be propagated to the organ
+  // sound engine. Can only be called when m_open is true
+  void ConnectToEngine();
+
+  // Starting step 4.
+  // Call callbacks to m_OrganController
+  // Can only be called when m_OrganController is set and m_open is true
+  void NotifySoundStarted();
+
+  // Finish step 4.
+  // Call callbacks to m_OrganController
+  // Can only be called when m_OrganController is set and m_open is true
+  void NotifySoundStopped();
+
+  // Finish step 3.
+  // Wait for all audio callbacks in progress to finish and prevents propagation
+  // of future callbacks. Can only be called when m_open is true
+  void DisconnectFromEngine();
+
+  // Finish step 2.
+  // Cleanup steps with m_SoundEngine. After this call the sound engine is not
+  // ready to accept audio callbacks.
+  // Can only be called when m_OrganController is set and m_open is true
+  void CleanupEngine();
+
+  // Finish step 1.
+  // neither m_SoundEngine nor m_OrganController
+  // Can only be called when m_open is true. Sets m_open = false at the end
+  void CloseSoundSystem();
 
   void StartStreams();
   void UpdateMeter();

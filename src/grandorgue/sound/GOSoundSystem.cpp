@@ -39,7 +39,7 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
     m_midi(settings) {}
 
 GOSoundSystem::~GOSoundSystem() {
-  CloseSound();
+  AssureSoundIsClosed();
 
   GOMidiPortFactory::terminate();
   GOSoundPortFactory::terminate();
@@ -68,10 +68,59 @@ void GOSoundSystem::StopThreads() {
 
 void GOSoundSystem::OpenMidi() { m_midi.Open(); }
 
-void GOSoundSystem::OpenSound() {
+void GOSoundSystem::OpenSoundSystem() {
   m_LastErrorMessage = wxEmptyString;
   assert(!m_open);
   assert(m_AudioOutputs.size() == 0);
+
+  std::vector<GOAudioDeviceConfig> &audio_config
+    = m_config.GetAudioDeviceConfig();
+
+  m_AudioOutputs.resize(audio_config.size());
+  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
+    m_AudioOutputs[i].port = NULL;
+  m_SamplesPerBuffer = m_config.SamplesPerBuffer();
+  m_AudioRecorder.SetBytesPerSample(m_config.WaveFormatBytesPerSample());
+  unsigned sample_rate = m_config.SampleRate();
+  m_AudioRecorder.SetSampleRate(sample_rate);
+
+  const GOPortsConfig &portsConfig(m_config.GetSoundPortsConfig());
+
+  for (unsigned l = m_AudioOutputs.size(), i = 0; i < l; i++) {
+    GOAudioDeviceConfig &deviceConfig = audio_config[i];
+    GODeviceNamePattern *pNamePattern = &deviceConfig;
+    GODeviceNamePattern defaultDevicePattern;
+
+    if (!pNamePattern->IsFilled()) {
+      FillDeviceNamePattern(
+        GetDefaultAudioDevice(portsConfig), defaultDevicePattern);
+      pNamePattern = &defaultDevicePattern;
+    }
+
+    GOSoundPort *pPort
+      = GOSoundPortFactory::create(portsConfig, this, *pNamePattern);
+
+    if (!pPort)
+      throw wxString::Format(
+        _("Output device %s not found - no sound output will occur"),
+        pNamePattern->GetRegEx());
+    m_AudioOutputs[i].port = pPort;
+    pPort->Init(
+      deviceConfig.GetChannels(),
+      sample_rate,
+      m_SamplesPerBuffer,
+      deviceConfig.GetDesiredLatency(),
+      i);
+  }
+
+  StartStreams();
+  StartThreads();
+  m_open = true;
+}
+
+void GOSoundSystem::PrepareEngine() {
+  assert(m_open);
+  assert(m_OrganController);
 
   const unsigned audio_group_count = m_config.GetAudioGroups().size();
   std::vector<GOAudioDeviceConfig> &audio_config
@@ -79,9 +128,6 @@ void GOSoundSystem::OpenSound() {
   const unsigned audioDeviceCount = audio_config.size();
   std::vector<GOAudioOutputConfiguration> engine_config;
 
-  m_AudioOutputs.resize(audio_config.size());
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    m_AudioOutputs[i].port = NULL;
   engine_config.resize(audioDeviceCount);
   for (unsigned i = 0; i < audioDeviceCount; i++) {
     const GOAudioDeviceConfig &deviceConfig = audio_config[i];
@@ -115,7 +161,7 @@ void GOSoundSystem::OpenSound() {
       }
     }
   }
-  m_SamplesPerBuffer = m_config.SamplesPerBuffer();
+
   m_SoundEngine.SetSamplesPerBuffer(m_SamplesPerBuffer);
   m_SoundEngine.SetPolyphonyLimiting(m_config.ManagePolyphony());
   m_SoundEngine.SetHardPolyphony(m_config.PolyphonyLimit());
@@ -124,70 +170,32 @@ void GOSoundSystem::OpenSound() {
   m_SoundEngine.SetInterpolationType(m_config.m_InterpolationType());
   m_SoundEngine.SetAudioGroupCount(audio_group_count);
   unsigned sample_rate = m_config.SampleRate();
-  m_AudioRecorder.SetBytesPerSample(m_config.WaveFormatBytesPerSample());
   GetEngine().SetSampleRate(sample_rate);
-  m_AudioRecorder.SetSampleRate(sample_rate);
   m_SoundEngine.SetAudioOutput(engine_config);
   m_SoundEngine.SetupReverb(m_config);
   m_SoundEngine.SetAudioRecorder(&m_AudioRecorder, m_config.RecordDownmix());
 
-  if (m_OrganController)
-    m_SoundEngine.Setup(
-      *m_OrganController,
-      m_OrganController->GetMemoryPool(),
-      m_config.ReleaseConcurrency());
-  else
-    m_SoundEngine.ClearSetup();
+  m_SoundEngine.Setup(
+    *m_OrganController,
+    m_OrganController->GetMemoryPool(),
+    m_config.ReleaseConcurrency());
+}
 
-  const GOPortsConfig &portsConfig(m_config.GetSoundPortsConfig());
+void GOSoundSystem::ConnectToEngine() {
+  assert(m_open);
 
-  try {
-    for (unsigned l = m_AudioOutputs.size(), i = 0; i < l; i++) {
-      GOAudioDeviceConfig &deviceConfig = audio_config[i];
-      GODeviceNamePattern *pNamePattern = &deviceConfig;
-      GODeviceNamePattern defaultDevicePattern;
-
-      if (!pNamePattern->IsFilled()) {
-        FillDeviceNamePattern(
-          GetDefaultAudioDevice(portsConfig), defaultDevicePattern);
-        pNamePattern = &defaultDevicePattern;
-      }
-
-      GOSoundPort *pPort
-        = GOSoundPortFactory::create(portsConfig, this, *pNamePattern);
-
-      if (!pPort)
-        throw wxString::Format(
-          _("Output device %s not found - no sound output will occur"),
-          pNamePattern->GetRegEx());
-      m_AudioOutputs[i].port = pPort;
-      pPort->Init(
-        deviceConfig.GetChannels(),
-        GetEngine().GetSampleRate(),
-        m_SamplesPerBuffer,
-        deviceConfig.GetDesiredLatency(),
-        i);
-    }
-
-    OpenMidi();
+  if (!m_IsRunning) {
     m_NCallbacksEntered.store(0);
-    StartStreams();
-    StartThreads();
-    m_open = true;
     m_IsRunning.store(true);
-
-    if (m_OrganController)
-      m_OrganController->PreparePlayback(
-        &GetEngine(), &GetMidi(), &m_AudioRecorder);
-  } catch (wxString &msg) {
-    if (logSoundErrors)
-      GOMessageBox(msg, _("Error"), wxOK | wxICON_ERROR, NULL);
-    else
-      m_LastErrorMessage = msg;
   }
+}
 
-  if (!m_open)
-    CloseSound();
+void GOSoundSystem::NotifySoundStarted() {
+  assert(m_open);
+  assert(m_OrganController);
+
+  m_OrganController->PreparePlayback(
+    &GetEngine(), &GetMidi(), &m_AudioRecorder);
 }
 
 void GOSoundSystem::StartStreams() {
@@ -212,7 +220,16 @@ void GOSoundSystem::StartStreams() {
     m_AudioOutputs[i].port->StartStream();
 }
 
-void GOSoundSystem::CloseSound() {
+void GOSoundSystem::NotifySoundStopped() {
+  assert(m_open);
+  assert(m_OrganController);
+
+  m_OrganController->Abort();
+}
+
+void GOSoundSystem::DisconnectFromEngine() {
+  assert(m_open);
+
   m_IsRunning.store(false);
 
   // wait for all started callbacks to finish
@@ -224,8 +241,6 @@ void GOSoundSystem::CloseSound() {
         "GOSoundSystem::CloseSound waits for all callbacks to finish", nullptr);
   }
 
-  StopThreads();
-
   for (unsigned i = 0; i < m_AudioOutputs.size(); i++) {
     m_AudioOutputs[i].waiting = false;
     m_AudioOutputs[i].wait = false;
@@ -236,6 +251,25 @@ void GOSoundSystem::CloseSound() {
     GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
     m_AudioOutputs[i].condition.Broadcast();
   }
+}
+
+void GOSoundSystem::CleanupEngine() {
+  assert(m_open);
+  assert(m_OrganController);
+
+  // ensure pointers to work items are not held by threads
+  m_SoundEngine.GetScheduler().PauseGivingWork();
+  for (GOSoundThread *thread : m_Threads)
+    thread->WaitForIdle();
+
+  m_SoundEngine.ClearSetup();
+  m_SoundEngine.GetScheduler().ResumeGivingWork();
+}
+
+void GOSoundSystem::CloseSoundSystem() {
+  assert(m_open);
+
+  StopThreads();
 
   for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
     if (m_AudioOutputs[i].port) {
@@ -247,56 +281,67 @@ void GOSoundSystem::CloseSound() {
     }
   }
 
-  if (m_OrganController)
-    m_OrganController->Abort();
   ResetMeters();
   m_AudioOutputs.clear();
   m_open = false;
 }
 
 bool GOSoundSystem::AssureSoundIsOpen() {
-  if (!m_open)
-    OpenSound();
+  if (!m_open) { // Try to open audio devices
+    try {
+      OpenSoundSystem();
+    } catch (wxString &msg) {
+      if (logSoundErrors)
+        GOMessageBox(msg, _("Error"), wxOK | wxICON_ERROR, NULL);
+      else
+        m_LastErrorMessage = msg;
+    }
+  }
+  if (m_open) { // Everything is OK. Perform other starting steps
+    OpenMidi();
+    if (m_OrganController && !m_IsRunning.load()) {
+      PrepareEngine();
+      ConnectToEngine();
+      NotifySoundStarted();
+    }
+  } else // Sometimes is wrong. Close all audio devices that are partially open
+    CloseSoundSystem();
   return m_open;
 }
 
 void GOSoundSystem::AssureSoundIsClosed() {
+  if (m_IsRunning.load()) {
+    assert(m_open);
+    assert(m_OrganController);
+    NotifySoundStopped();
+    DisconnectFromEngine();
+    CleanupEngine();
+  }
   if (m_open)
-    CloseSound();
+    CloseSoundSystem();
 }
 
 void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
-  if (organController == m_OrganController)
-    return;
+  if (organController != m_OrganController) {
+    GOMutexLocker locker(m_lock);
+    GOMultiMutexLocker multi;
 
-  GOMutexLocker locker(m_lock);
-  GOMultiMutexLocker multi;
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    multi.Add(m_AudioOutputs[i].mutex);
+    for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
+      multi.Add(m_AudioOutputs[i].mutex);
 
-  if (m_OrganController) {
-    // ensure pointers to work items are not held by threads
-    m_SoundEngine.GetScheduler().PauseGivingWork();
-    for (GOSoundThread *thread : m_Threads)
-      thread->WaitForIdle();
+    if (m_OrganController && m_open) {
+      NotifySoundStopped();
+      DisconnectFromEngine();
+      CleanupEngine();
+    }
 
-    m_OrganController->Abort();
-    // now work items are safe to be deleted
-    m_SoundEngine.ClearSetup();
+    m_OrganController = organController;
 
-    // resume processing of work items
-    m_SoundEngine.GetScheduler().ResumeGivingWork();
-  }
-
-  m_OrganController = organController;
-
-  if (m_OrganController && m_AudioOutputs.size()) {
-    m_SoundEngine.Setup(
-      *organController,
-      m_OrganController->GetMemoryPool(),
-      m_config.ReleaseConcurrency());
-    m_OrganController->PreparePlayback(
-      &GetEngine(), &GetMidi(), &m_AudioRecorder);
+    if (m_OrganController && m_open) {
+      PrepareEngine();
+      ConnectToEngine();
+      NotifySoundStarted();
+    }
   }
 }
 
