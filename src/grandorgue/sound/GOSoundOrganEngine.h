@@ -30,6 +30,7 @@ class GOSoundWindchestTask;
 class GOSoundTask;
 class GOOrganController;
 class GOConfig;
+class GOSoundBufferMutable;
 
 typedef struct {
   unsigned channels;
@@ -179,10 +180,8 @@ public:
     GOSoundSampler *handle,
     unsigned velocity) override;
 
-  void GetEmptyAudioOutput(
-    unsigned outputIndex, unsigned nFrames, float *pOutputBuffer);
   void GetAudioOutput(
-    float *output_buffer, unsigned n_frames, unsigned audio_output, bool last);
+    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outOutputBuffer);
   void NextPeriod();
   GOSoundScheduler &GetScheduler();
 
