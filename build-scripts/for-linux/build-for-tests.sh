@@ -32,3 +32,7 @@ echo "cmake -G \"Unix Makefiles\" $GO_PRMS . $SRC_DIR"
 cmake -G "Unix Makefiles" $GO_PRMS . $SRC_DIR
 echo "cmake --build . --parallel $PARALLEL_PRMS"
 cmake --build . --parallel $PARALLEL_PRMS
+
+# Create tar.gz package for easy distribution
+echo "Creating test package with cpack"
+cpack -G TGZ
