@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# $1 - directory
-# $2 - target deb architecture. Default - current
+# $1 - target deb architecture. Default - current
+# $2 - build type: Debug or Release. Default - Debug
 
 set -e
 
@@ -11,12 +11,13 @@ DIR=$(dirname $0)
 
 SRC_DIR=$(readlink -f $(dirname $0)/../..)
 
-TARGET_ARCH=${2:$(dpkg --print-architecture)}
+TARGET_ARCH=${1:-$(dpkg --print-architecture)}
+BUILD_TYPE=${2:-Debug}
 
 export LANG=C
 
 # Define BUILD_TESTING=ON
-GO_PRMS="-DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON \
+GO_PRMS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTING=ON \
   $CMAKE_VERSION_PRMS \
   $($DIR/cmake-prm-yaml-cpp.bash $TARGET_ARCH)"
 

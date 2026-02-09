@@ -1,36 +1,47 @@
 name: Build
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
   tests:
+    needs: [calc_ver]
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           submodules: true
+
       - name: Install Test Dependencies
         run: ${{github.workspace}}/build-scripts/for-linux/prepare-debian-based.sh tests
 
       - name: Build
         working-directory: ${{github.workspace}}
-        run: ${{github.workspace}}/build-scripts/for-linux/build-for-tests.sh amd64
-  
-      - name: Run tests
-        working-directory: ${{github.workspace}}
-        run: ${{github.workspace}}/build-scripts/for-linux/do-tests.sh
+        run: ${{github.workspace}}/build-scripts/for-linux/build-for-tests.sh amd64 ${{ matrix.build_type }}
 
       - name: Upload test executable
         uses: actions/upload-artifact@v4
         with:
-          name: GOTestExe-ubuntu-latest
+          name: GOTestExe-${{ matrix.build_type }}-${{needs.calc_ver.outputs.full_ver}}-ubuntu-latest
           path: ${{github.workspace}}/bin/GOTestExe
           retention-days: 7
           if-no-files-found: error
 
-      - uses: codecov/codecov-action@v3
+      - name: Run tests
+        working-directory: ${{github.workspace}}
+        run: ${{github.workspace}}/build-scripts/for-linux/do-tests.sh
+
+      - name: Upload coverage (Debug only)
+        if: ${{ matrix.build_type == 'Debug' }}
+        uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
         
