@@ -27,11 +27,11 @@ jobs:
         working-directory: ${{github.workspace}}
         run: ${{github.workspace}}/build-scripts/for-linux/build-for-tests.sh amd64 ${{ matrix.build_type }}
 
-      - name: Upload test executable
+      - name: Upload test package
         uses: actions/upload-artifact@v4
         with:
-          name: GOTestExe-${{ matrix.build_type }}-${{needs.calc_ver.outputs.full_ver}}-ubuntu-latest
-          path: ${{github.workspace}}/bin/GOTestExe
+          name: grandorgue-test-${{ matrix.build_type }}-${{needs.calc_ver.outputs.full_ver}}-linux.x86_64
+          path: ${{github.workspace}}/grandorgue*.tar.gz
           retention-days: 7
           if-no-files-found: error
 
