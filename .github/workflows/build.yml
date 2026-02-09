@@ -1,6 +1,8 @@
 name: Build
 
-on: [push]
+on:
+  workflow_dispatch:
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -19,6 +21,15 @@ jobs:
       - name: Run tests
         working-directory: ${{github.workspace}}
         run: ${{github.workspace}}/build-scripts/for-linux/do-tests.sh
+
+      - name: Upload test executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: GOTestExe-ubuntu-latest
+          path: ${{github.workspace}}/bin/GOTestExe
+          retention-days: 7
+          if-no-files-found: error
+
       - uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
