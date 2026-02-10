@@ -16,8 +16,14 @@ BUILD_TYPE=${2:-Debug}
 
 export LANG=C
 
+# Enable coverage only for Debug builds
+COVERAGE_FLAG=""
+if [ "$BUILD_TYPE" = "Debug" ]; then
+    COVERAGE_FLAG="-DGO_BUILD_COVERAGE=ON"
+fi
+
 # Define BUILD_TESTING=ON
-GO_PRMS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTING=ON \
+GO_PRMS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTING=ON $COVERAGE_FLAG \
   $CMAKE_VERSION_PRMS \
   $($DIR/cmake-prm-yaml-cpp.bash $TARGET_ARCH)"
 
