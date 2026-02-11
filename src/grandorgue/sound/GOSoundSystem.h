@@ -19,8 +19,6 @@
 #include "threading/GOCondition.h"
 #include "threading/GOMutex.h"
 
-#include "ptrvector.h"
-
 #include "GOSoundDevInfo.h"
 #include "GOSoundOrganEngine.h"
 #include "GOSoundRecorder.h"
@@ -28,7 +26,6 @@
 class GODeviceNamePattern;
 class GOOrganController;
 class GOMidiSystem;
-class GOSoundThread;
 class GOSoundPort;
 class GOSoundRtPort;
 class GOSoundPortaudioPort;
@@ -83,7 +80,6 @@ private:
   GOCondition m_CallbackCondition;
 
   GOMutex m_lock;
-  GOMutex m_thread_lock;
 
   bool logSoundErrors;
 
@@ -101,16 +97,12 @@ private:
   GOSoundRecorder m_AudioRecorder;
 
   GOSoundOrganEngine m_SoundEngine;
-  ptr_vector<GOSoundThread> m_Threads;
 
   GOConfig &m_config;
 
   GOMidiSystem m_midi;
 
   wxString m_LastErrorMessage;
-
-  void StopThreads();
-  void StartThreads();
 
   void ResetMeters();
 
