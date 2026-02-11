@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "scheduler/GOSoundScheduler.h"
+#include "threading/GOMutex.h"
 
 #include "GOSoundOrganInterface.h"
 #include "GOSoundResample.h"
@@ -22,15 +23,16 @@ class GOConfig;
 class GOMemoryPool;
 class GOOrganModel;
 class GOSoundBufferMutable;
-class GOSoundProvider;
-class GOSoundRecorder;
 class GOSoundGroupTask;
 class GOSoundOutputTask;
+class GOSoundProvider;
+class GOSoundRecorder;
 class GOSoundReleaseTask;
+class GOSoundTask;
+class GOSoundThread;
 class GOSoundTouchTask;
 class GOSoundTremulantTask;
 class GOSoundWindchestTask;
-class GOSoundTask;
 class GOWindchest;
 
 typedef struct {
@@ -72,6 +74,8 @@ private:
   GOSoundReleaseTask *m_ReleaseProcessor;
   std::unique_ptr<GOSoundTouchTask> m_TouchTask;
   GOSoundScheduler m_Scheduler;
+  GOMutex m_ThreadLock;
+  ptr_vector<GOSoundThread> m_Threads;
 
   GOSoundResample m_resample;
   GOSoundResample::InterpolationType m_interpolation;
@@ -212,6 +216,11 @@ public:
   void GetAudioOutput(
     unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
   void NextPeriod();
+
+  void StartThreads(unsigned nThreads);
+  void StopThreads();
+  void WakeupThreads();
+  void WaitForThreadsIdle();
 
   bool ProcessSampler(
     float *buffer, GOSoundSampler *sampler, unsigned n_frames, float volume);

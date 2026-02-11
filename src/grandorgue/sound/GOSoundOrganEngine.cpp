@@ -16,9 +16,11 @@
 #include "sound/scheduler/GOSoundGroupTask.h"
 #include "sound/scheduler/GOSoundOutputTask.h"
 #include "sound/scheduler/GOSoundReleaseTask.h"
+#include "sound/scheduler/GOSoundThread.h"
 #include "sound/scheduler/GOSoundTouchTask.h"
 #include "sound/scheduler/GOSoundTremulantTask.h"
 #include "sound/scheduler/GOSoundWindchestTask.h"
+#include "threading/GOMutexLocker.h"
 
 #include "GOEvent.h"
 #include "GOSoundProvider.h"

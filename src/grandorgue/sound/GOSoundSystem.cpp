@@ -16,7 +16,6 @@
 #include "GOSoundDefs.h"
 #include "config/GOConfig.h"
 #include "midi/GOMidiSystem.h"
-#include "scheduler/GOSoundThread.h"
 #include "sound/buffer/GOSoundBufferMutable.h"
 #include "sound/ports/GOSoundPort.h"
 #include "threading/GOMultiMutexLocker.h"
@@ -43,27 +42,6 @@ GOSoundSystem::~GOSoundSystem() {
 
   GOMidiPortFactory::terminate();
   GOSoundPortFactory::terminate();
-}
-
-void GOSoundSystem::StartThreads() {
-  StopThreads();
-
-  unsigned n_cpus = m_config.Concurrency();
-
-  GOMutexLocker thread_locker(m_thread_lock);
-  for (unsigned i = 0; i < n_cpus; i++)
-    m_Threads.push_back(new GOSoundThread(&GetEngine().GetScheduler()));
-
-  for (unsigned i = 0; i < m_Threads.size(); i++)
-    m_Threads[i]->Run();
-}
-
-void GOSoundSystem::StopThreads() {
-  for (unsigned i = 0; i < m_Threads.size(); i++)
-    m_Threads[i]->Delete();
-
-  GOMutexLocker thread_locker(m_thread_lock);
-  m_Threads.resize(0);
 }
 
 void GOSoundSystem::OpenMidi() { m_midi.Open(); }
@@ -114,13 +92,14 @@ void GOSoundSystem::OpenSoundSystem() {
   }
 
   StartStreams();
-  StartThreads();
   m_open = true;
 }
 
 void GOSoundSystem::PrepareEngine() {
   assert(m_open);
   assert(m_OrganController);
+
+  m_SoundEngine.StartThreads(m_config.Concurrency());
 
   const unsigned audio_group_count = m_config.GetAudioGroups().size();
   std::vector<GOAudioDeviceConfig> &audio_config
@@ -259,17 +238,15 @@ void GOSoundSystem::CleanupEngine() {
 
   // ensure pointers to work items are not held by threads
   m_SoundEngine.GetScheduler().PauseGivingWork();
-  for (GOSoundThread *thread : m_Threads)
-    thread->WaitForIdle();
+  m_SoundEngine.WaitForThreadsIdle();
 
   m_SoundEngine.ClearSetup();
   m_SoundEngine.GetScheduler().ResumeGivingWork();
+  m_SoundEngine.StopThreads();
 }
 
 void GOSoundSystem::CloseSoundSystem() {
   assert(m_open);
-
-  StopThreads();
 
   for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
     if (m_AudioOutputs[i].port) {
@@ -448,11 +425,7 @@ bool GOSoundSystem::AudioCallback(
       m_SoundEngine.NextPeriod();
       UpdateMeter();
 
-      {
-        GOMutexLocker thread_locker(m_thread_lock);
-        for (unsigned i = 0; i < m_Threads.size(); i++)
-          m_Threads[i]->Wakeup();
-      }
+      m_SoundEngine.WakeupThreads();
       m_CalcCount.exchange(0);
       m_WaitCount.exchange(0);
 
