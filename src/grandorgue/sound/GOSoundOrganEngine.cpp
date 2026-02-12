@@ -234,33 +234,24 @@ void GOSoundOrganEngine::Setup(
   Reset();
 }
 
-void GOSoundOrganEngine::Prepare(
-  unsigned nSamplesPerBuffer,
-  unsigned sampleRate,
-  GOConfig &config,
-  GOSoundRecorder &recorder,
-  GOOrganModel &organModel,
-  GOMemoryPool &memoryPool) {
-  StartThreads(config.Concurrency());
-
-  const unsigned audio_group_count = config.GetAudioGroups().size();
-  std::vector<GOAudioDeviceConfig> &audio_config
+static std::vector<GOAudioOutputConfiguration> get_audio_output_conf(
+  GOConfig &config, unsigned nAudioGroups) {
+  std::vector<GOAudioDeviceConfig> &audioDeviceConf
     = config.GetAudioDeviceConfig();
-  const unsigned audioDeviceCount = audio_config.size();
-  std::vector<GOAudioOutputConfiguration> engine_config;
+  const unsigned nAudioDevices = audioDeviceConf.size();
+  std::vector<GOAudioOutputConfiguration> engineConf(nAudioDevices);
 
-  engine_config.resize(audioDeviceCount);
-  for (unsigned i = 0; i < audioDeviceCount; i++) {
-    const GOAudioDeviceConfig &deviceConfig = audio_config[i];
+  for (unsigned i = 0; i < nAudioDevices; i++) {
+    const GOAudioDeviceConfig &deviceConfig = audioDeviceConf[i];
     const auto &deviceOutputs = deviceConfig.GetChannelOututs();
-    GOAudioOutputConfiguration &engineConfig = engine_config[i];
+    GOAudioOutputConfiguration &engineDeviceConf = engineConf[i];
 
-    engineConfig.channels = deviceConfig.GetChannels();
-    engineConfig.scale_factors.resize(engineConfig.channels);
-    for (unsigned j = 0; j < engineConfig.channels; j++) {
-      std::vector<float> &scaleFactors = engineConfig.scale_factors[j];
+    engineDeviceConf.channels = deviceConfig.GetChannels();
+    engineDeviceConf.scale_factors.resize(engineDeviceConf.channels);
+    for (unsigned j = 0; j < engineDeviceConf.channels; j++) {
+      std::vector<float> &scaleFactors = engineDeviceConf.scale_factors[j];
 
-      scaleFactors.resize(audio_group_count * 2);
+      scaleFactors.resize(nAudioGroups * 2);
       std::fill(
         scaleFactors.begin(),
         scaleFactors.end(),
@@ -282,17 +273,40 @@ void GOSoundOrganEngine::Prepare(
       }
     }
   }
+  return engineConf;
+}
 
+void GOSoundOrganEngine::Prepare(
+  unsigned nSamplesPerBuffer,
+  unsigned sampleRate,
+  GOConfig &config,
+  GOSoundRecorder &recorder,
+  GOOrganModel &organModel,
+  GOMemoryPool &memoryPool) {
+  StartThreads(config.Concurrency());
+
+  const unsigned nAudioGroups = config.GetAudioGroups().size();
+
+  // Independent setters (in declaration order)
+  SetSampleRate(sampleRate);
   SetSamplesPerBuffer(nSamplesPerBuffer);
-  SetPolyphonyLimiting(config.ManagePolyphony());
   SetHardPolyphony(config.PolyphonyLimit());
+  SetPolyphonyLimiting(config.ManagePolyphony());
   SetScaledReleases(config.ScaleRelease());
   SetRandomizeSpeaking(config.RandomizeSpeaking());
   SetInterpolationType(config.m_InterpolationType());
-  SetAudioGroupCount(audio_group_count);
-  SetSampleRate(sampleRate);
-  SetAudioOutput(engine_config);
+
+  // After SetSamplesPerBuffer: creates GOSoundGroupTask with m_SamplesPerBuffer
+  SetAudioGroupCount(nAudioGroups);
+
+  // After SetAudioGroupCount: uses m_AudioGroupCount, m_AudioGroupTasks, and
+  // m_SamplesPerBuffer
+  SetAudioOutput(get_audio_output_conf(config, nAudioGroups));
+
+  // After SetAudioOutput: uses m_AudioOutputTasks
   SetupReverb(config);
+
+  // After SetAudioOutput: uses m_AudioOutputTasks and m_SamplesPerBuffer
   SetAudioRecorder(&recorder, config.RecordDownmix());
 
   Setup(organModel, memoryPool, config.ReleaseConcurrency());

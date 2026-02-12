@@ -119,14 +119,18 @@ void GOPerfTestApp::RunTest(
           true);
         pipes.push_back(w);
       }
+      // Independent setters (in declaration order)
+      engine->SetSampleRate(sample_rate);
       engine->SetSamplesPerBuffer(samples_per_frame);
       engine->SetVolume(10);
-      engine->SetSampleRate(sample_rate);
-      engine->SetPolyphonyLimiting(false);
       engine->SetHardPolyphony(10000);
+      engine->SetPolyphonyLimiting(false);
       engine->SetScaledReleases(true);
-      engine->SetAudioGroupCount(1);
       engine->SetInterpolationType(interpolation);
+
+      // After SetSamplesPerBuffer: creates GOSoundGroupTask with
+      // m_SamplesPerBuffer
+      engine->SetAudioGroupCount(1);
 
       std::vector<GOAudioOutputConfiguration> engine_config;
       engine_config.resize(1);
@@ -138,7 +142,12 @@ void GOPerfTestApp::RunTest(
       engine_config[0].scale_factors[1].resize(2);
       engine_config[0].scale_factors[1][0] = -121;
       engine_config[0].scale_factors[1][1] = 0;
+
+      // After SetAudioGroupCount: uses m_AudioGroupCount, m_AudioGroupTasks,
+      // and m_SamplesPerBuffer
       engine->SetAudioOutput(engine_config);
+
+      // After SetAudioOutput: uses m_AudioOutputTasks and m_SamplesPerBuffer
       engine->SetAudioRecorder(&recorder, false);
 
       engine->Setup(*organController, organController->GetMemoryPool());
