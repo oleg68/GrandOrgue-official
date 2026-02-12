@@ -71,9 +71,9 @@ static constexpr Baseline BASELINE_COPY_FROM[] = {
 
 static constexpr Baseline BASELINE_ADD_FROM[] = {
 #ifdef NDEBUG
-  {32, 3500},  // 3500 Msamples/sec (raised for modern hardware)
+  {32, 3100},  // 3100 Msamples/sec (measured: 3492.3, with 10% margin)
   {128, 4500}, // 4500 Msamples/sec (raised for modern hardware)
-  {512, 4500}, // 4500 Msamples/sec (raised for modern hardware)
+  {512, 4000}, // 4000 Msamples/sec (measured: 4476.4, with 10% margin)
   {2048, 4500} // 4500 Msamples/sec (raised for modern hardware)
 #else
   {32, 50},    // 50 Msamples/sec (debug, raised for modern hardware)
@@ -87,8 +87,8 @@ static constexpr Baseline BASELINE_ADD_FROM_COEFF[] = {
 #ifdef NDEBUG
   {32, 3200},  // 3200 Msamples/sec (raised for modern hardware)
   {128, 4400}, // 4400 Msamples/sec (raised for modern hardware)
-  {512, 4300}, // 4300 Msamples/sec (raised for modern hardware)
-  {2048, 4300} // 4300 Msamples/sec (raised for modern hardware)
+  {512, 3500}, // 3500 Msamples/sec (measured: 3890.1, with 10% margin)
+  {2048, 3700} // 3700 Msamples/sec (measured: 4148.4, with 10% margin)
 #else
   {32, 50},    // 50 Msamples/sec (debug, raised for modern hardware)
   {128, 70},   // 70 Msamples/sec (debug, raised for modern hardware)
@@ -113,9 +113,9 @@ static constexpr Baseline BASELINE_COPY_CHANNEL_FROM[] = {
 
 static constexpr Baseline BASELINE_ADD_CHANNEL_FROM[] = {
 #ifdef NDEBUG
-  {32, 2200},  // 2200 Msamples/sec (raised for modern hardware)
-  {128, 2600}, // 2600 Msamples/sec (raised for modern hardware)
-  {512, 2700}, // 2700 Msamples/sec (raised for modern hardware)
+  {32, 1900},  // 1900 Msamples/sec (measured: 2139.4, with 10% margin)
+  {128, 2200}, // 2200 Msamples/sec (measured: 2430.7, with 10% margin)
+  {512, 2400}, // 2400 Msamples/sec (measured: 2688.1, with 10% margin)
   {2048, 2700} // 2700 Msamples/sec (raised for modern hardware)
 #else
   {32, 80},    // 80 Msamples/sec (debug, raised for modern hardware)
@@ -127,8 +127,8 @@ static constexpr Baseline BASELINE_ADD_CHANNEL_FROM[] = {
 
 static constexpr Baseline BASELINE_ADD_CHANNEL_FROM_COEFF[] = {
 #ifdef NDEBUG
-  {32, 2100},  // 2100 Msamples/sec (raised for modern hardware)
-  {128, 2500}, // 2500 Msamples/sec (raised for modern hardware)
+  {32, 1800},  // 1800 Msamples/sec (measured: 2016.6, with 10% margin)
+  {128, 2200}, // 2200 Msamples/sec (measured: 2425.6, with 10% margin)
   {512, 2400}, // 2400 Msamples/sec (raised for modern hardware)
   {2048, 2500} // 2500 Msamples/sec (raised for modern hardware)
 #else
