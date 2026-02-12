@@ -31,11 +31,13 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
     m_WaitCount(),
     m_CalcCount(),
     m_SamplesPerBuffer(0),
+    m_SampleRate(0),
     meter_counter(0),
     m_DefaultAudioDevice(GOSoundDevInfo::getInvalideDeviceInfo()),
     m_OrganController(0),
     m_config(settings),
-    m_midi(settings) {}
+    m_midi(settings),
+    p_ClosingListener(nullptr) {}
 
 GOSoundSystem::~GOSoundSystem() {
   AssureSoundIsClosed();
@@ -140,15 +142,18 @@ void GOSoundSystem::DisconnectFromEngine() {
         "GOSoundSystem::CloseSound waits for all callbacks to finish", nullptr);
   }
 
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++) {
-    m_AudioOutputs[i].waiting = false;
-    m_AudioOutputs[i].wait = false;
-    m_AudioOutputs[i].condition.Broadcast();
+  for (auto &audioOutput : m_AudioOutputs) {
+    GOMutexLocker lock(audioOutput.mutex);
+
+    audioOutput.waiting = false;
+    audioOutput.wait = false;
+    audioOutput.condition.Broadcast();
   }
 
-  for (unsigned i = 1; i < m_AudioOutputs.size(); i++) {
-    GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
-    m_AudioOutputs[i].condition.Broadcast();
+  for (auto &audioOutput : m_AudioOutputs) {
+    GOMutexLocker lock(audioOutput.mutex);
+
+    audioOutput.condition.Broadcast();
   }
 }
 
@@ -194,7 +199,15 @@ void GOSoundSystem::AssureSoundIsClosed() {
   if (m_IsRunning.load()) {
     assert(m_open);
     assert(m_OrganController);
-    m_OrganController->StopSound(*this);
+    if (p_ClosingListener) {
+      // try to stop gracefully
+      p_ClosingListener->OnSoundClosing(*this);
+    };
+    if (m_IsRunning.load()) {
+      // Normally OnSoundStopping() should call DisconnectFromEngine(), but if
+      // it hasn't done it
+      DisconnectFromEngine();
+    }
   }
   if (m_open)
     CloseSoundSystem();
@@ -204,9 +217,6 @@ void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
   if (organController != m_OrganController) {
     GOMutexLocker locker(m_lock);
     GOMultiMutexLocker multi;
-
-    for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-      multi.Add(m_AudioOutputs[i].mutex);
 
     if (m_OrganController && m_open)
       m_OrganController->StopSound(*this);

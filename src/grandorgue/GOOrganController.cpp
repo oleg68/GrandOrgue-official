@@ -914,6 +914,7 @@ void GOOrganController::StartSound(GOSoundSystem &soundSystem) {
   GOSoundOrganEngine &engine = soundSystem.GetEngine();
   GOSoundRecorder &recorder = soundSystem.GetAudioRecorder();
 
+  soundSystem.SetClosingListener(this);
   engine.Prepare(
     soundSystem.GetSamplesPerBuffer(),
     soundSystem.GetSampleRate(),
@@ -932,6 +933,7 @@ void GOOrganController::StopSound(GOSoundSystem &soundSystem) {
   soundSystem.DisconnectFromEngine();
   if (pEngine)
     pEngine->Cleanup();
+  soundSystem.SetClosingListener(nullptr);
 }
 
 void GOOrganController::PrepareRecording() {

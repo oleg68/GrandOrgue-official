@@ -37,6 +37,14 @@ class GOConfig;
  */
 
 class GOSoundSystem {
+public:
+  class ClosingListener {
+  public:
+    // This callback is called from AssureSoundClosed. The callback adapter must
+    // call DisconnectFromEngine, otherwise an exception occured
+    virtual void OnSoundClosing(GOSoundSystem &soundSystem) = 0;
+  };
+
 private:
   class GOSoundOutput {
   public:
@@ -105,6 +113,10 @@ private:
 
   wxString m_LastErrorMessage;
 
+  ClosingListener *p_ClosingListener;
+
+  bool IsEngineConnected() const { return m_IsRunning.load(); }
+
   void ResetMeters();
 
   void OpenMidi();
@@ -127,9 +139,6 @@ public:
   GOSoundSystem(GOConfig &settings);
   ~GOSoundSystem();
 
-  bool AssureSoundIsOpen();
-  void AssureSoundIsClosed();
-
   wxString getLastErrorMessage() const { return m_LastErrorMessage; }
   wxString getState();
 
@@ -139,9 +148,16 @@ public:
   unsigned GetSampleRate() const { return m_SampleRate; }
   GOSoundRecorder &GetAudioRecorder() { return m_AudioRecorder; }
 
-  void AssignOrganFile(GOOrganController *organController);
-
   void SetLogSoundErrorMessages(bool settingsDialogVisible);
+
+  GOMidiSystem &GetMidi();
+
+  GOSoundOrganEngine &GetEngine();
+
+  ClosingListener *GetClosingListener() const { return p_ClosingListener; }
+  void SetClosingListener(ClosingListener *pListener) {
+    p_ClosingListener = pListener;
+  }
 
   std::vector<GOSoundDevInfo> GetAudioDevices(const GOPortsConfig &portsConfig);
   const GOSoundDevInfo &GetDefaultAudioDevice(const GOPortsConfig &portsConfig);
@@ -149,9 +165,10 @@ public:
   static void FillDeviceNamePattern(
     const GOSoundDevInfo &deviceInfo, GODeviceNamePattern &pattern);
 
-  GOMidiSystem &GetMidi();
+  bool AssureSoundIsOpen();
+  void AssureSoundIsClosed();
 
-  GOSoundOrganEngine &GetEngine();
+  void AssignOrganFile(GOOrganController *organController);
 
   // Starting step 3.
   // After this step output device callbacks start to be propagated to the organ

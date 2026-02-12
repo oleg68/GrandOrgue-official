@@ -22,6 +22,7 @@
 #include "loader/GOFileStore.h"
 #include "model/GOOrganModel.h"
 #include "modification/GOModificationProxy.h"
+#include "sound/GOSoundSystem.h"
 
 #include "GOBitmapCache.h"
 #include "GOMemoryPool.h"
@@ -56,7 +57,8 @@ typedef struct _GOHashType GOHashType;
 
 class GOOrganController : public GOEventDistributor,
                           public GOOrganModel,
-                          public GOModificationProxy {
+                          public GOModificationProxy,
+                          public GOSoundSystem::ClosingListener {
 private:
   GOConfig &m_config;
   wxString m_odf;
@@ -246,6 +248,11 @@ public:
    * Return the Timer Manager for Metronome, Midi recorder, ...
    */
   GOTimer *GetTimer() const { return m_timer; }
+
+private:
+  void OnSoundClosing(GOSoundSystem &soundSystem) override {
+    StopSound(soundSystem);
+  }
 };
 
 #endif
