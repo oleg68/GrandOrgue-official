@@ -220,8 +220,6 @@ void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
 
 GOConfig &GOSoundSystem::GetSettings() { return m_config; }
 
-GOOrganController *GOSoundSystem::GetOrganFile() { return m_OrganController; }
-
 void GOSoundSystem::SetLogSoundErrorMessages(bool settingsDialogVisible) {
   logSoundErrors = settingsDialogVisible;
 }

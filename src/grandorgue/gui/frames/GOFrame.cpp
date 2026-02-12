@@ -1195,7 +1195,7 @@ void GOFrame::OnSettings(wxCommandEvent &event) {
       SetEventAfterSettings(wxEVT_COMMAND_MENU_SELECTED, ID_FILE_EXIT);
       isToContinue = false;
     } else if (
-      dialog.NeedReload() && m_Sound.GetOrganFile() != NULL
+      dialog.NeedReload() && GetOrganController()
       && wxMessageBox(
            _("Some changed settings effect unless the sample "
              "set is reloaded.\n\nWould you like to reload "
