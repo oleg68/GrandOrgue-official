@@ -88,6 +88,7 @@ private:
   std::atomic_uint m_CalcCount;
 
   unsigned m_SamplesPerBuffer;
+  unsigned m_SampleRate;
 
   unsigned meter_counter;
 

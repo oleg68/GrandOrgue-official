@@ -59,8 +59,8 @@ void GOSoundSystem::OpenSoundSystem() {
     m_AudioOutputs[i].port = NULL;
   m_SamplesPerBuffer = m_config.SamplesPerBuffer();
   m_AudioRecorder.SetBytesPerSample(m_config.WaveFormatBytesPerSample());
-  unsigned sample_rate = m_config.SampleRate();
-  m_AudioRecorder.SetSampleRate(sample_rate);
+  m_SampleRate = m_config.SampleRate();
+  m_AudioRecorder.SetSampleRate(m_SampleRate);
 
   const GOPortsConfig &portsConfig(m_config.GetSoundPortsConfig());
 
@@ -85,7 +85,7 @@ void GOSoundSystem::OpenSoundSystem() {
     m_AudioOutputs[i].port = pPort;
     pPort->Init(
       deviceConfig.GetChannels(),
-      sample_rate,
+      m_SampleRate,
       m_SamplesPerBuffer,
       deviceConfig.GetDesiredLatency(),
       i);
@@ -99,65 +99,13 @@ void GOSoundSystem::PrepareEngine() {
   assert(m_open);
   assert(m_OrganController);
 
-  m_SoundEngine.StartThreads(m_config.Concurrency());
-
-  const unsigned audio_group_count = m_config.GetAudioGroups().size();
-  std::vector<GOAudioDeviceConfig> &audio_config
-    = m_config.GetAudioDeviceConfig();
-  const unsigned audioDeviceCount = audio_config.size();
-  std::vector<GOAudioOutputConfiguration> engine_config;
-
-  engine_config.resize(audioDeviceCount);
-  for (unsigned i = 0; i < audioDeviceCount; i++) {
-    const GOAudioDeviceConfig &deviceConfig = audio_config[i];
-    const auto &deviceOutputs = deviceConfig.GetChannelOututs();
-    GOAudioOutputConfiguration &engineConfig = engine_config[i];
-
-    engineConfig.channels = deviceConfig.GetChannels();
-    engineConfig.scale_factors.resize(engineConfig.channels);
-    for (unsigned j = 0; j < engineConfig.channels; j++) {
-      std::vector<float> &scaleFactors = engineConfig.scale_factors[j];
-
-      scaleFactors.resize(audio_group_count * 2);
-      std::fill(
-        scaleFactors.begin(),
-        scaleFactors.end(),
-        GOAudioDeviceConfig::MUTE_VOLUME);
-
-      if (j >= deviceOutputs.size())
-        continue;
-
-      const auto &channelOutputs = deviceOutputs[j];
-
-      for (unsigned k = 0; k < channelOutputs.size(); k++) {
-        const auto &groupOutput = channelOutputs[k];
-        int id = m_config.GetStrictAudioGroupId(groupOutput.GetName());
-
-        if (id >= 0) {
-          scaleFactors[id * 2] = groupOutput.GetLeft();
-          scaleFactors[id * 2 + 1] = groupOutput.GetRight();
-        }
-      }
-    }
-  }
-
-  m_SoundEngine.SetSamplesPerBuffer(m_SamplesPerBuffer);
-  m_SoundEngine.SetPolyphonyLimiting(m_config.ManagePolyphony());
-  m_SoundEngine.SetHardPolyphony(m_config.PolyphonyLimit());
-  m_SoundEngine.SetScaledReleases(m_config.ScaleRelease());
-  m_SoundEngine.SetRandomizeSpeaking(m_config.RandomizeSpeaking());
-  m_SoundEngine.SetInterpolationType(m_config.m_InterpolationType());
-  m_SoundEngine.SetAudioGroupCount(audio_group_count);
-  unsigned sample_rate = m_config.SampleRate();
-  GetEngine().SetSampleRate(sample_rate);
-  m_SoundEngine.SetAudioOutput(engine_config);
-  m_SoundEngine.SetupReverb(m_config);
-  m_SoundEngine.SetAudioRecorder(&m_AudioRecorder, m_config.RecordDownmix());
-
-  m_SoundEngine.Setup(
+  m_SoundEngine.Prepare(
+    m_SamplesPerBuffer,
+    m_SampleRate,
+    m_config,
+    m_AudioRecorder,
     *m_OrganController,
-    m_OrganController->GetMemoryPool(),
-    m_config.ReleaseConcurrency());
+    m_OrganController->GetMemoryPool());
 }
 
 void GOSoundSystem::ConnectToEngine() {
@@ -235,14 +183,7 @@ void GOSoundSystem::DisconnectFromEngine() {
 void GOSoundSystem::CleanupEngine() {
   assert(m_open);
   assert(m_OrganController);
-
-  // ensure pointers to work items are not held by threads
-  m_SoundEngine.GetScheduler().PauseGivingWork();
-  m_SoundEngine.WaitForThreadsIdle();
-
-  m_SoundEngine.ClearSetup();
-  m_SoundEngine.GetScheduler().ResumeGivingWork();
-  m_SoundEngine.StopThreads();
+  m_SoundEngine.Cleanup();
 }
 
 void GOSoundSystem::CloseSoundSystem() {

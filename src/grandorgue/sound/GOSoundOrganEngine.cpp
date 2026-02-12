@@ -9,6 +9,7 @@
 
 #include <algorithm>
 
+#include "config/GOConfig.h"
 #include "model/GOOrganModel.h"
 #include "model/GOPipe.h"
 #include "model/GOWindchest.h"
@@ -231,6 +232,80 @@ void GOSoundOrganEngine::Setup(
     = std::unique_ptr<GOSoundTouchTask>(new GOSoundTouchTask(memoryPool));
   m_HasBeenSetup.store(true);
   Reset();
+}
+
+void GOSoundOrganEngine::Prepare(
+  unsigned nSamplesPerBuffer,
+  unsigned sampleRate,
+  GOConfig &config,
+  GOSoundRecorder &recorder,
+  GOOrganModel &organModel,
+  GOMemoryPool &memoryPool) {
+  StartThreads(config.Concurrency());
+
+  const unsigned audio_group_count = config.GetAudioGroups().size();
+  std::vector<GOAudioDeviceConfig> &audio_config
+    = config.GetAudioDeviceConfig();
+  const unsigned audioDeviceCount = audio_config.size();
+  std::vector<GOAudioOutputConfiguration> engine_config;
+
+  engine_config.resize(audioDeviceCount);
+  for (unsigned i = 0; i < audioDeviceCount; i++) {
+    const GOAudioDeviceConfig &deviceConfig = audio_config[i];
+    const auto &deviceOutputs = deviceConfig.GetChannelOututs();
+    GOAudioOutputConfiguration &engineConfig = engine_config[i];
+
+    engineConfig.channels = deviceConfig.GetChannels();
+    engineConfig.scale_factors.resize(engineConfig.channels);
+    for (unsigned j = 0; j < engineConfig.channels; j++) {
+      std::vector<float> &scaleFactors = engineConfig.scale_factors[j];
+
+      scaleFactors.resize(audio_group_count * 2);
+      std::fill(
+        scaleFactors.begin(),
+        scaleFactors.end(),
+        GOAudioDeviceConfig::MUTE_VOLUME);
+
+      if (j >= deviceOutputs.size())
+        continue;
+
+      const auto &channelOutputs = deviceOutputs[j];
+
+      for (unsigned k = 0; k < channelOutputs.size(); k++) {
+        const auto &groupOutput = channelOutputs[k];
+        int id = config.GetStrictAudioGroupId(groupOutput.GetName());
+
+        if (id >= 0) {
+          scaleFactors[id * 2] = groupOutput.GetLeft();
+          scaleFactors[id * 2 + 1] = groupOutput.GetRight();
+        }
+      }
+    }
+  }
+
+  SetSamplesPerBuffer(nSamplesPerBuffer);
+  SetPolyphonyLimiting(config.ManagePolyphony());
+  SetHardPolyphony(config.PolyphonyLimit());
+  SetScaledReleases(config.ScaleRelease());
+  SetRandomizeSpeaking(config.RandomizeSpeaking());
+  SetInterpolationType(config.m_InterpolationType());
+  SetAudioGroupCount(audio_group_count);
+  SetSampleRate(sampleRate);
+  SetAudioOutput(engine_config);
+  SetupReverb(config);
+  SetAudioRecorder(&recorder, config.RecordDownmix());
+
+  Setup(organModel, memoryPool, config.ReleaseConcurrency());
+}
+
+void GOSoundOrganEngine::Cleanup() {
+  // ensure pointers to work items are not held by threads
+  m_Scheduler.PauseGivingWork();
+  WaitForThreadsIdle();
+
+  ClearSetup();
+  m_Scheduler.ResumeGivingWork();
+  StopThreads();
 }
 
 void GOSoundOrganEngine::StartThreads(unsigned nThreads) {
