@@ -37,6 +37,13 @@ private:
   void OnMidiEvent(const GOMidiEvent &event) override;
 
   void SyncState();
+
+  // Closes the current organ (if any): destroys its windows and
+  // m_OrganController. The organ must already be stopped before this is called:
+  // - when called from ~GODocument() or from the first CloseOrgan() in
+  //   LoadOrgan(), GOFrame::EnsureOrganIsStopped() has been called before
+  // - when called from the second CloseOrgan() in LoadOrgan() (on load error),
+  //   the new m_OrganController was never started
   void CloseOrgan();
 
 public:

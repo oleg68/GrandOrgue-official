@@ -12,8 +12,8 @@
 #include <wx/window.h>
 
 #include "GOEvent.h"
-#include "GOOrganController.h"
 #include "GOSoundDefs.h"
+#include "GOSoundOrganEngine.h"
 #include "config/GOConfig.h"
 #include "midi/GOMidiSystem.h"
 #include "sound/buffer/GOSoundBufferMutable.h"
@@ -23,7 +23,7 @@
 
 GOSoundSystem::GOSoundSystem(GOConfig &settings)
   : m_open(false),
-    m_IsRunning(false),
+    p_OrganEngine(nullptr),
     m_NCallbacksEntered(0),
     m_CallbackCondition(m_CallbackMutex),
     logSoundErrors(true),
@@ -34,7 +34,6 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
     m_SampleRate(0),
     meter_counter(0),
     m_DefaultAudioDevice(GOSoundDevInfo::getInvalideDeviceInfo()),
-    m_OrganController(0),
     m_config(settings),
     m_midi(settings),
     p_ClosingListener(nullptr) {}
@@ -97,12 +96,12 @@ void GOSoundSystem::OpenSoundSystem() {
   m_open = true;
 }
 
-void GOSoundSystem::ConnectToEngine() {
+void GOSoundSystem::ConnectToEngine(GOSoundOrganEngine &engine) {
   assert(m_open);
 
-  if (!m_IsRunning) {
+  if (p_OrganEngine.load() != &engine) {
     m_NCallbacksEntered.store(0);
-    m_IsRunning.store(true);
+    p_OrganEngine.store(&engine);
   }
 }
 
@@ -131,7 +130,7 @@ void GOSoundSystem::StartStreams() {
 void GOSoundSystem::DisconnectFromEngine() {
   assert(m_open);
 
-  m_IsRunning.store(false);
+  p_OrganEngine.store(nullptr);
 
   // wait for all started callbacks to finish
   {
@@ -158,8 +157,6 @@ void GOSoundSystem::DisconnectFromEngine() {
 }
 
 void GOSoundSystem::CloseSoundSystem() {
-  assert(m_open);
-
   for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
     if (m_AudioOutputs[i].port) {
       GOSoundPort *const port = m_AudioOutputs[i].port;
@@ -188,22 +185,19 @@ bool GOSoundSystem::AssureSoundIsOpen() {
   }
   if (m_open) { // Everything is OK. Perform other starting steps
     OpenMidi();
-    if (m_OrganController && !m_IsRunning.load())
-      m_OrganController->StartSound(*this);
   } else // Sometimes is wrong. Close all audio devices that are partially open
     CloseSoundSystem();
   return m_open;
 }
 
 void GOSoundSystem::AssureSoundIsClosed() {
-  if (m_IsRunning.load()) {
+  if (p_OrganEngine.load()) {
     assert(m_open);
-    assert(m_OrganController);
     if (p_ClosingListener) {
       // try to stop gracefully
       p_ClosingListener->OnSoundClosing(*this);
     };
-    if (m_IsRunning.load()) {
+    if (p_OrganEngine.load()) {
       // Normally OnSoundStopping() should call DisconnectFromEngine(), but if
       // it hasn't done it
       DisconnectFromEngine();
@@ -211,21 +205,6 @@ void GOSoundSystem::AssureSoundIsClosed() {
   }
   if (m_open)
     CloseSoundSystem();
-}
-
-void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
-  if (organController != m_OrganController) {
-    GOMutexLocker locker(m_lock);
-    GOMultiMutexLocker multi;
-
-    if (m_OrganController && m_open)
-      m_OrganController->StopSound(*this);
-
-    m_OrganController = organController;
-
-    if (m_OrganController && m_open)
-      m_OrganController->StartSound(*this);
-  }
 }
 
 GOConfig &GOSoundSystem::GetSettings() { return m_config; }
@@ -300,7 +279,7 @@ bool GOSoundSystem::AudioCallback(
   bool wasEntered = false;
   const unsigned nSamples = outOutputBuffer.GetNSamples();
 
-  if (m_IsRunning.load()) {
+  if (p_OrganEngine.load()) {
     if (nSamples == m_SamplesPerBuffer) {
       m_NCallbacksEntered.fetch_add(1);
       wasEntered = true;
@@ -310,9 +289,12 @@ bool GOSoundSystem::AudioCallback(
           "changed by the sound driver to %d"),
         nSamples);
   }
-  // assure that m_IsRunning has not yet been changed after
-  // m_NCallbacksEntered.fetch_add, otherwise the control thread may not wait
-  if (wasEntered && m_IsRunning.load()) {
+  // Reload p_OrganEngine after fetch_add to assure the control thread does
+  // not miss m_NCallbacksEntered > 0 and proceeds to wait
+  GOSoundOrganEngine *pOrganEngine
+    = wasEntered ? p_OrganEngine.load() : nullptr;
+
+  if (pOrganEngine) {
     GOSoundOutput &device = m_AudioOutputs[devIndex];
     GOMutexLocker locker(device.mutex);
 
@@ -320,16 +302,16 @@ bool GOSoundSystem::AudioCallback(
       device.condition.Wait();
 
     unsigned cnt = m_CalcCount.fetch_add(1);
-    m_SoundEngine.GetAudioOutput(
+    pOrganEngine->GetAudioOutput(
       devIndex, cnt + 1 >= m_AudioOutputs.size(), outOutputBuffer);
     device.wait = true;
     unsigned count = m_WaitCount.fetch_add(1);
 
     if (count + 1 == m_AudioOutputs.size()) {
-      m_SoundEngine.NextPeriod();
+      pOrganEngine->NextPeriod();
       UpdateMeter();
 
-      m_SoundEngine.WakeupThreads();
+      pOrganEngine->WakeupThreads();
       m_CalcCount.exchange(0);
       m_WaitCount.exchange(0);
 
@@ -343,7 +325,7 @@ bool GOSoundSystem::AudioCallback(
     outOutputBuffer.FillWithSilence();
   if (
     wasEntered && m_NCallbacksEntered.fetch_sub(1) <= 1
-    && !m_IsRunning.load()) {
+    && !p_OrganEngine.load()) {
     // ensure that the control thread enters into m_NCallbackCondition.Wait()
     GOMutexLocker lk(m_CallbackMutex);
 
@@ -352,8 +334,6 @@ bool GOSoundSystem::AudioCallback(
   }
   return true;
 }
-
-GOSoundOrganEngine &GOSoundSystem::GetEngine() { return m_SoundEngine; }
 
 wxString GOSoundSystem::getState() {
   if (!m_AudioOutputs.size())
