@@ -8,6 +8,7 @@
 #ifndef GOSOUNDSYSTEM_H
 #define GOSOUNDSYSTEM_H
 
+#include <atomic>
 #include <map>
 #include <vector>
 
@@ -20,16 +21,15 @@
 #include "threading/GOMutex.h"
 
 #include "GOSoundDevInfo.h"
-#include "GOSoundOrganEngine.h"
 #include "GOSoundRecorder.h"
 
-class GODeviceNamePattern;
-class GOOrganController;
-class GOMidiSystem;
-class GOSoundPort;
-class GOSoundRtPort;
-class GOSoundPortaudioPort;
 class GOConfig;
+class GODeviceNamePattern;
+class GOMidiSystem;
+class GOSoundOrganEngine;
+class GOSoundPort;
+class GOSoundPortaudioPort;
+class GOSoundRtPort;
 
 /**
  * This class represents a GrandOrgue-wide sound system. It may be used even
@@ -76,8 +76,8 @@ private:
 
   // Have all output audio devices opened successfully
   bool m_open;
-  // Is the sound engine ready yo accept audio callback calls
-  std::atomic_bool m_IsRunning;
+  // Non-null when the sound engine is connected and ready to accept callbacks
+  std::atomic<GOSoundOrganEngine *> p_OrganEngine;
 
   // counter of audio callbacks that have been entered but have not yet been
   // exited
@@ -102,10 +102,7 @@ private:
 
   GOSoundDevInfo m_DefaultAudioDevice;
 
-  GOOrganController *m_OrganController;
   GOSoundRecorder m_AudioRecorder;
-
-  GOSoundOrganEngine m_SoundEngine;
 
   GOConfig &m_config;
 
@@ -115,20 +112,19 @@ private:
 
   ClosingListener *p_ClosingListener;
 
-  bool IsEngineConnected() const { return m_IsRunning.load(); }
+  bool IsEngineConnected() const { return p_OrganEngine.load(); }
 
   void ResetMeters();
 
   void OpenMidi();
 
   // Starting step 1.
-  // Open output device ports and MIDI and do other initialising with using
-  // neither m_SoundEngine nor m_OrganController
+  // Open output device ports and MIDI and do other initialising without using
+  // the organ controller or sound engine
   // Sets m_open = true at the end
   void OpenSoundSystem();
 
   // Finish step 1.
-  // neither m_SoundEngine nor m_OrganController
   // Can only be called when m_open is true. Sets m_open = false at the end
   void CloseSoundSystem();
 
@@ -144,6 +140,7 @@ public:
 
   GOConfig &GetSettings();
 
+  bool IsOpen() const { return m_open; }
   unsigned GetSamplesPerBuffer() const { return m_SamplesPerBuffer; }
   unsigned GetSampleRate() const { return m_SampleRate; }
   GOSoundRecorder &GetAudioRecorder() { return m_AudioRecorder; }
@@ -151,8 +148,6 @@ public:
   void SetLogSoundErrorMessages(bool settingsDialogVisible);
 
   GOMidiSystem &GetMidi();
-
-  GOSoundOrganEngine &GetEngine();
 
   ClosingListener *GetClosingListener() const { return p_ClosingListener; }
   void SetClosingListener(ClosingListener *pListener) {
@@ -168,12 +163,10 @@ public:
   bool AssureSoundIsOpen();
   void AssureSoundIsClosed();
 
-  void AssignOrganFile(GOOrganController *organController);
-
   // Starting step 3.
-  // After this step output device callbacks start to be propagated to the organ
-  // sound engine. Can only be called when m_open is true
-  void ConnectToEngine();
+  // After this step output device callbacks start to be propagated to the
+  // given organ sound engine. Can only be called when m_open is true
+  void ConnectToEngine(GOSoundOrganEngine &engine);
 
   // Finish step 3.
   // Wait for all audio callbacks in progress to finish and prevents propagation

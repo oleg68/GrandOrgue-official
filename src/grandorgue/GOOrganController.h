@@ -22,6 +22,7 @@
 #include "loader/GOFileStore.h"
 #include "model/GOOrganModel.h"
 #include "modification/GOModificationProxy.h"
+#include "sound/GOSoundOrganEngine.h"
 #include "sound/GOSoundSystem.h"
 
 #include "GOBitmapCache.h"
@@ -84,6 +85,8 @@ private:
   bool m_b_customized;
   float m_CurrentPitch; // organ pitch
   bool m_OrganModified; // always m_IsOrganModified >= IsModelModified()
+  // Set to true between StartOrgan and StopOrgan calls
+  bool m_IsOrganStarted;
 
   wxString m_ChurchAddress;
   wxString m_OrganBuilder;
@@ -98,7 +101,7 @@ private:
   ptr_vector<GOGUIPanelCreator> m_panelcreators;
   ptr_vector<GOElementCreator> m_elementcreators;
 
-  GOSoundOrganEngine *m_soundengine;
+  GOSoundOrganEngine m_SoundEngine;
   GOMidiSystem *m_midi;
   std::vector<bool> m_MidiSamplesetMatch;
   int m_SampleSetId1, m_SampleSetId2;
@@ -169,20 +172,21 @@ public:
   bool UpdateCache(GOProgressDialog *dlg, bool compress);
   void DeleteCache();
   void DeleteSettings();
-  void Abort();
-  void PreparePlayback(
-    GOSoundOrganEngine *engine, GOMidiSystem *midi, GOSoundRecorder *recorder);
   void PrepareRecording();
+
+  // Returns true if the organ is started (i.e. between StartOrgan and
+  // StopOrgan calls)
+  bool IsOrganStarted() const { return m_IsOrganStarted; }
 
   // Prepares the sound engine using this organ, connects it to audio outputs
   // and then notifies this organ that playback has started.
-  // Can only be called when soundSystem is open.
-  void StartSound(GOSoundSystem &soundSystem);
+  // Can only be called when soundSystem is open and !IsOrganStarted().
+  void StartOrgan(GOSoundSystem &soundSystem);
 
   // Notifies this organ that playback has stopped, disconnects the engine from
   // audio outputs and then cleans it up.
-  // Can only be called when soundSystem is open.
-  void StopSound(GOSoundSystem &soundSystem);
+  // Can only be called when soundSystem is open and IsOrganStarted().
+  void StopOrgan(GOSoundSystem &soundSystem);
   void Update();
   void Reset();
   void ProcessMidi(const GOMidiEvent &event);
@@ -194,6 +198,7 @@ public:
   GOGUIPanel *GetPanel(unsigned index) { return m_panels[index]; }
   unsigned GetPanelCount() const { return m_panels.size(); }
   void AddPanel(GOGUIPanel *panel) { m_panels.push_back(panel); }
+  GOSoundOrganEngine &GetEngine() { return m_SoundEngine; }
   GOMemoryPool &GetMemoryPool() { return m_pool; }
   GOConfig &GetSettings() { return m_config; }
   GOBitmapCache &GetBitmapCache() const { return *m_bitmaps; }
@@ -250,9 +255,7 @@ public:
   GOTimer *GetTimer() const { return m_timer; }
 
 private:
-  void OnSoundClosing(GOSoundSystem &soundSystem) override {
-    StopSound(soundSystem);
-  }
+  void OnSoundClosing(GOSoundSystem &soundSystem) override;
 };
 
 #endif

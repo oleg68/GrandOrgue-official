@@ -7,6 +7,8 @@
 
 #include "GODocument.h"
 
+#include <cassert>
+
 #include <wx/app.h>
 
 #include "config/GOConfig.h"
@@ -66,7 +68,7 @@ GOOrganController *GODocument::LoadOrgan(
       event.SetInt(m_OrganController->GetVolume());
       wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
 
-      m_sound.GetEngine().SetVolume(m_OrganController->GetVolume());
+      m_OrganController->GetEngine().SetVolume(m_OrganController->GetVolume());
     }
 
     wxCommandEvent event(wxEVT_WINTITLE, 0);
@@ -83,18 +85,10 @@ GOOrganController *GODocument::LoadOrgan(
     if (!mRect.IsEmpty() && p_MainWindow)
       p_MainWindow->SetPosSize(mRect);
 
-    m_sound.AssignOrganFile(m_OrganController);
     m_OrganFileReady = true;
     m_listener.SetCallback(this);
     if (!cmb.IsEmpty())
       m_OrganController->SetOrganModified();
-
-    /* The sound was open on GOFrame::Init.
-     * m_sound.AssignOrganFile made all necessary for the new organController.
-     * So the new opening is not necessary
-    if (m_sound.OpenSound())
-            return nullptr;
-     */
   } else {
     if (error != wxT("!")) {
       wxLogError(wxT("%s\n"), error.c_str());
@@ -121,7 +115,7 @@ void GODocument::ShowPanel(unsigned id) {
 }
 
 void GODocument::SyncState() {
-  m_OrganController->SetVolume(m_sound.GetEngine().GetVolume());
+  m_OrganController->SetVolume(m_OrganController->GetEngine().GetVolume());
   if (p_MainWindow)
     m_OrganController->GetMainWindowData()->SetWindowRect(
       p_MainWindow->GetPosSize());
@@ -142,7 +136,7 @@ bool GODocument::Export(const wxString &cmb) {
 
 void GODocument::CloseOrgan() {
   m_listener.SetCallback(NULL);
-  m_sound.AssignOrganFile(NULL);
+  assert(!m_OrganController || !m_OrganController->IsOrganStarted());
   // m_sound.CloseSound();
   CloseWindows();
   wxTheApp->ProcessPendingEvents();

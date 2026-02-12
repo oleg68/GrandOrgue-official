@@ -91,6 +91,12 @@ private:
   void UpdateSize();
   void UpdateVolumeControlWithSettings();
 
+  // Ensures the sound system is open and starts the organ (if loaded)
+  void EnsureSoundIsOpen();
+  // Ensures the sound system is closed; the organ (if running) is stopped via
+  // the OnSoundClosing callback
+  void EnsureSoundIsClosed();
+
   void AttachDetachOrganController(bool isToAttach);
 
   // Processes the organ model modification event:

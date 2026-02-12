@@ -605,6 +605,8 @@ bool GOFrame::CloseOrgan(bool isForce) {
       GOMutexLocker m_locker(m_mutex, true);
 
       if (m_locker.IsLocked()) {
+        if (p_OrganController && p_OrganController->IsOrganStarted())
+          p_OrganController->StopOrgan(m_Sound);
         AttachDetachOrganController(false);
         p_OrganController = nullptr;
         delete m_doc;
@@ -619,9 +621,15 @@ bool GOFrame::CloseOrgan(bool isForce) {
 
 void GOFrame::LoadOrgan(const GOOrgan &organ, const wxString &cmb) {
   if (m_doc) {
+    if (p_OrganController && p_OrganController->IsOrganStarted())
+      p_OrganController->StopOrgan(m_Sound);
     GOProgressDialog dlg;
 
     p_OrganController = m_doc->LoadOrgan(&dlg, organ, cmb, m_IsGuiOnly);
+    if (p_OrganController && m_Sound.IsOpen()) {
+      assert(!p_OrganController->IsOrganStarted());
+      p_OrganController->StartOrgan(m_Sound);
+    }
     OnIsModifiedChanged(false);
 
     // for reflecting model changes
@@ -638,6 +646,18 @@ void GOFrame::Open(const GOOrgan &organ) {
       LoadOrgan(organ);
     }
   }
+}
+
+void GOFrame::EnsureSoundIsOpen() {
+  if (
+    m_Sound.AssureSoundIsOpen() && p_OrganController
+    && !p_OrganController->IsOrganStarted())
+    p_OrganController->StartOrgan(m_Sound);
+}
+
+void GOFrame::EnsureSoundIsClosed() {
+  // AssureSoundIsClosed will stop the organ via the OnSoundClosing callback
+  m_Sound.AssureSoundIsClosed();
 }
 
 void GOFrame::OnPanel(wxCommandEvent &event) {
@@ -770,8 +790,9 @@ void GOFrame::OnSize(wxSizeEvent &event) {
 }
 
 void GOFrame::OnMeters(wxCommandEvent &event) {
-  if (m_isMeterReady) {
-    const std::vector<double> vals = m_Sound.GetEngine().GetMeterInfo();
+  if (m_isMeterReady && p_OrganController) {
+    const std::vector<double> vals
+      = p_OrganController->GetEngine().GetMeterInfo();
     if (vals.size() == m_VolumeGauge.size() + 1) {
       m_SamplerUsage->SetValue(33 * vals[0]);
       for (unsigned i = 1; i < vals.size(); i++)
@@ -1094,8 +1115,8 @@ void GOFrame::OnProperties(wxCommandEvent &event) {
 }
 
 void GOFrame::OnAudioPanic(wxCommandEvent &WXUNUSED(event)) {
-  m_Sound.AssureSoundIsClosed();
-  m_Sound.AssureSoundIsOpen();
+  EnsureSoundIsClosed();
+  EnsureSoundIsOpen();
 }
 
 void GOFrame::OnMidiMonitor(wxCommandEvent &WXUNUSED(event)) {
@@ -1145,8 +1166,8 @@ void GOFrame::OnSettings(wxCommandEvent &event) {
     m_config.SetMainWindowRect(GetPosSize());
 
     // because the sound settings might be changed, close sound.
-    // It will reopened later
-    m_Sound.AssureSoundIsClosed();
+    // It will be reopened later
+    EnsureSoundIsClosed();
 
     m_config.Flush();
     if (
@@ -1162,7 +1183,7 @@ void GOFrame::OnSettings(wxCommandEvent &event) {
       SetEventAfterSettings(wxEVT_COMMAND_MENU_SELECTED, ID_FILE_EXIT);
       isToContinue = false;
     } else if (
-      dialog.NeedReload() && GetOrganController()
+      dialog.NeedReload() && p_OrganController
       && wxMessageBox(
            _("Some changed settings effect unless the sample "
              "set is reloaded.\n\nWould you like to reload "
@@ -1180,7 +1201,7 @@ void GOFrame::OnSettings(wxCommandEvent &event) {
   // The sound might be closed in the settings dialog (for obtaining the list of
   // devices) or later if the settings were changed
   if (isToContinue)
-    m_Sound.AssureSoundIsOpen();
+    EnsureSoundIsOpen();
 
   if (m_AfterSettingsEventType != wxEVT_NULL) {
     wxCommandEvent event(m_AfterSettingsEventType, m_AfterSettingsEventId);
@@ -1220,7 +1241,8 @@ void GOFrame::OnHelp(wxCommandEvent &event) {
 void GOFrame::OnSettingsVolume(wxCommandEvent &event) {
   long n = m_Volume->GetValue();
 
-  m_Sound.GetEngine().SetVolume(n);
+  if (p_OrganController)
+    p_OrganController->GetEngine().SetVolume(n);
   for (unsigned i = 0; i < m_VolumeGauge.size(); i++)
     m_VolumeGauge[i]->ResetClip();
 }
@@ -1229,7 +1251,8 @@ void GOFrame::OnSettingsPolyphony(wxCommandEvent &event) {
   long n = m_Polyphony->GetValue();
 
   m_config.PolyphonyLimit(n);
-  m_Sound.GetEngine().SetHardPolyphony(n);
+  if (p_OrganController)
+    p_OrganController->GetEngine().SetHardPolyphony(n);
   m_SamplerUsage->ResetClip();
 }
 

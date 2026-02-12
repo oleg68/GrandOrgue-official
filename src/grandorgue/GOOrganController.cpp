@@ -102,6 +102,7 @@ GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
     m_b_customized(false),
     m_CurrentPitch(999999.0), // for enforcing updating the label first time
     m_OrganModified(false),
+    m_IsOrganStarted(false),
     m_ChurchAddress(),
     m_OrganBuilder(),
     m_OrganBuildDate(),
@@ -111,7 +112,6 @@ GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
     m_panels(),
     m_panelcreators(),
     m_elementcreators(),
-    m_soundengine(0),
     m_midi(0),
     m_MidiSamplesetMatch(),
     m_SampleSetId1(0),
@@ -856,22 +856,6 @@ void GOOrganController::LoadMIDIFile(wxString const &filename) {
     filename, GetODFManualCount() - 1, GetFirstManualIndex() == 0);
 }
 
-void GOOrganController::Abort() {
-  m_soundengine = NULL;
-
-  GOEventDistributor::AbortPlayback();
-
-  m_MidiPlayer->Cleanup();
-  m_MidiRecorder->StopRecording();
-  m_AudioRecorder->StopRecording();
-  m_AudioRecorder->SetAudioRecorder(NULL);
-  if (p_OnStateButton)
-    p_OnStateButton->AbortPlayback();
-  GOOrganModel::GOSoundOrganInterfaceProxy::Disconnect();
-  GOOrganModel::SetMidi(nullptr, nullptr);
-  m_midi = NULL;
-}
-
 void GOOrganController::PreconfigRecorder() {
   for (unsigned i = GetFirstManualIndex(); i <= GetManualAndPedalCount(); i++) {
     wxString id = wxString::Format(wxT("M%d"), i);
@@ -879,28 +863,46 @@ void GOOrganController::PreconfigRecorder() {
   }
 }
 
-void GOOrganController::PreparePlayback(
-  GOSoundOrganEngine *engine, GOMidiSystem *midi, GOSoundRecorder *recorder) {
-  m_soundengine = engine;
-  m_midi = midi;
+void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
+  assert(soundSystem.IsOpen());
+  assert(!m_IsOrganStarted);
+  GOMidiSystem &midi = soundSystem.GetMidi();
+  GOSoundRecorder &recorder = soundSystem.GetAudioRecorder();
+
+  // at first, start the sound
+  soundSystem.SetClosingListener(this);
+  m_SoundEngine.Prepare(
+    soundSystem.GetSamplesPerBuffer(),
+    soundSystem.GetSampleRate(),
+    m_config,
+    recorder,
+    *this,
+    m_pool);
+  soundSystem.ConnectToEngine(m_SoundEngine);
+  GOOrganModel::GOSoundOrganInterfaceProxy::Connect(&m_SoundEngine);
+
+  // Then start MIDI
+  m_midi = &midi;
   m_MidiRecorder->SetOutputDevice(m_config.MidiRecorderOutputDevice());
-  m_AudioRecorder->SetAudioRecorder(recorder);
-
+  m_AudioRecorder->SetAudioRecorder(&recorder);
   m_MidiRecorder->Clear();
+  // Assigns channels to manuals: populates m_Preconfig and m_Mappings,
+  // sends MIDI_SYSEX_GO_SETUP events
   PreconfigRecorder();
+  // Sends MIDI_SYSEX_GO_SAMPLESET event and clears m_Mappings
   m_MidiRecorder->SetSamplesetId(m_SampleSetId1, m_SampleSetId2);
+  // Rebuilds m_Mappings cleared by SetSamplesetId and re-sends
+  // MIDI_SYSEX_GO_SETUP events
   PreconfigRecorder();
-
   m_MidiSamplesetMatch.clear();
-  GOOrganModel::SetMidi(midi, m_MidiRecorder);
-  GOOrganModel::GOSoundOrganInterfaceProxy::Connect(engine);
+  GOOrganModel::SetMidi(&midi, m_MidiRecorder);
+  m_MidiPlayer->Setup(&midi);
+
+  // Now Start all elements. They may already use sound and MIDI
   GOEventDistributor::PreparePlayback();
-
   m_setter->UpdateModified(m_OrganModified);
-
   GOEventDistributor::StartPlayback();
   GOEventDistributor::PrepareRecording();
-  m_MidiPlayer->Setup(midi);
 
   // Light the OnState button
   if (p_OnStateButton) {
@@ -908,38 +910,48 @@ void GOOrganController::PreparePlayback(
     p_OnStateButton->StartPlayback();
     p_OnStateButton->PrepareRecording();
   }
+  m_IsOrganStarted = true;
 }
 
-void GOOrganController::StartSound(GOSoundSystem &soundSystem) {
-  GOSoundOrganEngine &engine = soundSystem.GetEngine();
-  GOSoundRecorder &recorder = soundSystem.GetAudioRecorder();
+void GOOrganController::StopOrgan(GOSoundSystem &soundSystem) {
+  assert(soundSystem.IsOpen());
+  assert(m_IsOrganStarted);
+  m_IsOrganStarted = false;
 
-  soundSystem.SetClosingListener(this);
-  engine.Prepare(
-    soundSystem.GetSamplesPerBuffer(),
-    soundSystem.GetSampleRate(),
-    m_config,
-    recorder,
-    *this,
-    m_pool);
-  soundSystem.ConnectToEngine();
-  PreparePlayback(&engine, &soundSystem.GetMidi(), &recorder);
-}
+  // At first, stop all elements while the sound and MIDI is still working
+  GOEventDistributor::AbortPlayback();
+  m_MidiPlayer->Cleanup();
+  m_MidiRecorder->StopRecording();
+  m_AudioRecorder->StopRecording();
+  m_AudioRecorder->SetAudioRecorder(NULL);
+  if (p_OnStateButton)
+    p_OnStateButton->AbortPlayback();
 
-void GOOrganController::StopSound(GOSoundSystem &soundSystem) {
-  GOSoundOrganEngine *pEngine = m_soundengine;
+  // then stop MIDI
+  GOOrganModel::SetMidi(nullptr, nullptr);
+  m_midi = NULL;
 
-  Abort();
+  // then stop sound
+  GOOrganModel::GOSoundOrganInterfaceProxy::Disconnect();
   soundSystem.DisconnectFromEngine();
-  if (pEngine)
-    pEngine->Cleanup();
+  m_SoundEngine.Cleanup();
   soundSystem.SetClosingListener(nullptr);
+}
+
+void GOOrganController::OnSoundClosing(GOSoundSystem &soundSystem) {
+  if (m_IsOrganStarted)
+    StopOrgan(soundSystem);
 }
 
 void GOOrganController::PrepareRecording() {
   m_MidiRecorder->Clear();
+  // Assigns channels to manuals: populates m_Preconfig and m_Mappings,
+  // sends MIDI_SYSEX_GO_SETUP events
   PreconfigRecorder();
+  // Sends MIDI_SYSEX_GO_SAMPLESET event and clears m_Mappings
   m_MidiRecorder->SetSamplesetId(m_SampleSetId1, m_SampleSetId2);
+  // Rebuilds m_Mappings cleared by SetSamplesetId and re-sends
+  // MIDI_SYSEX_GO_SETUP events
   PreconfigRecorder();
 
   GOEventDistributor::PrepareRecording();
