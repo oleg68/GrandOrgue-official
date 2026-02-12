@@ -213,6 +213,15 @@ public:
     GOSoundSampler *handle,
     unsigned velocity) override;
 
+  void Prepare(
+    unsigned nSamplesPerBuffer,
+    unsigned sampleRate,
+    GOConfig &config,
+    GOSoundRecorder &recorder,
+    GOOrganModel &organModel,
+    GOMemoryPool &memoryPool);
+  void Cleanup();
+
   void GetAudioOutput(
     unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
   void NextPeriod();
