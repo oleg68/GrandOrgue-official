@@ -95,19 +95,6 @@ void GOSoundSystem::OpenSoundSystem() {
   m_open = true;
 }
 
-void GOSoundSystem::PrepareEngine() {
-  assert(m_open);
-  assert(m_OrganController);
-
-  m_SoundEngine.Prepare(
-    m_SamplesPerBuffer,
-    m_SampleRate,
-    m_config,
-    m_AudioRecorder,
-    *m_OrganController,
-    m_OrganController->GetMemoryPool());
-}
-
 void GOSoundSystem::ConnectToEngine() {
   assert(m_open);
 
@@ -115,14 +102,6 @@ void GOSoundSystem::ConnectToEngine() {
     m_NCallbacksEntered.store(0);
     m_IsRunning.store(true);
   }
-}
-
-void GOSoundSystem::NotifySoundStarted() {
-  assert(m_open);
-  assert(m_OrganController);
-
-  m_OrganController->PreparePlayback(
-    &GetEngine(), &GetMidi(), &m_AudioRecorder);
 }
 
 void GOSoundSystem::StartStreams() {
@@ -145,13 +124,6 @@ void GOSoundSystem::StartStreams() {
 
   for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
     m_AudioOutputs[i].port->StartStream();
-}
-
-void GOSoundSystem::NotifySoundStopped() {
-  assert(m_open);
-  assert(m_OrganController);
-
-  m_OrganController->Abort();
 }
 
 void GOSoundSystem::DisconnectFromEngine() {
@@ -178,12 +150,6 @@ void GOSoundSystem::DisconnectFromEngine() {
     GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
     m_AudioOutputs[i].condition.Broadcast();
   }
-}
-
-void GOSoundSystem::CleanupEngine() {
-  assert(m_open);
-  assert(m_OrganController);
-  m_SoundEngine.Cleanup();
 }
 
 void GOSoundSystem::CloseSoundSystem() {
@@ -217,11 +183,8 @@ bool GOSoundSystem::AssureSoundIsOpen() {
   }
   if (m_open) { // Everything is OK. Perform other starting steps
     OpenMidi();
-    if (m_OrganController && !m_IsRunning.load()) {
-      PrepareEngine();
-      ConnectToEngine();
-      NotifySoundStarted();
-    }
+    if (m_OrganController && !m_IsRunning.load())
+      m_OrganController->StartSound(*this);
   } else // Sometimes is wrong. Close all audio devices that are partially open
     CloseSoundSystem();
   return m_open;
@@ -231,9 +194,7 @@ void GOSoundSystem::AssureSoundIsClosed() {
   if (m_IsRunning.load()) {
     assert(m_open);
     assert(m_OrganController);
-    NotifySoundStopped();
-    DisconnectFromEngine();
-    CleanupEngine();
+    m_OrganController->StopSound(*this);
   }
   if (m_open)
     CloseSoundSystem();
@@ -247,19 +208,13 @@ void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
     for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
       multi.Add(m_AudioOutputs[i].mutex);
 
-    if (m_OrganController && m_open) {
-      NotifySoundStopped();
-      DisconnectFromEngine();
-      CleanupEngine();
-    }
+    if (m_OrganController && m_open)
+      m_OrganController->StopSound(*this);
 
     m_OrganController = organController;
 
-    if (m_OrganController && m_open) {
-      PrepareEngine();
-      ConnectToEngine();
-      NotifySoundStarted();
-    }
+    if (m_OrganController && m_open)
+      m_OrganController->StartSound(*this);
   }
 }
 
@@ -396,9 +351,7 @@ wxString GOSoundSystem::getState() {
   if (!m_AudioOutputs.size())
     return _("No sound output occurring");
   wxString result = wxString::Format(
-    _("%d samples per buffer, %d Hz\n"),
-    m_SamplesPerBuffer,
-    m_SoundEngine.GetSampleRate());
+    _("%d samples per buffer, %d Hz\n"), m_SamplesPerBuffer, m_SampleRate);
   for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
     result = result + _("\n") + m_AudioOutputs[i].port->getPortState();
   return result;

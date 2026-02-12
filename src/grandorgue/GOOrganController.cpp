@@ -62,6 +62,7 @@
 #include "model/GOTremulant.h"
 #include "sound/GOSoundOrganEngine.h"
 #include "sound/GOSoundReleaseAlignTable.h"
+#include "sound/GOSoundSystem.h"
 #include "temperaments/GOTemperament.h"
 #include "yaml/GOYamlModel.h"
 
@@ -907,6 +908,30 @@ void GOOrganController::PreparePlayback(
     p_OnStateButton->StartPlayback();
     p_OnStateButton->PrepareRecording();
   }
+}
+
+void GOOrganController::StartSound(GOSoundSystem &soundSystem) {
+  GOSoundOrganEngine &engine = soundSystem.GetEngine();
+  GOSoundRecorder &recorder = soundSystem.GetAudioRecorder();
+
+  engine.Prepare(
+    soundSystem.GetSamplesPerBuffer(),
+    soundSystem.GetSampleRate(),
+    m_config,
+    recorder,
+    *this,
+    m_pool);
+  soundSystem.ConnectToEngine();
+  PreparePlayback(&engine, &soundSystem.GetMidi(), &recorder);
+}
+
+void GOOrganController::StopSound(GOSoundSystem &soundSystem) {
+  GOSoundOrganEngine *pEngine = m_soundengine;
+
+  Abort();
+  soundSystem.DisconnectFromEngine();
+  if (pEngine)
+    pEngine->Cleanup();
 }
 
 void GOOrganController::PrepareRecording() {

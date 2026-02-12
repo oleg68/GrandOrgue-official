@@ -46,6 +46,7 @@ class GOOrgan;
 class GOProgressDialog;
 class GOSetter;
 class GOConfig;
+class GOSoundSystem;
 class GOTemperament;
 class GODocument;
 class GOSoundOrganEngine;
@@ -170,6 +171,16 @@ public:
   void PreparePlayback(
     GOSoundOrganEngine *engine, GOMidiSystem *midi, GOSoundRecorder *recorder);
   void PrepareRecording();
+
+  // Prepares the sound engine using this organ, connects it to audio outputs
+  // and then notifies this organ that playback has started.
+  // Can only be called when soundSystem is open.
+  void StartSound(GOSoundSystem &soundSystem);
+
+  // Notifies this organ that playback has stopped, disconnects the engine from
+  // audio outputs and then cleans it up.
+  // Can only be called when soundSystem is open.
+  void StopSound(GOSoundSystem &soundSystem);
   void Update();
   void Reset();
   void ProcessMidi(const GOMidiEvent &event);
