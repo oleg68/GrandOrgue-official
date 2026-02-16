@@ -11,13 +11,11 @@
 #include <atomic>
 #include <vector>
 
+#include "sound/GOSoundReverb.h"
 #include "sound/scheduler/GOSoundTask.h"
 #include "threading/GOMutex.h"
 
 #include "GOSoundBufferTaskBase.h"
-
-class GOSoundReverb;
-class GOConfig;
 
 class GOSoundOutputTask : public GOSoundTask, public GOSoundBufferTaskBase {
 private:
@@ -49,7 +47,10 @@ public:
   void Clear();
   void Reset();
 
-  void SetupReverb(GOConfig &settings);
+  void SetupReverb(
+    const GOSoundReverb::ReverbConfig &config,
+    unsigned nSamplesPerBuffer,
+    unsigned sampleRate);
 
   const std::vector<float> &GetMeterInfo();
   void ResetMeterInfo();

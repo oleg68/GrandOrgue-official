@@ -128,9 +128,13 @@ void GOSoundOrganEngine::SetAudioOutput(
 }
 
 void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
+  const GOSoundReverb::ReverbConfig reverbConfig
+    = GOSoundReverb::createReverbConfig(settings);
+
   for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
     if (m_AudioOutputTasks[i])
-      m_AudioOutputTasks[i]->SetupReverb(settings);
+      m_AudioOutputTasks[i]->SetupReverb(
+        reverbConfig, settings.SamplesPerBuffer(), settings.SampleRate());
 }
 
 void GOSoundOrganEngine::SetAudioRecorder(

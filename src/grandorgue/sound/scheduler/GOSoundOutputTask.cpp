@@ -133,8 +133,11 @@ unsigned GOSoundOutputTask::GetCost() { return 0; }
 
 bool GOSoundOutputTask::GetRepeat() { return false; }
 
-void GOSoundOutputTask::SetupReverb(GOConfig &settings) {
-  m_Reverb->Setup(settings);
+void GOSoundOutputTask::SetupReverb(
+  const GOSoundReverb::ReverbConfig &config,
+  unsigned nSamplesPerBuffer,
+  unsigned sampleRate) {
+  m_Reverb->Setup(config, nSamplesPerBuffer, sampleRate);
 }
 
 const std::vector<float> &GOSoundOutputTask::GetMeterInfo() {
