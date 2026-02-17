@@ -112,6 +112,7 @@ GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
     m_panels(),
     m_panelcreators(),
     m_elementcreators(),
+    m_SoundEngine(*this, m_pool),
     m_midi(0),
     m_MidiSamplesetMatch(),
     m_SampleSetId1(0),
@@ -871,13 +872,17 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
 
   // at first, start the sound
   soundSystem.SetClosingListener(this);
-  m_SoundEngine.Prepare(
+  m_SoundEngine.SetFromConfig(m_config);
+  // Assumes the audio output configuration has not changed since the sound
+  // system was opened.
+  // TODO: save the output configuration in GOSoundSystem at open time and
+  //       retrieve it here instead of re-reading from m_config.
+  m_SoundEngine.BuildAndStart(
+    GOSoundOrganEngine::createAudioOutputConfigs(
+      m_config, m_config.GetAudioGroups().size()),
     soundSystem.GetSamplesPerBuffer(),
     soundSystem.GetSampleRate(),
-    m_config,
-    recorder,
-    *this,
-    m_pool);
+    recorder);
   soundSystem.ConnectToEngine(m_SoundEngine);
   GOOrganModel::GOSoundOrganInterfaceProxy::Connect(&m_SoundEngine);
 
@@ -934,7 +939,7 @@ void GOOrganController::StopOrgan(GOSoundSystem &soundSystem) {
   // then stop sound
   GOOrganModel::GOSoundOrganInterfaceProxy::Disconnect();
   soundSystem.DisconnectFromEngine();
-  m_SoundEngine.Cleanup();
+  m_SoundEngine.StopAndDestroy();
   soundSystem.SetClosingListener(nullptr);
 }
 

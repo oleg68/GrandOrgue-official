@@ -119,38 +119,16 @@ void GOPerfTestApp::RunTest(
           true);
         pipes.push_back(w);
       }
-      // Independent setters (in declaration order)
-      engine.SetSampleRate(sample_rate);
-      engine.SetSamplesPerBuffer(samples_per_frame);
       engine.SetVolume(10);
       engine.SetHardPolyphony(10000);
       engine.SetPolyphonyLimiting(false);
       engine.SetScaledReleases(true);
       engine.SetInterpolationType(interpolation);
-
-      // After SetSamplesPerBuffer: creates GOSoundGroupTask with
-      // m_SamplesPerBuffer
-      engine.SetAudioGroupCount(1);
-
-      std::vector<GOAudioOutputConfiguration> engine_config;
-      engine_config.resize(1);
-      engine_config[0].channels = 2;
-      engine_config[0].scale_factors.resize(2);
-      engine_config[0].scale_factors[0].resize(2);
-      engine_config[0].scale_factors[0][0] = 0;
-      engine_config[0].scale_factors[0][1] = -121;
-      engine_config[0].scale_factors[1].resize(2);
-      engine_config[0].scale_factors[1][0] = -121;
-      engine_config[0].scale_factors[1][1] = 0;
-
-      // After SetAudioGroupCount: uses m_AudioGroupCount, m_AudioGroupTasks,
-      // and m_SamplesPerBuffer
-      engine.SetAudioOutput(engine_config);
-
-      // After SetAudioOutput: uses m_AudioOutputTasks and m_SamplesPerBuffer
-      engine.SetAudioRecorder(&recorder, false);
-
-      engine.Setup(*organController, organController->GetMemoryPool());
+      engine.BuildAndStart(
+        GOSoundOrganEngine::createDefaultOutputConfigs(),
+        samples_per_frame,
+        sample_rate,
+        recorder);
 
       std::vector<GOSoundSampler *> handles;
       float output_buffer[samples_per_frame * 2];
@@ -195,6 +173,7 @@ void GOPerfTestApp::RunTest(
         diff.ToLong(),
         playback_time * 1000.0 * pipes.size() / diff.ToLong());
 
+      engine.StopAndDestroy();
       pipes.clear();
     } catch (wxString msg) {
       wxLogError(wxT("Error: %s"), msg.c_str());

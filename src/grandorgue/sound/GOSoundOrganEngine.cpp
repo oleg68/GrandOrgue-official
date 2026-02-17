@@ -9,6 +9,7 @@
 
 #include <algorithm>
 
+#include "config/GOAudioDeviceConfig.h"
 #include "config/GOConfig.h"
 #include "model/GOOrganModel.h"
 #include "model/GOPipe.h"
@@ -21,7 +22,6 @@
 #include "sound/scheduler/GOSoundTouchTask.h"
 #include "sound/scheduler/GOSoundTremulantTask.h"
 #include "sound/scheduler/GOSoundWindchestTask.h"
-#include "threading/GOMutexLocker.h"
 
 #include "GOEvent.h"
 #include "GOSoundProvider.h"
@@ -29,237 +29,29 @@
 #include "GOSoundReleaseAlignTable.h"
 #include "GOSoundSampler.h"
 
-GOSoundOrganEngine::GOSoundOrganEngine()
-  : m_PolyphonyLimiting(true),
-    m_ScaledReleases(true),
-    m_ReleaseAlignmentEnabled(true),
-    m_RandomizeSpeaking(true),
-    m_Volume(-15),
-    m_SamplesPerBuffer(1),
-    m_Gain(1),
-    m_SampleRate(0),
-    m_CurrentTime(1),
-    m_SamplerPool(),
-    m_AudioGroupCount(1),
-    m_UsedPolyphony(0),
-    m_MeterInfo(1),
-    m_TremulantTasks(),
-    m_WindchestTasks(),
-    m_AudioGroupTasks(),
-    m_AudioOutputTasks(),
-    m_AudioRecorder(NULL),
-    m_TouchTask(),
-    m_HasBeenSetup(false) {
-  m_SamplerPool.SetUsageLimit(2048);
-  m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
-  m_ReleaseProcessor = new GOSoundReleaseTask(*this, m_AudioGroupTasks);
-  Reset();
-}
+/*
+ * Factories
+ */
 
-GOSoundOrganEngine::~GOSoundOrganEngine() {
-  if (m_ReleaseProcessor)
-    delete m_ReleaseProcessor;
-}
-
-// Independent setters
-
-void GOSoundOrganEngine::SetVolume(int volume) {
-  m_Volume = volume;
-  m_Gain = powf(10.0f, m_Volume * 0.05f);
-}
-
-void GOSoundOrganEngine::SetHardPolyphony(unsigned polyphony) {
-  m_SamplerPool.SetUsageLimit(polyphony);
-  m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
-}
-
-// Dependent setters
-
-void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
-  if (groups < 1)
-    groups = 1;
-  m_AudioGroupCount = groups;
-  m_AudioGroupTasks.clear();
-  for (unsigned i = 0; i < m_AudioGroupCount; i++)
-    m_AudioGroupTasks.push_back(
-      new GOSoundGroupTask(*this, m_SamplesPerBuffer));
-}
-
-void GOSoundOrganEngine::SetAudioOutput(
-  std::vector<GOAudioOutputConfiguration> audio_outputs) {
-  m_AudioOutputTasks.clear();
-  {
-    std::vector<float> scale_factors;
-    scale_factors.resize(m_AudioGroupCount * 2 * 2);
-    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
-    for (unsigned i = 0; i < m_AudioGroupCount; i++) {
-      scale_factors[i * 4] = 1;
-      scale_factors[i * 4 + 3] = 1;
-    }
-    m_AudioOutputTasks.push_back(
-      new GOSoundOutputTask(2, scale_factors, m_SamplesPerBuffer));
-  }
-  unsigned channels = 0;
-  for (unsigned i = 0; i < audio_outputs.size(); i++) {
-    std::vector<float> scale_factors;
-    scale_factors.resize(m_AudioGroupCount * audio_outputs[i].channels * 2);
-    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
-    for (unsigned j = 0; j < audio_outputs[i].channels; j++)
-      for (unsigned k = 0; k < audio_outputs[i].scale_factors[j].size(); k++) {
-        if (k >= m_AudioGroupCount * 2)
-          continue;
-        float factor = audio_outputs[i].scale_factors[j][k];
-        if (factor >= -120 && factor < 40)
-          factor = powf(10.0f, factor * 0.05f);
-        else
-          factor = 0;
-        scale_factors[j * m_AudioGroupCount * 2 + k] = factor;
-      }
-    m_AudioOutputTasks.push_back(new GOSoundOutputTask(
-      audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
-    channels += audio_outputs[i].channels;
-  }
-  std::vector<GOSoundBufferTaskBase *> outputs;
-  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
-    outputs.push_back(m_AudioGroupTasks[i]);
-  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-    m_AudioOutputTasks[i]->SetOutputs(outputs);
-  m_MeterInfo.resize(channels + 1);
-}
-
-void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
-  const GOSoundReverb::ReverbConfig reverbConfig
-    = GOSoundReverb::createReverbConfig(settings);
-
-  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-    if (m_AudioOutputTasks[i])
-      m_AudioOutputTasks[i]->SetupReverb(
-        reverbConfig, settings.SamplesPerBuffer(), settings.SampleRate());
-}
-
-void GOSoundOrganEngine::SetAudioRecorder(
-  GOSoundRecorder *recorder, bool downmix) {
-  m_AudioRecorder = recorder;
-  std::vector<GOSoundBufferTaskBase *> outputs;
-  if (downmix)
-    outputs.push_back(m_AudioOutputTasks[0]);
-  else {
-    m_Scheduler.Remove(m_AudioOutputTasks[0]);
-    delete m_AudioOutputTasks[0];
-    m_AudioOutputTasks[0] = NULL;
-    for (unsigned i = 1; i < m_AudioOutputTasks.size(); i++)
-      outputs.push_back(m_AudioOutputTasks[i]);
-  }
-  m_AudioRecorder->SetOutputs(outputs, m_SamplesPerBuffer);
-}
-
-// Other getters
-
-const std::vector<double> &GOSoundOrganEngine::GetMeterInfo() {
-  m_MeterInfo[0] = m_UsedPolyphony.load() / (double)GetHardPolyphony();
-  m_UsedPolyphony.store(0);
-
-  for (unsigned i = 1; i < m_MeterInfo.size(); i++)
-    m_MeterInfo[i] = 0;
-  for (unsigned i = 0, nr = 1; i < m_AudioOutputTasks.size(); i++) {
-    if (!m_AudioOutputTasks[i])
-      continue;
-    const std::vector<float> &info = m_AudioOutputTasks[i]->GetMeterInfo();
-    for (unsigned j = 0; j < info.size(); j++)
-      m_MeterInfo[nr++] = info[j];
-    m_AudioOutputTasks[i]->ResetMeterInfo();
-  }
-  return m_MeterInfo;
-}
-
-void GOSoundOrganEngine::Reset() {
-  if (m_HasBeenSetup.load()) {
-    for (unsigned i = 0; i < m_WindchestTasks.size(); i++)
-      m_WindchestTasks[i]->Init(m_TremulantTasks);
-  }
-
-  m_Scheduler.Clear();
-
-  if (m_HasBeenSetup.load()) {
-    for (unsigned i = 0; i < m_TremulantTasks.size(); i++)
-      m_Scheduler.Add(m_TremulantTasks[i]);
-    for (unsigned i = 0; i < m_WindchestTasks.size(); i++)
-      m_Scheduler.Add(m_WindchestTasks[i]);
-    for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
-      m_Scheduler.Add(m_AudioGroupTasks[i]);
-    for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-      m_Scheduler.Add(m_AudioOutputTasks[i]);
-    m_Scheduler.Add(m_AudioRecorder);
-    m_Scheduler.Add(m_ReleaseProcessor);
-    if (m_TouchTask)
-      m_Scheduler.Add(m_TouchTask.get());
-  }
-  m_UsedPolyphony.store(0);
-
-  m_SamplerPool.ReturnAll();
-  m_CurrentTime = 1;
-  m_Scheduler.Reset();
-}
-
-void GOSoundOrganEngine::ClearSetup() {
-  m_HasBeenSetup.store(false);
-
-  // the winchests may be still used from audio callbacks.
-  // clear the pending sound before destroying the windchests
-  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
-    m_AudioGroupTasks[i]->WaitAndClear();
-
-  m_Scheduler.Clear();
-  m_WindchestTasks.clear();
-  m_TremulantTasks.clear();
-  m_TouchTask = NULL;
-  Reset();
-}
-
-void GOSoundOrganEngine::Setup(
-  GOOrganModel &organModel, GOMemoryPool &memoryPool, unsigned releaseCount) {
-  m_Scheduler.Clear();
-  if (releaseCount < 1)
-    releaseCount = 1;
-  m_Scheduler.SetRepeatCount(releaseCount);
-  m_TremulantTasks.clear();
-  for (unsigned i = 0; i < organModel.GetTremulantCount(); i++)
-    m_TremulantTasks.push_back(
-      new GOSoundTremulantTask(*this, m_SamplesPerBuffer));
-  m_WindchestTasks.clear();
-  // a special windchest task for detached releases
-  m_WindchestTasks.push_back(new GOSoundWindchestTask(*this, NULL));
-  for (unsigned i = 0; i < organModel.GetWindchestCount(); i++)
-    m_WindchestTasks.push_back(
-      new GOSoundWindchestTask(*this, organModel.GetWindchest(i)));
-  m_TouchTask
-    = std::unique_ptr<GOSoundTouchTask>(new GOSoundTouchTask(memoryPool));
-  m_HasBeenSetup.store(true);
-  Reset();
-}
-
-static std::vector<GOAudioOutputConfiguration> get_audio_output_conf(
-  GOConfig &config, unsigned nAudioGroups) {
+std::vector<GOSoundOrganEngine::AudioOutputConfig> GOSoundOrganEngine::
+  createAudioOutputConfigs(GOConfig &config, unsigned nAudioGroups) {
   std::vector<GOAudioDeviceConfig> &audioDeviceConf
     = config.GetAudioDeviceConfig();
   const unsigned nAudioDevices = audioDeviceConf.size();
-  std::vector<GOAudioOutputConfiguration> engineConf(nAudioDevices);
+  std::vector<AudioOutputConfig> engineConf(nAudioDevices);
 
-  for (unsigned i = 0; i < nAudioDevices; i++) {
-    const GOAudioDeviceConfig &deviceConfig = audioDeviceConf[i];
+  for (unsigned deviceI = 0; deviceI < nAudioDevices; deviceI++) {
+    const GOAudioDeviceConfig &deviceConfig = audioDeviceConf[deviceI];
     const auto &deviceOutputs = deviceConfig.GetChannelOututs();
-    GOAudioOutputConfiguration &engineDeviceConf = engineConf[i];
+    AudioOutputConfig &engineDeviceConf = engineConf[deviceI];
 
     engineDeviceConf.channels = deviceConfig.GetChannels();
-    engineDeviceConf.scale_factors.resize(engineDeviceConf.channels);
+    engineDeviceConf.scaleGains.resize(engineDeviceConf.channels);
     for (unsigned j = 0; j < engineDeviceConf.channels; j++) {
-      std::vector<float> &scaleFactors = engineDeviceConf.scale_factors[j];
+      std::vector<float> &sf = engineDeviceConf.scaleGains[j];
 
-      scaleFactors.resize(nAudioGroups * 2);
-      std::fill(
-        scaleFactors.begin(),
-        scaleFactors.end(),
-        GOAudioDeviceConfig::MUTE_VOLUME);
+      sf.resize(nAudioGroups * 2);
+      std::fill(sf.begin(), sf.end(), GOAudioDeviceConfig::MUTE_VOLUME);
 
       if (j >= deviceOutputs.size())
         continue;
@@ -271,8 +63,8 @@ static std::vector<GOAudioOutputConfiguration> get_audio_output_conf(
         int id = config.GetStrictAudioGroupId(groupOutput.GetName());
 
         if (id >= 0) {
-          scaleFactors[id * 2] = groupOutput.GetLeft();
-          scaleFactors[id * 2 + 1] = groupOutput.GetRight();
+          sf[id * 2] = groupOutput.GetLeft();
+          sf[id * 2 + 1] = groupOutput.GetRight();
         }
       }
     }
@@ -280,92 +72,386 @@ static std::vector<GOAudioOutputConfiguration> get_audio_output_conf(
   return engineConf;
 }
 
-void GOSoundOrganEngine::Prepare(
-  unsigned nSamplesPerBuffer,
-  unsigned sampleRate,
-  GOConfig &config,
-  GOSoundRecorder &recorder,
-  GOOrganModel &organModel,
-  GOMemoryPool &memoryPool) {
-  StartThreads(config.Concurrency());
+std::vector<GOSoundOrganEngine::AudioOutputConfig> GOSoundOrganEngine::
+  createDefaultOutputConfigs(unsigned nAudioGroups) {
+  AudioOutputConfig conf;
 
-  const unsigned nAudioGroups = config.GetAudioGroups().size();
+  conf.channels = 2;
+  conf.scaleGains.resize(2);
+  for (unsigned ch = 0; ch < 2; ch++) {
+    conf.scaleGains[ch].resize(
+      nAudioGroups * 2, GOAudioDeviceConfig::MUTE_VOLUME);
+    for (unsigned groupI = 0; groupI < nAudioGroups; groupI++)
+      conf.scaleGains[ch][groupI * 2 + ch] = 0.0f;
+  }
+  return {conf};
+}
 
-  // Independent setters (in declaration order)
-  SetSampleRate(sampleRate);
-  SetSamplesPerBuffer(nSamplesPerBuffer);
+/*
+ * Constructor
+ */
+
+GOSoundOrganEngine::GOSoundOrganEngine(
+  GOOrganModel &organModel, GOMemoryPool &memoryPool)
+  : r_OrganModel(organModel),
+    r_MemoryPool(memoryPool),
+    mp_TouchTask(std::make_unique<GOSoundTouchTask>(r_MemoryPool)),
+    m_LifecycleState(LifecycleState::IDLE),
+    m_InterpolationType(GOSoundResample::GO_LINEAR_INTERPOLATION),
+    m_IsDownmix(false),
+    m_IsPolyphonyLimiting(true),
+    m_IsRandomizeSpeaking(true),
+    m_IsReleaseAlignmentEnabled(true),
+    m_IsScaledReleases(true),
+    m_NAudioGroups(1),
+    m_NAuxThreads(0),
+    m_NReleaseRepeats(1),
+    m_PolyphonySoftLimit(0),
+    m_ReverbConfig(GOSoundReverb::CONFIG_REVERB_DISABLED),
+    m_NSamplesPerBuffer(1),
+    m_SampleRate(0),
+    m_CurrentTime(1),
+    m_UsedPolyphony(0),
+    m_MeterInfo(1),
+    p_AudioRecorder(nullptr) {
+  m_SamplerPool.SetUsageLimit(2048);
+  m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
+  // mp_ReleaseTask references m_AudioGroupTasks, which is declared after
+  // mp_ReleaseTask; initializing it in the initializer list would use
+  // m_AudioGroupTasks before it is constructed.
+  mp_ReleaseTask
+    = std::make_unique<GOSoundReleaseTask>(*this, m_AudioGroupTasks);
+  SetVolume(-15);
+}
+
+// Cannot be defined in .h: mp_ReleaseTask and mp_TouchTask are unique_ptr to
+// forward-declared types; their destructors require complete types only
+// available in .cpp.
+GOSoundOrganEngine::~GOSoundOrganEngine() {}
+
+/*
+ * Configuration setters
+ */
+
+void GOSoundOrganEngine::SetVolume(int volume) {
+  m_volume = volume;
+  m_gain = powf(10.0f, m_volume * 0.05f);
+}
+
+void GOSoundOrganEngine::SetHardPolyphony(unsigned polyphony) {
+  m_SamplerPool.SetUsageLimit(polyphony);
+  m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
+}
+
+void GOSoundOrganEngine::SetFromConfig(GOConfig &config) {
   SetHardPolyphony(config.PolyphonyLimit());
-  SetPolyphonyLimiting(config.ManagePolyphony());
-  SetScaledReleases(config.ScaleRelease());
-  SetRandomizeSpeaking(config.RandomizeSpeaking());
   SetInterpolationType(config.m_InterpolationType());
-
-  // After SetSamplesPerBuffer: creates GOSoundGroupTask with m_SamplesPerBuffer
-  SetAudioGroupCount(nAudioGroups);
-
-  // After SetAudioGroupCount: uses m_AudioGroupCount, m_AudioGroupTasks, and
-  // m_SamplesPerBuffer
-  SetAudioOutput(get_audio_output_conf(config, nAudioGroups));
-
-  // After SetAudioOutput: uses m_AudioOutputTasks
-  SetupReverb(config);
-
-  // After SetAudioOutput: uses m_AudioOutputTasks and m_SamplesPerBuffer
-  SetAudioRecorder(&recorder, config.RecordDownmix());
-
-  Setup(organModel, memoryPool, config.ReleaseConcurrency());
+  SetDownmix(config.RecordDownmix());
+  SetPolyphonyLimiting(config.ManagePolyphony());
+  SetRandomizeSpeaking(config.RandomizeSpeaking());
+  SetScaledReleases(config.ScaleRelease());
+  SetNAudioGroups(config.GetAudioGroups().size());
+  SetNAuxThreads(config.Concurrency());
+  SetNReleaseRepeats(config.ReleaseConcurrency());
+  SetReverbConfig(GOSoundReverb::createReverbConfig(config));
 }
 
-void GOSoundOrganEngine::Cleanup() {
-  // ensure pointers to work items are not held by threads
-  m_Scheduler.PauseGivingWork();
-  WaitForThreadsIdle();
+/*
+ * Lifecycle setter
+ */
 
-  ClearSetup();
-  m_Scheduler.ResumeGivingWork();
-  StopThreads();
+void GOSoundOrganEngine::SetUsed(bool isUsed) {
+  const auto state = m_LifecycleState.load();
+
+  assert(state >= LifecycleState::WORKING && state <= LifecycleState::USED);
+  m_LifecycleState.store(
+    isUsed ? LifecycleState::USED : LifecycleState::WORKING);
 }
 
-void GOSoundOrganEngine::StartThreads(unsigned nThreads) {
-  StopThreads();
+/*
+ * Lifecycle functions
+ */
 
-  GOMutexLocker threadLocker(m_ThreadLock);
-  for (unsigned i = 0; i < nThreads; i++)
-    m_Threads.push_back(new GOSoundThread(&m_Scheduler));
+void GOSoundOrganEngine::ResetCounters() {
+  m_UsedPolyphony.store(0);
+  m_SamplerPool.ReturnAll();
+  m_CurrentTime = 1;
+  m_scheduler.Reset();
+}
 
-  for (GOSoundThread *pThread : m_Threads)
+void GOSoundOrganEngine::BuildThreads(unsigned nThreads) {
+  for (unsigned threadI = 0; threadI < nThreads; threadI++)
+    mp_threads.push_back(new GOSoundThread(&m_scheduler));
+  for (GOSoundThread *pThread : mp_threads)
     pThread->Run();
 }
 
-void GOSoundOrganEngine::StopThreads() {
-  for (GOSoundThread *pThread : m_Threads)
+void GOSoundOrganEngine::DestroyThreads() {
+  for (GOSoundThread *pThread : mp_threads)
     pThread->Delete();
+  mp_threads.resize(0);
+}
 
-  GOMutexLocker threadLocker(m_ThreadLock);
-  m_Threads.resize(0);
+void GOSoundOrganEngine::BuildTasks(
+  const std::vector<AudioOutputConfig> &audioOutputConfigs,
+  unsigned nSamplesPerBuffer,
+  unsigned sampleRate,
+  GOSoundRecorder &recorder) {
+  assert(m_LifecycleState.load() == LifecycleState::IDLE);
+  assert(!audioOutputConfigs.empty());
+
+  m_NSamplesPerBuffer = nSamplesPerBuffer;
+  m_SampleRate = sampleRate;
+
+  // [B1] Audio group mix buffers
+  assert(m_AudioGroupTasks.size() == 0);
+
+  // audioGroupOutputs is used in [B2] and [B3] to connect group tasks as
+  // inputs to output tasks
+  std::vector<GOSoundBufferTaskBase *> audioGroupOutputs;
+
+  for (unsigned groupI = 0; groupI < m_NAudioGroups; groupI++) {
+    GOSoundGroupTask *pGroupTask
+      = new GOSoundGroupTask(*this, m_NSamplesPerBuffer);
+
+    m_AudioGroupTasks.push_back(pGroupTask);
+    audioGroupOutputs.push_back(pGroupTask);
+  }
+
+  // [B2] Create output tasks and connect them to audioGroupOutputs ([B1])
+  assert(m_AudioOutputTasks.size() == 0);
+
+  unsigned nTotalChannels = 0;
+
+  for (const AudioOutputConfig &deviceConf : audioOutputConfigs) {
+    assert(deviceConf.channels > 0);
+    assert(deviceConf.scaleGains.size() == deviceConf.channels);
+
+    const unsigned nDeviceChannels = deviceConf.channels;
+    // Device outputs: channel-major layout [chI * nAudioGroups * 2 + groupI*2 +
+    // lr]. Values are converted from dB (scaleGains) to linear
+    // (outputScaleFactors).
+    std::vector<float> outputScaleFactors(
+      m_NAudioGroups * nDeviceChannels * 2, 0.0f);
+
+    for (unsigned chI = 0; chI < nDeviceChannels; chI++) {
+      const std::vector<float> &chScaleGains = deviceConf.scaleGains[chI];
+      const unsigned nChScaleGains = chScaleGains.size();
+
+      assert(nChScaleGains == m_NAudioGroups * 2);
+      for (unsigned k = 0; k < nChScaleGains; k++) {
+        const float dbGain = chScaleGains[k];
+
+        outputScaleFactors[chI * m_NAudioGroups * 2 + k]
+          = (dbGain >= -120.0f && dbGain < 40.0f) ? powf(10.0f, dbGain * 0.05f)
+                                                  : 0.0f;
+      }
+    }
+    GOSoundOutputTask *pOutputTask = new GOSoundOutputTask(
+      nDeviceChannels, outputScaleFactors, m_NSamplesPerBuffer);
+
+    pOutputTask->SetOutputs(audioGroupOutputs);
+    m_AudioOutputTasks.push_back(pOutputTask);
+    nTotalChannels += nDeviceChannels;
+  }
+
+  // [B3] Create mixer output task and connect it to audioGroupOutputs ([B1])
+  // (downmix mode only)
+  //
+  // Internal mix: group-major layout [groupI * 4 + ch * 2 + lr]
+  //   group i, ch 0, left  → index i*4   = 1.0f
+  //   group i, ch 1, right → index i*4+3 = 1.0f
+  assert(!mp_MixerOutputTask);
+
+  if (m_IsDownmix) {
+    std::vector<float> mixScaleFactors(m_NAudioGroups * 4, 0.0f);
+
+    for (unsigned groupI = 0; groupI < m_NAudioGroups; groupI++) {
+      mixScaleFactors[groupI * 4] = 1.0f;
+      mixScaleFactors[groupI * 4 + 3] = 1.0f;
+    }
+    mp_MixerOutputTask = std::make_unique<GOSoundOutputTask>(
+      2, mixScaleFactors, m_NSamplesPerBuffer);
+    mp_MixerOutputTask->SetOutputs(audioGroupOutputs);
+  }
+
+  // [B4] Set up recorder
+  p_AudioRecorder = &recorder;
+  {
+    std::vector<GOSoundBufferTaskBase *> recorderOutputs;
+
+    if (mp_MixerOutputTask)
+      recorderOutputs.push_back(mp_MixerOutputTask.get());
+    else
+      for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks)
+        recorderOutputs.push_back(pOutputTask);
+    p_AudioRecorder->SetOutputs(recorderOutputs, m_NSamplesPerBuffer);
+  }
+
+  // [B5] Set up reverb on output tasks
+  for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks)
+    pOutputTask->SetupReverb(m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
+  if (mp_MixerOutputTask)
+    mp_MixerOutputTask->SetupReverb(
+      m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
+
+  // [B6] Tremulant tasks
+  assert(m_TremulantTasks.size() == 0);
+
+  const unsigned nTremulants = r_OrganModel.GetTremulantCount();
+
+  for (unsigned tremI = 0; tremI < nTremulants; tremI++)
+    m_TremulantTasks.push_back(
+      new GOSoundTremulantTask(*this, m_NSamplesPerBuffer));
+
+  // [B7] Windchest tasks: slot 0 for detached releases, slots 1..N for
+  // windchests
+  assert(m_WindchestTasks.size() == 0);
+  m_WindchestTasks.push_back(new GOSoundWindchestTask(*this, nullptr));
+
+  const unsigned nWindchests = r_OrganModel.GetWindchestCount();
+
+  for (unsigned windI = 0; windI < nWindchests; windI++)
+    m_WindchestTasks.push_back(
+      new GOSoundWindchestTask(*this, r_OrganModel.GetWindchest(windI)));
+
+  // [B8] Init windchest tasks with tremulant tasks
+  for (GOSoundWindchestTask *pWindchestTask : m_WindchestTasks)
+    pWindchestTask->Init(m_TremulantTasks);
+
+  // [B9] Add all tasks to scheduler
+  m_scheduler.SetRepeatCount(m_NReleaseRepeats);
+  for (GOSoundTremulantTask *pTremulantTask : m_TremulantTasks)
+    m_scheduler.Add(pTremulantTask);
+  for (GOSoundWindchestTask *pWindchestTask : m_WindchestTasks)
+    m_scheduler.Add(pWindchestTask);
+  for (GOSoundGroupTask *pGroupTask : m_AudioGroupTasks)
+    m_scheduler.Add(pGroupTask);
+  for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks)
+    m_scheduler.Add(pOutputTask);
+  if (mp_MixerOutputTask)
+    m_scheduler.Add(mp_MixerOutputTask.get());
+  m_scheduler.Add(p_AudioRecorder);
+  m_scheduler.Add(mp_ReleaseTask.get());
+  m_scheduler.Add(mp_TouchTask.get());
+
+  // [B10] Build threads
+  BuildThreads(m_NAuxThreads);
+
+  m_MeterInfo.resize(nTotalChannels + 1);
+  m_LifecycleState.store(LifecycleState::BUILT);
+}
+
+void GOSoundOrganEngine::DestroyTasks() {
+  assert(m_LifecycleState.load() == LifecycleState::BUILT);
+
+  // [B9] Clear scheduler (tasks are removed but not yet destroyed)
+  m_scheduler.Clear();
+
+  // [B8] skipped: windchest-tremulant connections are non-owning.
+
+  // [B7] Destroy windchest tasks (sampler queues already cleared in StopEngine)
+  m_WindchestTasks.clear();
+
+  // [B6] Destroy tremulant tasks
+  m_TremulantTasks.clear();
+
+  // [B5] skipped: reverb state is owned by GOSoundOutputTask, freed below.
+
+  // [B4] Disconnect recorder
+  p_AudioRecorder = nullptr;
+
+  // [B3] Destroy mixer output task
+  mp_MixerOutputTask.reset();
+
+  // [B2] Destroy device output tasks
+  m_AudioOutputTasks.clear();
+
+  // [B1] Destroy audio group tasks
+  m_AudioGroupTasks.clear();
+
+  m_MeterInfo.resize(1);
+
+  // Resume scheduler (now empty) so threads can receive the exit signal;
+  // GOSoundThread::Delete() alone cannot unblock a thread waiting for work.
+  // [B9]
+  m_scheduler.ResumeGivingWork();
+
+  // [B10] Destroy threads
+  DestroyThreads();
+
+  m_LifecycleState.store(LifecycleState::IDLE);
+}
+
+void GOSoundOrganEngine::StartEngine() {
+  assert(m_LifecycleState.load() == LifecycleState::BUILT);
+  ResetCounters();
+  m_scheduler.ResumeGivingWork();
+  m_LifecycleState.store(LifecycleState::WORKING);
+}
+
+void GOSoundOrganEngine::StopEngine() {
+  assert(m_LifecycleState.load() == LifecycleState::WORKING);
+  m_scheduler.PauseGivingWork();
+  WaitForThreadsIdle();
+  // Clear all active samplers from group task queues to stop sound output
+  for (GOSoundGroupTask *pGroupTask : m_AudioGroupTasks)
+    pGroupTask->WaitAndClear();
+  m_LifecycleState.store(LifecycleState::BUILT);
+}
+
+void GOSoundOrganEngine::BuildAndStart(
+  const std::vector<AudioOutputConfig> &audioOutputConfigs,
+  unsigned nSamplesPerBuffer,
+  unsigned sampleRate,
+  GOSoundRecorder &recorder) {
+  BuildTasks(audioOutputConfigs, nSamplesPerBuffer, sampleRate, recorder);
+  StartEngine();
+}
+
+void GOSoundOrganEngine::StopAndDestroy() {
+  StopEngine();
+  DestroyTasks();
+}
+
+/*
+ * Other functions
+ */
+
+const std::vector<double> &GOSoundOrganEngine::GetMeterInfo() {
+  m_MeterInfo[0] = m_UsedPolyphony.load() / (double)GetHardPolyphony();
+  m_UsedPolyphony.store(0);
+
+  for (unsigned i = 1; i < m_MeterInfo.size(); i++)
+    m_MeterInfo[i] = 0;
+
+  unsigned nr = 1;
+
+  for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks) {
+    const std::vector<float> &info = pOutputTask->GetMeterInfo();
+    const unsigned nInfo = info.size();
+
+    for (unsigned infoI = 0; infoI < nInfo; infoI++)
+      m_MeterInfo[nr++] = info[infoI];
+    pOutputTask->ResetMeterInfo();
+  }
+  return m_MeterInfo;
 }
 
 void GOSoundOrganEngine::WakeupThreads() {
-  GOMutexLocker threadLocker(m_ThreadLock);
-  for (GOSoundThread *pThread : m_Threads)
+  for (GOSoundThread *pThread : mp_threads)
     pThread->Wakeup();
 }
 
 void GOSoundOrganEngine::WaitForThreadsIdle() {
-  for (GOSoundThread *pThread : m_Threads)
+  for (GOSoundThread *pThread : mp_threads)
     pThread->WaitForIdle();
-}
-
-unsigned GOSoundOrganEngine::GetBufferSizeFor(
-  unsigned outputIndex, unsigned nFrames) {
-  return sizeof(float) * nFrames
-    * m_AudioOutputTasks[outputIndex + 1]->GetNChannels();
 }
 
 void GOSoundOrganEngine::GetAudioOutput(
   unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer) {
-  if (m_HasBeenSetup.load()) {
-    GOSoundOutputTask &outTask = *m_AudioOutputTasks[outputIndex + 1];
+  if (IsWorking()) {
+    GOSoundOutputTask &outTask = *m_AudioOutputTasks[outputIndex];
 
     outTask.Finish(isLast);
     outBuffer.CopyFrom(outTask);
@@ -374,18 +460,18 @@ void GOSoundOrganEngine::GetAudioOutput(
 }
 
 void GOSoundOrganEngine::NextPeriod() {
-  m_Scheduler.Exec();
+  m_scheduler.Exec();
 
-  m_CurrentTime += m_SamplesPerBuffer;
+  m_CurrentTime += m_NSamplesPerBuffer;
   unsigned used_samplers = m_SamplerPool.UsedSamplerCount();
   if (used_samplers > m_UsedPolyphony.load())
     m_UsedPolyphony.store(used_samplers);
 
-  m_Scheduler.Reset();
+  m_scheduler.Reset();
 }
 
 float GOSoundOrganEngine::GetRandomFactor() {
-  if (m_RandomizeSpeaking) {
+  if (m_IsRandomizeSpeaking) {
     const double factor = (pow(2, 1.0 / 1200.0) - 1) / (RAND_MAX / 2);
     int num = rand() - RAND_MAX / 2;
     return 1 + num * factor;
@@ -449,7 +535,7 @@ GOSoundSampler *GOSoundOrganEngine::CreateTaskSample(
       sampler->stream.InitStream(
         &m_resample,
         section,
-        m_interpolation,
+        m_InterpolationType,
         GetRandomFactor() * pSoundProvider->GetTuning() / (float)m_SampleRate);
 
       const float playback_gain
@@ -496,7 +582,7 @@ void GOSoundOrganEngine::SwitchToAnotherAttack(GOSoundSampler *pSampler) {
         // start new section stream in the old sampler
         pSampler->m_WaveTremulantStateFor = section->GetWaveTremulantStateFor();
         pSampler->stream.InitAlignedStream(
-          section, m_interpolation, &new_sampler->stream);
+          section, m_InterpolationType, &new_sampler->stream);
         pSampler->p_SoundProvider = pProvider;
         pSampler->time = m_CurrentTime + 1;
 
@@ -563,7 +649,7 @@ void GOSoundOrganEngine::CreateReleaseSampler(GOSoundSampler *handle) {
          * volume on the detached chest will not match the volume on
          * the existing chest. */
         gain_target *= vol;
-        if (m_ScaledReleases) {
+        if (m_IsScaledReleases) {
           /* Note: "time" is in milliseconds. */
           int time = ((m_CurrentTime - handle->time) * 1000) / m_SampleRate;
           /* TODO: below code should be replaced by a more accurate model of the
@@ -633,15 +719,15 @@ void GOSoundOrganEngine::CreateReleaseSampler(GOSoundSampler *handle) {
           MsToSamples(gain_decay_length));
 
       if (
-        m_ReleaseAlignmentEnabled
+        m_IsReleaseAlignmentEnabled
         && release_section->SupportsStreamAlignment()) {
         new_sampler->stream.InitAlignedStream(
-          release_section, m_interpolation, &handle->stream);
+          release_section, m_InterpolationType, &handle->stream);
       } else {
         new_sampler->stream.InitStream(
           &m_resample,
           release_section,
-          m_interpolation,
+          m_InterpolationType,
           this_pipe->GetTuning() / (float)m_SampleRate);
       }
       new_sampler->is_release = true;
@@ -673,7 +759,7 @@ bool GOSoundOrganEngine::ProcessSampler(
 
   if (process_sampler) {
     if (sampler->is_release &&
-        ((m_PolyphonyLimiting &&
+        ((m_IsPolyphonyLimiting &&
           m_SamplerPool.UsedSamplerCount() >= m_PolyphonySoftLimit &&
           m_CurrentTime - sampler->time > 172 * 16) ||
          sampler->drop_counter > 1))
@@ -704,7 +790,7 @@ bool GOSoundOrganEngine::ProcessSampler(
     if (
       (sampler->stop && sampler->stop <= m_CurrentTime)
       || (sampler->new_attack && sampler->new_attack <= m_CurrentTime)) {
-      m_ReleaseProcessor->Add(sampler);
+      mp_ReleaseTask->Add(sampler);
       return false;
     }
   }

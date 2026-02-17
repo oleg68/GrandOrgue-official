@@ -101,13 +101,13 @@ private:
   ptr_vector<GOGUIPanelCreator> m_panelcreators;
   ptr_vector<GOElementCreator> m_elementcreators;
 
+  GOMemoryPool m_pool;
   GOSoundOrganEngine m_SoundEngine;
   GOMidiSystem *m_midi;
   std::vector<bool> m_MidiSamplesetMatch;
   int m_SampleSetId1, m_SampleSetId2;
   GOGUIMouseState m_MouseState;
 
-  GOMemoryPool m_pool;
   GOBitmapCache *m_bitmaps;
   GOLabelControl m_PitchLabel;
   GOLabelControl m_TemperamentLabel;

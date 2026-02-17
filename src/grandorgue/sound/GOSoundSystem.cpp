@@ -98,10 +98,16 @@ void GOSoundSystem::OpenSoundSystem() {
 
 void GOSoundSystem::ConnectToEngine(GOSoundOrganEngine &engine) {
   assert(m_open);
+  assert(engine.IsWorking());
 
   if (p_OrganEngine.load() != &engine) {
     m_NCallbacksEntered.store(0);
-    p_OrganEngine.store(&engine);
+    engine.SetUsed(true);
+
+    GOSoundOrganEngine *const pOldEngine = p_OrganEngine.exchange(&engine);
+
+    if (pOldEngine)
+      pOldEngine->SetUsed(false);
   }
 }
 
@@ -130,7 +136,7 @@ void GOSoundSystem::StartStreams() {
 void GOSoundSystem::DisconnectFromEngine() {
   assert(m_open);
 
-  p_OrganEngine.store(nullptr);
+  GOSoundOrganEngine *const pOldEngine = p_OrganEngine.exchange(nullptr);
 
   // wait for all started callbacks to finish
   {
@@ -154,6 +160,8 @@ void GOSoundSystem::DisconnectFromEngine() {
 
     audioOutput.condition.Broadcast();
   }
+  if (pOldEngine)
+    pOldEngine->SetUsed(false);
 }
 
 void GOSoundSystem::CloseSoundSystem() {
@@ -295,6 +303,8 @@ bool GOSoundSystem::AudioCallback(
     = wasEntered ? p_OrganEngine.load() : nullptr;
 
   if (pOrganEngine) {
+    assert(pOrganEngine->IsUsed());
+
     GOSoundOutput &device = m_AudioOutputs[devIndex];
     GOMutexLocker locker(device.mutex);
 
