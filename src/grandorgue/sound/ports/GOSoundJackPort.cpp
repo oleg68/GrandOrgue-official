@@ -47,11 +47,11 @@ void GOSoundJackPort::jackLatencyCallback(
   }
 }
 
-int GOSoundJackPort::jackProcessCallback(jack_nframes_t nSamples, void *pData) {
+int GOSoundJackPort::jackProcessCallback(jack_nframes_t nFrames, void *pData) {
   int result = 1;
   GOSoundJackPort &port = *(GOSoundJackPort *)pData;
 
-  assert(nSamples == port.m_InterleavedBuffer.GetNSamples());
+  assert(nFrames == port.m_InterleavedBuffer.GetNFrames());
   if (port.AudioCallback(port.m_InterleavedBuffer)) {
     unsigned int channelI = 0;
 
@@ -60,9 +60,9 @@ int GOSoundJackPort::jackProcessCallback(jack_nframes_t nSamples, void *pData) {
       // Get a JACK output buffer for this channel
       jack_default_audio_sample_t *pOutData
         = (jack_default_audio_sample_t *)jack_port_get_buffer(
-          pJackOutPort, nSamples);
+          pJackOutPort, nFrames);
       // Create a GOSoundBufferMutableMono wrapper around the JACK buffer
-      GOSoundBufferMutableMono jackBuffer(pOutData, nSamples);
+      GOSoundBufferMutableMono jackBuffer(pOutData, nFrames);
 
       if (port.m_IsStarted) {
         // Copy one channel from interleaved buffer to the JACK buffer

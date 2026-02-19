@@ -277,17 +277,17 @@ void GOSoundSystem::UpdateMeter() {
 bool GOSoundSystem::AudioCallback(
   unsigned devIndex, GOSoundBufferMutable &outOutputBuffer) {
   bool wasEntered = false;
-  const unsigned nSamples = outOutputBuffer.GetNSamples();
+  const unsigned nFrames = outOutputBuffer.GetNFrames();
 
   if (p_OrganEngine.load()) {
-    if (nSamples == m_SamplesPerBuffer) {
+    if (nFrames == m_SamplesPerBuffer) {
       m_NCallbacksEntered.fetch_add(1);
       wasEntered = true;
     } else
       wxLogError(
         _("No sound output will happen. Samples per buffer has been "
           "changed by the sound driver to %d"),
-        nSamples);
+        nFrames);
   }
   // Reload p_OrganEngine after fetch_add to assure the control thread does
   // not miss m_NCallbacksEntered > 0 and proceeds to wait

@@ -42,7 +42,7 @@ private:
 
   static void jackLatencyCallback(
     jack_latency_callback_mode_t mode, void *pData);
-  static int jackProcessCallback(jack_nframes_t nSamples, void *pData);
+  static int jackProcessCallback(jack_nframes_t nFrames, void *pData);
   static void jackShutdownCallback(void *pData);
 
   static wxString getName();
