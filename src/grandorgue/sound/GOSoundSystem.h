@@ -9,14 +9,13 @@
 #define GOSOUNDSYSTEM_H
 
 #include <atomic>
-#include <map>
+#include <memory>
 #include <vector>
 
 #include <wx/string.h>
 
 #include "config/GOPortsConfig.h"
 #include "midi/GOMidiSystem.h"
-#include "ports/GOSoundPortFactory.h"
 #include "threading/GOCondition.h"
 #include "threading/GOMutex.h"
 
@@ -25,11 +24,9 @@
 
 class GOConfig;
 class GODeviceNamePattern;
-class GOMidiSystem;
+class GOSoundBufferMutable;
 class GOSoundOrganEngine;
 class GOSoundPort;
-class GOSoundPortaudioPort;
-class GOSoundRtPort;
 
 /**
  * This class represents a GrandOrgue-wide sound system. It may be used even
@@ -46,34 +43,6 @@ public:
   };
 
 private:
-  class GOSoundOutput {
-  public:
-    GOSoundPort *port;
-    GOMutex mutex;
-    GOCondition condition;
-    bool wait;
-    bool waiting;
-
-    GOSoundOutput() : condition(mutex) {
-      port = 0;
-      wait = false;
-      waiting = false;
-    }
-
-    GOSoundOutput(const GOSoundOutput &old) : condition(mutex) {
-      port = old.port;
-      wait = old.wait;
-      waiting = old.waiting;
-    }
-
-    const GOSoundOutput &operator=(const GOSoundOutput &old) {
-      port = old.port;
-      wait = old.wait;
-      waiting = old.waiting;
-      return *this;
-    }
-  };
-
   // Have all output audio devices opened successfully
   bool m_open;
   // Non-null when the sound engine is connected and ready to accept callbacks
@@ -91,9 +60,7 @@ private:
 
   bool logSoundErrors;
 
-  std::vector<GOSoundOutput> m_AudioOutputs;
-  std::atomic_uint m_WaitCount;
-  std::atomic_uint m_CalcCount;
+  std::vector<std::unique_ptr<GOSoundPort>> mp_SoundPorts;
 
   unsigned m_SamplesPerBuffer;
   unsigned m_SampleRate;

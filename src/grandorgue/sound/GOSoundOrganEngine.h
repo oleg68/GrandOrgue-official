@@ -13,12 +13,12 @@
 #include <vector>
 
 #include "scheduler/GOSoundScheduler.h"
+#include "threading/GOCondition.h"
 #include "threading/GOMutex.h"
 
 #include "GOSoundOrganInterface.h"
 #include "GOSoundResample.h"
 #include "GOSoundReverb.h"
-#include "GOSoundSampler.h"
 #include "GOSoundSamplerPool.h"
 
 class GOConfig;
@@ -100,6 +100,38 @@ public:
 private:
   static constexpr int DETACHED_RELEASE_TASK_ID = 0;
 
+  /**
+   * @brief Per-device output task with synchronisation state.
+   *
+   * Each audio device callback runs concurrently; the mutex+condition
+   * coordinate them so that NextPeriod() is called exactly once per
+   * scheduling round (by the last device to finish its output task).
+   * Non-copyable; move-only.
+   */
+  struct AudioOutput {
+    std::unique_ptr<GOSoundOutputTask> mp_OutputTask;
+    GOMutex mutex;
+    GOCondition condition;
+
+    // true when this output's callback has already been processed in this
+    // period and any next callback will wait for the period to end
+    bool wait;
+    bool waiting; ///< true while the engine is active (cleared on stop)
+
+    // Defined in .cpp: GOCondition must be initialised with mutex.
+    // Called in BuildTasks when constructing a local AudioOutput before
+    // push_back.
+    AudioOutput();
+    // Defined in .cpp: move constructor must reinitialise condition(mutex)
+    // because GOCondition stores a reference to its mutex by address.
+    // Called by push_back(std::move(...)) and by vector reallocation.
+    AudioOutput(AudioOutput &&other);
+    // Defined in .cpp: mp_OutputTask holds a forward-declared type
+    // (GOSoundOutputTask), so the destructor requires its complete definition.
+    // Called when m_AudioOutputs.clear() in DestroyTasks.
+    ~AudioOutput();
+  };
+
   /*
    * Constructor constants and objects living the whole lifetime of the instance
    */
@@ -160,15 +192,6 @@ private:
   unsigned m_SampleRate;
 
   /*
-   * Playback counters and state
-   */
-
-  uint64_t m_CurrentTime;
-  GOSoundSamplerPool m_SamplerPool;
-  std::atomic_uint m_UsedPolyphony;
-  std::vector<double> m_MeterInfo;
-
-  /*
    * Tasks (filled in BuildTasks, cleared in DestroyTasks)
    */
 
@@ -176,9 +199,9 @@ private:
    * Referenced by: m_AudioOutputTasks [B2], mp_MixerOutputTask [B3],
    * mp_ReleaseTask. */
   ptr_vector<GOSoundGroupTask> m_AudioGroupTasks;
-  /** [B2] Device output tasks, one per audio device.
+  /** [B2] Per-device output tasks with sync state, one per audio device.
    * References: m_AudioGroupTasks [B1]. */
-  ptr_vector<GOSoundOutputTask> m_AudioOutputTasks;
+  std::vector<AudioOutput> m_AudioOutputs;
   /** [B3] Internal stereo mix task (downmix mode only, otherwise null).
    * References: m_AudioGroupTasks [B1]. Used as recorder input in [B4]. */
   std::unique_ptr<GOSoundOutputTask> mp_MixerOutputTask;
@@ -203,15 +226,25 @@ private:
   ptr_vector<GOSoundThread> mp_threads;
 
   /*
+   * Playback counters and state
+   */
+
+  uint64_t m_CurrentTime;
+  GOSoundSamplerPool m_SamplerPool;
+  std::atomic_uint m_UsedPolyphony;
+  // number of audio outputs that have entered the ProcessOutputCallback
+  // critical section in the current period
+  std::atomic_uint m_NOutputsEntered;
+  // number of audio outputs finished processing in the current period
+  std::atomic_uint m_NOutputsFinished;
+  std::vector<double> m_MeterInfo;
+
+  /*
    * Private lifecycle functions
    */
 
   /** Resets playback counters; called from StartEngine. */
   void ResetCounters();
-  /** Creates auxiliary threads [B10]; called from BuildTasks. */
-  void BuildThreads(unsigned nThreads);
-  /** Destroys auxiliary threads [B10]; called from DestroyTasks. */
-  void DestroyThreads();
   /** Builds all tasks and adds them to the scheduler;
    * called from BuildAndStart. */
   void BuildTasks(
@@ -219,12 +252,19 @@ private:
     unsigned nSamplesPerBuffer,
     unsigned sampleRate,
     GOSoundRecorder &recorder);
+  /** Destroys all tasks; called from StopAndDestroy. */
+  void DestroyTasks();
   /** Starts the engine; called from BuildAndStart. */
   void StartEngine();
   /** Stops the engine; called from StopAndDestroy. */
   void StopEngine();
-  /** Destroys all tasks; called from StopAndDestroy. */
-  void DestroyTasks();
+
+  /*
+   * Audio callback processing functions
+   */
+
+  /** Advances the scheduling period; called from ProcessOutputCallback. */
+  void NextPeriod();
 
   /*
    * Other private functions
@@ -424,6 +464,25 @@ public:
   void StopAndDestroy();
 
   /*
+   * Audio callback processing
+   */
+
+  /**
+   * @brief Fills the output buffer with audio data for the given output index.
+   *
+   * Synchronises concurrent output callbacks so that each output is processed
+   * exactly once per period. The last output to finish processing advances the
+   * scheduling period, wakes worker threads, and unblocks all outputs for the
+   * next period.
+   * @param outputIndex     Zero-based index of the audio output.
+   * @param outOutputBuffer Buffer to fill with audio data.
+   * @return true if this call was the last output to finish processing (i.e.
+   * triggered NextPeriod()).
+   */
+  bool ProcessOutputCallback(
+    unsigned outputIndex, GOSoundBufferMutable &outOutputBuffer);
+
+  /*
    * Public organ interface functions (from GOSoundOrganInterface)
    */
 
@@ -467,13 +526,6 @@ public:
   /*
    * Other public functions
    */
-
-  void GetAudioOutput(
-    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
-  void NextPeriod();
-
-  void WakeupThreads();
-  void WaitForThreadsIdle();
 
   bool ProcessSampler(
     float *buffer, GOSoundSampler *sampler, unsigned n_frames, float volume);

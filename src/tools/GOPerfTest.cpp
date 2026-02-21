@@ -150,8 +150,7 @@ void GOPerfTestApp::RunTest(
 
       do {
         for (unsigned i = 0; i < batch_size; i++) {
-          engine.GetAudioOutput(0, false, outputBufferMutable);
-          engine.NextPeriod();
+          engine.ProcessOutputCallback(0, outputBufferMutable);
           blocks++;
         }
         end = getCPUTime();

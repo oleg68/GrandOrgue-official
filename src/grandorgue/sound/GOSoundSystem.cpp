@@ -11,15 +11,15 @@
 #include <wx/intl.h>
 #include <wx/window.h>
 
+#include "config/GOConfig.h"
+#include "ports/GOSoundPortFactory.h"
+#include "sound/buffer/GOSoundBufferMutable.h"
+#include "sound/ports/GOSoundPort.h"
+#include "threading/GOMutexLocker.h"
+
 #include "GOEvent.h"
 #include "GOSoundDefs.h"
 #include "GOSoundOrganEngine.h"
-#include "config/GOConfig.h"
-#include "midi/GOMidiSystem.h"
-#include "sound/buffer/GOSoundBufferMutable.h"
-#include "sound/ports/GOSoundPort.h"
-#include "threading/GOMultiMutexLocker.h"
-#include "threading/GOMutexLocker.h"
 
 GOSoundSystem::GOSoundSystem(GOConfig &settings)
   : m_open(false),
@@ -27,9 +27,6 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
     m_NCallbacksEntered(0),
     m_CallbackCondition(m_CallbackMutex),
     logSoundErrors(true),
-    m_AudioOutputs(),
-    m_WaitCount(),
-    m_CalcCount(),
     m_SamplesPerBuffer(0),
     m_SampleRate(0),
     meter_counter(0),
@@ -50,14 +47,12 @@ void GOSoundSystem::OpenMidi() { m_midi.Open(); }
 void GOSoundSystem::OpenSoundSystem() {
   m_LastErrorMessage = wxEmptyString;
   assert(!m_open);
-  assert(m_AudioOutputs.size() == 0);
+  assert(mp_SoundPorts.empty());
 
   std::vector<GOAudioDeviceConfig> &audio_config
     = m_config.GetAudioDeviceConfig();
 
-  m_AudioOutputs.resize(audio_config.size());
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    m_AudioOutputs[i].port = NULL;
+  mp_SoundPorts.resize(audio_config.size());
   m_SamplesPerBuffer = m_config.SamplesPerBuffer();
   m_AudioRecorder.SetBytesPerSample(m_config.WaveFormatBytesPerSample());
   m_SampleRate = m_config.SampleRate();
@@ -65,8 +60,9 @@ void GOSoundSystem::OpenSoundSystem() {
 
   const GOPortsConfig &portsConfig(m_config.GetSoundPortsConfig());
 
-  for (unsigned l = m_AudioOutputs.size(), i = 0; i < l; i++) {
-    GOAudioDeviceConfig &deviceConfig = audio_config[i];
+  for (unsigned nPorts = mp_SoundPorts.size(), portI = 0; portI < nPorts;
+       portI++) {
+    GOAudioDeviceConfig &deviceConfig = audio_config[portI];
     GODeviceNamePattern *pNamePattern = &deviceConfig;
     GODeviceNamePattern defaultDevicePattern;
 
@@ -83,13 +79,13 @@ void GOSoundSystem::OpenSoundSystem() {
       throw wxString::Format(
         _("Output device %s not found - no sound output will occur"),
         pNamePattern->GetRegEx());
-    m_AudioOutputs[i].port = pPort;
     pPort->Init(
       deviceConfig.GetChannels(),
       m_SampleRate,
       m_SamplesPerBuffer,
       deviceConfig.GetDesiredLatency(),
-      i);
+      portI);
+    mp_SoundPorts[portI].reset(pPort);
   }
 
   StartStreams();
@@ -112,8 +108,8 @@ void GOSoundSystem::ConnectToEngine(GOSoundOrganEngine &engine) {
 }
 
 void GOSoundSystem::StartStreams() {
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    m_AudioOutputs[i].port->Open();
+  for (const std::unique_ptr<GOSoundPort> &pPort : mp_SoundPorts)
+    pPort->Open();
 
   if (m_SamplesPerBuffer > MAX_FRAME_SIZE)
     throw wxString::Format(
@@ -121,16 +117,8 @@ void GOSoundSystem::StartStreams() {
         "unacceptable quantization would occur."),
       MAX_FRAME_SIZE);
 
-  m_WaitCount.exchange(0);
-  m_CalcCount.exchange(0);
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++) {
-    GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
-    m_AudioOutputs[i].wait = false;
-    m_AudioOutputs[i].waiting = true;
-  }
-
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    m_AudioOutputs[i].port->StartStream();
+  for (const std::unique_ptr<GOSoundPort> &pPort : mp_SoundPorts)
+    pPort->StartStream();
 }
 
 void GOSoundSystem::DisconnectFromEngine() {
@@ -147,36 +135,17 @@ void GOSoundSystem::DisconnectFromEngine() {
         "GOSoundSystem::CloseSound waits for all callbacks to finish", nullptr);
   }
 
-  for (auto &audioOutput : m_AudioOutputs) {
-    GOMutexLocker lock(audioOutput.mutex);
-
-    audioOutput.waiting = false;
-    audioOutput.wait = false;
-    audioOutput.condition.Broadcast();
-  }
-
-  for (auto &audioOutput : m_AudioOutputs) {
-    GOMutexLocker lock(audioOutput.mutex);
-
-    audioOutput.condition.Broadcast();
-  }
   if (pOldEngine)
     pOldEngine->SetUsed(false);
 }
 
 void GOSoundSystem::CloseSoundSystem() {
-  for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
-    if (m_AudioOutputs[i].port) {
-      GOSoundPort *const port = m_AudioOutputs[i].port;
-
-      m_AudioOutputs[i].port = NULL;
-      port->Close();
-      delete port;
-    }
-  }
+  for (int nPorts = mp_SoundPorts.size(), portI = nPorts - 1; portI >= 0;
+       portI--)
+    mp_SoundPorts[portI]->Close();
+  mp_SoundPorts.clear();
 
   ResetMeters();
-  m_AudioOutputs.clear();
   m_open = false;
 }
 
@@ -305,32 +274,11 @@ bool GOSoundSystem::AudioCallback(
   if (pOrganEngine) {
     assert(pOrganEngine->IsUsed());
 
-    GOSoundOutput &device = m_AudioOutputs[devIndex];
-    GOMutexLocker locker(device.mutex);
+    const bool isNewPeriod
+      = pOrganEngine->ProcessOutputCallback(devIndex, outOutputBuffer);
 
-    while (device.wait && device.waiting)
-      device.condition.Wait();
-
-    unsigned cnt = m_CalcCount.fetch_add(1);
-    pOrganEngine->GetAudioOutput(
-      devIndex, cnt + 1 >= m_AudioOutputs.size(), outOutputBuffer);
-    device.wait = true;
-    unsigned count = m_WaitCount.fetch_add(1);
-
-    if (count + 1 == m_AudioOutputs.size()) {
-      pOrganEngine->NextPeriod();
+    if (isNewPeriod)
       UpdateMeter();
-
-      pOrganEngine->WakeupThreads();
-      m_CalcCount.exchange(0);
-      m_WaitCount.exchange(0);
-
-      for (unsigned i = 0; i < m_AudioOutputs.size(); i++) {
-        GOMutexLocker lock(m_AudioOutputs[i].mutex, i == devIndex);
-        m_AudioOutputs[i].wait = false;
-        m_AudioOutputs[i].condition.Signal();
-      }
-    }
   } else
     outOutputBuffer.FillWithSilence();
   if (
@@ -346,11 +294,11 @@ bool GOSoundSystem::AudioCallback(
 }
 
 wxString GOSoundSystem::getState() {
-  if (!m_AudioOutputs.size())
+  if (mp_SoundPorts.empty())
     return _("No sound output occurring");
   wxString result = wxString::Format(
     _("%d samples per buffer, %d Hz\n"), m_SamplesPerBuffer, m_SampleRate);
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    result = result + _("\n") + m_AudioOutputs[i].port->getPortState();
+  for (const std::unique_ptr<GOSoundPort> &pPort : mp_SoundPorts)
+    result = result + _("\n") + pPort->getPortState();
   return result;
 }

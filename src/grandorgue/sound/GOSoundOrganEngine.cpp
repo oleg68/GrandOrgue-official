@@ -12,7 +12,6 @@
 #include "config/GOAudioDeviceConfig.h"
 #include "config/GOConfig.h"
 #include "model/GOOrganModel.h"
-#include "model/GOPipe.h"
 #include "model/GOWindchest.h"
 #include "sound/buffer/GOSoundBufferMutable.h"
 #include "sound/scheduler/GOSoundGroupTask.h"
@@ -22,8 +21,8 @@
 #include "sound/scheduler/GOSoundTouchTask.h"
 #include "sound/scheduler/GOSoundTremulantTask.h"
 #include "sound/scheduler/GOSoundWindchestTask.h"
+#include "threading/GOMutexLocker.h"
 
-#include "GOEvent.h"
 #include "GOSoundProvider.h"
 #include "GOSoundRecorder.h"
 #include "GOSoundReleaseAlignTable.h"
@@ -88,6 +87,24 @@ std::vector<GOSoundOrganEngine::AudioOutputConfig> GOSoundOrganEngine::
 }
 
 /*
+ * AudioOutput
+ */
+
+GOSoundOrganEngine::AudioOutput::AudioOutput()
+  : condition(mutex), wait(false), waiting(false) {}
+
+GOSoundOrganEngine::AudioOutput::AudioOutput(AudioOutput &&other)
+  : mp_OutputTask(std::move(other.mp_OutputTask)),
+    condition(mutex),
+    wait(other.wait),
+    waiting(other.waiting) {}
+
+// Cannot be defined in .h: mp_OutputTask is a unique_ptr to a
+// forward-declared type; its destructor requires the complete definition of
+// GOSoundOutputTask, which is only available in .cpp.
+GOSoundOrganEngine::AudioOutput::~AudioOutput() {}
+
+/*
  * Constructor
  */
 
@@ -110,10 +127,12 @@ GOSoundOrganEngine::GOSoundOrganEngine(
     m_ReverbConfig(GOSoundReverb::CONFIG_REVERB_DISABLED),
     m_NSamplesPerBuffer(1),
     m_SampleRate(0),
+    p_AudioRecorder(nullptr),
     m_CurrentTime(1),
     m_UsedPolyphony(0),
-    m_MeterInfo(1),
-    p_AudioRecorder(nullptr) {
+    m_NOutputsEntered(0),
+    m_NOutputsFinished(0),
+    m_MeterInfo(1) {
   m_SamplerPool.SetUsageLimit(2048);
   m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
   // mp_ReleaseTask references m_AudioGroupTasks, which is declared after
@@ -174,22 +193,11 @@ void GOSoundOrganEngine::SetUsed(bool isUsed) {
 
 void GOSoundOrganEngine::ResetCounters() {
   m_UsedPolyphony.store(0);
+  m_NOutputsEntered.store(0);
+  m_NOutputsFinished.store(0);
   m_SamplerPool.ReturnAll();
   m_CurrentTime = 1;
   m_scheduler.Reset();
-}
-
-void GOSoundOrganEngine::BuildThreads(unsigned nThreads) {
-  for (unsigned threadI = 0; threadI < nThreads; threadI++)
-    mp_threads.push_back(new GOSoundThread(&m_scheduler));
-  for (GOSoundThread *pThread : mp_threads)
-    pThread->Run();
-}
-
-void GOSoundOrganEngine::DestroyThreads() {
-  for (GOSoundThread *pThread : mp_threads)
-    pThread->Delete();
-  mp_threads.resize(0);
 }
 
 void GOSoundOrganEngine::BuildTasks(
@@ -219,23 +227,29 @@ void GOSoundOrganEngine::BuildTasks(
   }
 
   // [B2] Create output tasks and connect them to audioGroupOutputs ([B1])
-  assert(m_AudioOutputTasks.size() == 0);
+  assert(m_AudioOutputs.empty());
 
   unsigned nTotalChannels = 0;
+  const unsigned nAudioOutputs = audioOutputConfigs.size();
 
-  for (const AudioOutputConfig &deviceConf : audioOutputConfigs) {
-    assert(deviceConf.channels > 0);
-    assert(deviceConf.scaleGains.size() == deviceConf.channels);
+  m_AudioOutputs.resize(nAudioOutputs);
 
-    const unsigned nDeviceChannels = deviceConf.channels;
-    // Device outputs: channel-major layout [chI * nAudioGroups * 2 + groupI*2 +
+  for (unsigned outputI = 0; outputI < nAudioOutputs; outputI++) {
+    AudioOutput &audioOutput = m_AudioOutputs[outputI];
+    const AudioOutputConfig &outputConf = audioOutputConfigs[outputI];
+
+    assert(outputConf.channels > 0);
+    assert(outputConf.scaleGains.size() == outputConf.channels);
+
+    const unsigned nOutputChannels = outputConf.channels;
+    // Output tasks: channel-major layout [chI * nAudioGroups * 2 + groupI*2 +
     // lr]. Values are converted from dB (scaleGains) to linear
     // (outputScaleFactors).
     std::vector<float> outputScaleFactors(
-      m_NAudioGroups * nDeviceChannels * 2, 0.0f);
+      m_NAudioGroups * nOutputChannels * 2, 0.0f);
 
-    for (unsigned chI = 0; chI < nDeviceChannels; chI++) {
-      const std::vector<float> &chScaleGains = deviceConf.scaleGains[chI];
+    for (unsigned chI = 0; chI < nOutputChannels; chI++) {
+      const std::vector<float> &chScaleGains = outputConf.scaleGains[chI];
       const unsigned nChScaleGains = chScaleGains.size();
 
       assert(nChScaleGains == m_NAudioGroups * 2);
@@ -247,12 +261,10 @@ void GOSoundOrganEngine::BuildTasks(
                                                   : 0.0f;
       }
     }
-    GOSoundOutputTask *pOutputTask = new GOSoundOutputTask(
-      nDeviceChannels, outputScaleFactors, m_NSamplesPerBuffer);
-
-    pOutputTask->SetOutputs(audioGroupOutputs);
-    m_AudioOutputTasks.push_back(pOutputTask);
-    nTotalChannels += nDeviceChannels;
+    audioOutput.mp_OutputTask = std::make_unique<GOSoundOutputTask>(
+      nOutputChannels, outputScaleFactors, m_NSamplesPerBuffer);
+    audioOutput.mp_OutputTask->SetOutputs(audioGroupOutputs);
+    nTotalChannels += nOutputChannels;
   }
 
   // [B3] Create mixer output task and connect it to audioGroupOutputs ([B1])
@@ -283,14 +295,15 @@ void GOSoundOrganEngine::BuildTasks(
     if (mp_MixerOutputTask)
       recorderOutputs.push_back(mp_MixerOutputTask.get());
     else
-      for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks)
-        recorderOutputs.push_back(pOutputTask);
+      for (AudioOutput &audioOutput : m_AudioOutputs)
+        recorderOutputs.push_back(audioOutput.mp_OutputTask.get());
     p_AudioRecorder->SetOutputs(recorderOutputs, m_NSamplesPerBuffer);
   }
 
   // [B5] Set up reverb on output tasks
-  for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks)
-    pOutputTask->SetupReverb(m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
+  for (AudioOutput &audioOutput : m_AudioOutputs)
+    audioOutput.mp_OutputTask->SetupReverb(
+      m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
   if (mp_MixerOutputTask)
     mp_MixerOutputTask->SetupReverb(
       m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
@@ -327,8 +340,8 @@ void GOSoundOrganEngine::BuildTasks(
     m_scheduler.Add(pWindchestTask);
   for (GOSoundGroupTask *pGroupTask : m_AudioGroupTasks)
     m_scheduler.Add(pGroupTask);
-  for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks)
-    m_scheduler.Add(pOutputTask);
+  for (AudioOutput &audioOutput : m_AudioOutputs)
+    m_scheduler.Add(audioOutput.mp_OutputTask.get());
   if (mp_MixerOutputTask)
     m_scheduler.Add(mp_MixerOutputTask.get());
   m_scheduler.Add(p_AudioRecorder);
@@ -336,7 +349,10 @@ void GOSoundOrganEngine::BuildTasks(
   m_scheduler.Add(mp_TouchTask.get());
 
   // [B10] Build threads
-  BuildThreads(m_NAuxThreads);
+  for (unsigned threadI = 0; threadI < m_NAuxThreads; threadI++)
+    mp_threads.push_back(new GOSoundThread(&m_scheduler));
+  for (GOSoundThread *pThread : mp_threads)
+    pThread->Run();
 
   m_MeterInfo.resize(nTotalChannels + 1);
   m_LifecycleState.store(LifecycleState::BUILT);
@@ -364,8 +380,8 @@ void GOSoundOrganEngine::DestroyTasks() {
   // [B3] Destroy mixer output task
   mp_MixerOutputTask.reset();
 
-  // [B2] Destroy device output tasks
-  m_AudioOutputTasks.clear();
+  // [B2] Destroy output tasks (sync state is destroyed along with AudioOutput)
+  m_AudioOutputs.clear();
 
   // [B1] Destroy audio group tasks
   m_AudioGroupTasks.clear();
@@ -378,25 +394,55 @@ void GOSoundOrganEngine::DestroyTasks() {
   m_scheduler.ResumeGivingWork();
 
   // [B10] Destroy threads
-  DestroyThreads();
+  for (GOSoundThread *pThread : mp_threads)
+    pThread->Delete();
+  mp_threads.resize(0);
 
   m_LifecycleState.store(LifecycleState::IDLE);
 }
 
 void GOSoundOrganEngine::StartEngine() {
   assert(m_LifecycleState.load() == LifecycleState::BUILT);
+
   ResetCounters();
   m_scheduler.ResumeGivingWork();
+
+  // Mark all audio output as working
+  for (AudioOutput &audioOutput : m_AudioOutputs) {
+    GOMutexLocker lock(audioOutput.mutex);
+
+    audioOutput.wait = false;
+    audioOutput.waiting = true;
+  }
+
   m_LifecycleState.store(LifecycleState::WORKING);
 }
 
 void GOSoundOrganEngine::StopEngine() {
   assert(m_LifecycleState.load() == LifecycleState::WORKING);
+
+  // Unblock any thread waiting in ProcessOutputCallback before pausing
+  for (AudioOutput &audioOutput : m_AudioOutputs) {
+    GOMutexLocker lock(audioOutput.mutex);
+    audioOutput.waiting = false;
+    audioOutput.wait = false;
+    audioOutput.condition.Broadcast();
+  }
+  for (AudioOutput &audioOutput : m_AudioOutputs) {
+    GOMutexLocker lock(audioOutput.mutex);
+    audioOutput.condition.Broadcast();
+  }
+
   m_scheduler.PauseGivingWork();
-  WaitForThreadsIdle();
+
+  // Wait until all worker threads are idle
+  for (GOSoundThread *pThread : mp_threads)
+    pThread->WaitForIdle();
+
   // Clear all active samplers from group task queues to stop sound output
   for (GOSoundGroupTask *pGroupTask : m_AudioGroupTasks)
     pGroupTask->WaitAndClear();
+
   m_LifecycleState.store(LifecycleState::BUILT);
 }
 
@@ -415,6 +461,89 @@ void GOSoundOrganEngine::StopAndDestroy() {
 }
 
 /*
+ * Audio callback processing functions
+ */
+
+void GOSoundOrganEngine::NextPeriod() {
+  m_scheduler.Exec();
+
+  m_CurrentTime += m_NSamplesPerBuffer;
+  unsigned used_samplers = m_SamplerPool.UsedSamplerCount();
+  if (used_samplers > m_UsedPolyphony.load())
+    m_UsedPolyphony.store(used_samplers);
+
+  m_scheduler.Reset();
+}
+
+bool GOSoundOrganEngine::ProcessOutputCallback(
+  unsigned outputIndex, GOSoundBufferMutable &outOutputBuffer) {
+  bool isLastFinished;
+  const unsigned nAudioOutputs = m_AudioOutputs.size();
+
+  assert(IsWorking());
+  assert(outputIndex < nAudioOutputs);
+
+  {
+    AudioOutput &audioOutput = m_AudioOutputs[outputIndex];
+
+    // Only one callback per output may execute this critical section at a time.
+    GOMutexLocker locker(audioOutput.mutex);
+
+    // If ProcessOutputCallback has already been called for this output in the
+    // current period, wait until the next period begins.
+    while (audioOutput.wait && audioOutput.waiting)
+      audioOutput.condition.Wait();
+
+    // Each output enters this section exactly once per period, enforced by
+    // the mutex and the wait loop above.
+
+    // Count how many outputs have entered so far this period.
+    // The last output to enter is responsible for scheduling worker tasks.
+    const unsigned nEntered = ++m_NOutputsEntered;
+    const bool isLastEntered = nEntered >= nAudioOutputs;
+
+    GOSoundOutputTask *pOutTask = audioOutput.mp_OutputTask.get();
+
+    assert(pOutTask);
+
+    // Compute output audio data. May take time if this is the last output,
+    // as it also runs the scheduler.
+    pOutTask->Finish(isLastEntered);
+    outOutputBuffer.CopyFrom(*pOutTask);
+
+    // Mark this output as having been processed in the current period.
+    audioOutput.wait = true;
+
+    // Count how many outputs have finished processing this period.
+    // The last output to finish advances the period and wakes worker threads.
+    const unsigned nFinished = ++m_NOutputsFinished;
+
+    isLastFinished = nFinished >= nAudioOutputs;
+    if (isLastFinished) { // this output finished last — advance to next period.
+      NextPeriod();
+
+      // Wake up all worker threads
+      for (GOSoundThread *pThread : mp_threads)
+        pThread->Wakeup();
+
+      // Reset per-period counters
+      m_NOutputsEntered.store(0);
+      m_NOutputsFinished.store(0);
+    }
+  }
+
+  if (isLastFinished) // New period. Resume all audio outputs
+    // Mark all outputs as not finished in the new period
+    for (AudioOutput &audioOutput : m_AudioOutputs) {
+      GOMutexLocker lock(audioOutput.mutex);
+
+      audioOutput.wait = false;
+      audioOutput.condition.Signal();
+    }
+  return isLastFinished;
+}
+
+/*
  * Other functions
  */
 
@@ -427,47 +556,16 @@ const std::vector<double> &GOSoundOrganEngine::GetMeterInfo() {
 
   unsigned nr = 1;
 
-  for (GOSoundOutputTask *pOutputTask : m_AudioOutputTasks) {
-    const std::vector<float> &info = pOutputTask->GetMeterInfo();
+  for (AudioOutput &audioOutput : m_AudioOutputs) {
+    GOSoundOutputTask &outTask = *audioOutput.mp_OutputTask;
+    const std::vector<float> &info = outTask.GetMeterInfo();
     const unsigned nInfo = info.size();
 
     for (unsigned infoI = 0; infoI < nInfo; infoI++)
       m_MeterInfo[nr++] = info[infoI];
-    pOutputTask->ResetMeterInfo();
+    outTask.ResetMeterInfo();
   }
   return m_MeterInfo;
-}
-
-void GOSoundOrganEngine::WakeupThreads() {
-  for (GOSoundThread *pThread : mp_threads)
-    pThread->Wakeup();
-}
-
-void GOSoundOrganEngine::WaitForThreadsIdle() {
-  for (GOSoundThread *pThread : mp_threads)
-    pThread->WaitForIdle();
-}
-
-void GOSoundOrganEngine::GetAudioOutput(
-  unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer) {
-  if (IsWorking()) {
-    GOSoundOutputTask &outTask = *m_AudioOutputTasks[outputIndex];
-
-    outTask.Finish(isLast);
-    outBuffer.CopyFrom(outTask);
-  } else
-    outBuffer.FillWithSilence();
-}
-
-void GOSoundOrganEngine::NextPeriod() {
-  m_scheduler.Exec();
-
-  m_CurrentTime += m_NSamplesPerBuffer;
-  unsigned used_samplers = m_SamplerPool.UsedSamplerCount();
-  if (used_samplers > m_UsedPolyphony.load())
-    m_UsedPolyphony.store(used_samplers);
-
-  m_scheduler.Reset();
 }
 
 float GOSoundOrganEngine::GetRandomFactor() {
