@@ -32,17 +32,13 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
     meter_counter(0),
     m_DefaultAudioDevice(GOSoundDevInfo::getInvalideDeviceInfo()),
     m_config(settings),
-    m_midi(settings),
     p_ClosingListener(nullptr) {}
 
 GOSoundSystem::~GOSoundSystem() {
   AssureSoundIsClosed();
 
-  GOMidiPortFactory::terminate();
   GOSoundPortFactory::terminate();
 }
-
-void GOSoundSystem::OpenMidi() { m_midi.Open(); }
 
 void GOSoundSystem::OpenSoundSystem() {
   m_LastErrorMessage = wxEmptyString;
@@ -160,9 +156,8 @@ bool GOSoundSystem::AssureSoundIsOpen() {
         m_LastErrorMessage = msg;
     }
   }
-  if (m_open) { // Everything is OK. Perform other starting steps
-    OpenMidi();
-  } else // Sometimes is wrong. Close all audio devices that are partially open
+  if (!m_open) // Sometimes is wrong. Close all audio devices that are partially
+               // open
     CloseSoundSystem();
   return m_open;
 }
@@ -183,8 +178,6 @@ void GOSoundSystem::AssureSoundIsClosed() {
   if (m_open)
     CloseSoundSystem();
 }
-
-GOConfig &GOSoundSystem::GetSettings() { return m_config; }
 
 void GOSoundSystem::SetLogSoundErrorMessages(bool settingsDialogVisible) {
   logSoundErrors = settingsDialogVisible;
@@ -224,8 +217,6 @@ void GOSoundSystem::FillDeviceNamePattern(
   pattern.SetApiName(deviceInfo.GetApiName());
   pattern.SetPhysicalName(deviceInfo.GetFullName());
 }
-
-GOMidiSystem &GOSoundSystem::GetMidi() { return m_midi; }
 
 void GOSoundSystem::ResetMeters() {
   wxWindow *const topWindow = wxTheApp ? wxTheApp->GetTopWindow() : nullptr;

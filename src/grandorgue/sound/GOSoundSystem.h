@@ -15,7 +15,6 @@
 #include <wx/string.h>
 
 #include "config/GOPortsConfig.h"
-#include "midi/GOMidiSystem.h"
 #include "threading/GOCondition.h"
 #include "threading/GOMutex.h"
 
@@ -73,8 +72,6 @@ private:
 
   GOConfig &m_config;
 
-  GOMidiSystem m_midi;
-
   wxString m_LastErrorMessage;
 
   ClosingListener *p_ClosingListener;
@@ -82,8 +79,6 @@ private:
   bool IsEngineConnected() const { return p_OrganEngine.load(); }
 
   void ResetMeters();
-
-  void OpenMidi();
 
   // Starting step 1.
   // Open output device ports and MIDI and do other initialising without using
@@ -105,16 +100,12 @@ public:
   wxString getLastErrorMessage() const { return m_LastErrorMessage; }
   wxString getState();
 
-  GOConfig &GetSettings();
-
   bool IsOpen() const { return m_open; }
   unsigned GetSamplesPerBuffer() const { return m_SamplesPerBuffer; }
   unsigned GetSampleRate() const { return m_SampleRate; }
   GOSoundRecorder &GetAudioRecorder() { return m_AudioRecorder; }
 
   void SetLogSoundErrorMessages(bool settingsDialogVisible);
-
-  GOMidiSystem &GetMidi();
 
   ClosingListener *GetClosingListener() const { return p_ClosingListener; }
   void SetClosingListener(ClosingListener *pListener) {

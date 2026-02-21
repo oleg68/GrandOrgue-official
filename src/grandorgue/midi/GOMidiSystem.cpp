@@ -14,6 +14,7 @@
 #include "midi/events/GOMidiWxEvent.h"
 #include "ports/GOMidiInPort.h"
 #include "ports/GOMidiOutPort.h"
+#include "ports/GOMidiPortFactory.h"
 
 BEGIN_EVENT_TABLE(GOMidiSystem, wxEvtHandler)
 EVT_MIDI(GOMidiSystem::OnMidiEvent)
@@ -30,9 +31,10 @@ void GOMidiSystem::UpdateDevices(const GOPortsConfig &portsConfig) {
 GOMidiSystem::~GOMidiSystem() {
   m_midi_in_devices.clear();
   m_midi_out_devices.clear();
+  GOMidiPortFactory::terminate();
 }
 
-void GOMidiSystem::Open() {
+void GOMidiSystem::EnsureOpen() {
   const bool isToAutoAdd = m_config.IsToAutoAddMidi();
   const GOPortsConfig &portsConfig(m_config.GetMidiPortsConfig());
   GOMidiDeviceConfigList &midiIn = m_config.m_MidiIn;

@@ -181,7 +181,7 @@ public:
   // Prepares the sound engine using this organ, connects it to audio outputs
   // and then notifies this organ that playback has started.
   // Can only be called when soundSystem is open and !IsOrganStarted().
-  void StartOrgan(GOSoundSystem &soundSystem);
+  void StartOrgan(GOSoundSystem &soundSystem, GOMidiSystem &midi);
 
   // Notifies this organ that playback has stopped, disconnects the engine from
   // audio outputs and then cleans it up.

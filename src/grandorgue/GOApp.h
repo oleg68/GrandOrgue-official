@@ -29,6 +29,7 @@
 class GOConfig;
 class GOFrame;
 class GOLog;
+class GOMidiSystem;
 class GOSoundSystem;
 
 class GOApp : public wxApp {
@@ -61,11 +62,12 @@ private:
   virtual void CleanUp() override;
 
 protected:
-  GOFrame *m_Frame = nullptr;
+  GOFrame *p_frame = nullptr;
   wxLocale m_locale;
-  GOConfig *m_config = nullptr;
-  GOSoundSystem *m_soundSystem = nullptr;
-  GOLog *m_Log = nullptr;
+  std::unique_ptr<GOConfig> mp_config;
+  std::unique_ptr<GOSoundSystem> mp_SoundSystem;
+  std::unique_ptr<GOMidiSystem> mp_MidiSystem;
+  std::unique_ptr<GOLog> mp_log;
   wxString m_FileName;
   std::string m_InstanceName;
   std::string m_ConfigFilePath;

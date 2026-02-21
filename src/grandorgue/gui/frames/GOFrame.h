@@ -28,6 +28,7 @@ class GOAudioGauge;
 class GOConfig;
 class GODocument;
 class GOMidiEvent;
+class GOMidiSystem;
 class GOOrgan;
 class GOOrganController;
 class GOProgressDialog;
@@ -64,8 +65,9 @@ private:
   wxSpinCtrl *m_Polyphony;
   wxSpinCtrl *m_SetterPosition;
   wxSpinCtrl *m_Volume;
-  GOSoundSystem &m_Sound;
-  GOConfig &m_config;
+  GOConfig &r_config;
+  GOSoundSystem &r_SoundSystem;
+  GOMidiSystem &r_MidiSystem;
   GOMidiListener m_listener;
   wxString m_Title;
   wxString m_Label;
@@ -193,7 +195,9 @@ public:
     const wxPoint &pos,
     const wxSize &size,
     const long type,
-    GOSoundSystem &sound);
+    GOConfig &config,
+    GOSoundSystem &soundSystem,
+    GOMidiSystem &midiSystem);
   virtual ~GOFrame(void);
 
   void Init(const wxString &filename, bool isGuiOnly);

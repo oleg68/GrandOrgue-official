@@ -21,6 +21,7 @@
 #include "gui/panels/GOGUIPanel.h"
 #include "gui/panels/GOGUIPanelView.h"
 #include "gui/size/GOResizable.h"
+#include "midi/GOMidiSystem.h"
 #include "midi/events/GOMidiEvent.h"
 #include "sound/GOSoundSystem.h"
 #include "threading/GOMutexLocker.h"
@@ -30,13 +31,19 @@
 #include "GOOrganController.h"
 #include "go_ids.h"
 
-GODocument::GODocument(GOResizable *pMainWindow, GOSoundSystem *sound)
+GODocument::GODocument(
+  GOResizable *pMainWindow,
+  GOConfig *config,
+  GOSoundSystem *soundSystem,
+  GOMidiSystem *midiSystem)
   : p_MainWindow(pMainWindow),
-    m_sound(*sound),
+    r_config(*config),
+    r_SoundSystem(*soundSystem),
+    r_MidiSystem(*midiSystem),
     m_OrganFileReady(false),
     m_OrganController(NULL),
     m_listener() {
-  m_listener.Register(&m_sound.GetMidi());
+  m_listener.Register(&r_MidiSystem);
 }
 
 GODocument::~GODocument() {
@@ -54,15 +61,14 @@ GOOrganController *GODocument::LoadOrgan(
   const wxString &cmb,
   bool isGuiOnly) {
   wxBusyCursor busy;
-  GOConfig &cfg = m_sound.GetSettings();
 
   CloseOrgan();
-  m_OrganController = new GOOrganController(cfg, true);
+  m_OrganController = new GOOrganController(r_config, true);
   wxString error = m_OrganController->Load(dlg, organ, cmb, isGuiOnly);
 
   if (error.IsEmpty()) {
-    cfg.AddOrgan(m_OrganController->GetOrganInfo());
-    cfg.Flush();
+    r_config.AddOrgan(m_OrganController->GetOrganInfo());
+    r_config.Flush();
     {
       wxCommandEvent event(wxEVT_SETVALUE, ID_METER_AUDIO_SPIN);
       event.SetInt(m_OrganController->GetVolume());

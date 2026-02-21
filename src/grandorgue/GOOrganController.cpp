@@ -864,10 +864,10 @@ void GOOrganController::PreconfigRecorder() {
   }
 }
 
-void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
+void GOOrganController::StartOrgan(
+  GOSoundSystem &soundSystem, GOMidiSystem &midiSystem) {
   assert(soundSystem.IsOpen());
   assert(!m_IsOrganStarted);
-  GOMidiSystem &midi = soundSystem.GetMidi();
   GOSoundRecorder &recorder = soundSystem.GetAudioRecorder();
 
   // at first, start the sound
@@ -887,7 +887,7 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
   GOOrganModel::GOSoundOrganInterfaceProxy::Connect(&m_SoundEngine);
 
   // Then start MIDI
-  m_midi = &midi;
+  m_midi = &midiSystem;
   m_MidiRecorder->SetOutputDevice(m_config.MidiRecorderOutputDevice());
   m_AudioRecorder->SetAudioRecorder(&recorder);
   m_MidiRecorder->Clear();
@@ -900,8 +900,8 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
   // MIDI_SYSEX_GO_SETUP events
   PreconfigRecorder();
   m_MidiSamplesetMatch.clear();
-  GOOrganModel::SetMidi(&midi, m_MidiRecorder);
-  m_MidiPlayer->Setup(&midi);
+  GOOrganModel::SetMidi(&midiSystem, m_MidiRecorder);
+  m_MidiPlayer->Setup(&midiSystem);
 
   // Now Start all elements. They may already use sound and MIDI
   GOEventDistributor::PreparePlayback();

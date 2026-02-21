@@ -43,7 +43,7 @@ public:
   GOMidiSystem(GOConfig &settings);
   ~GOMidiSystem();
 
-  void Open();
+  void EnsureOpen();
   void UpdateDevices(const GOPortsConfig &portsConfig);
 
   void Recv(const GOMidiEvent &e);

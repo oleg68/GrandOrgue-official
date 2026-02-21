@@ -15,8 +15,10 @@
 #include "midi/events/GOMidiCallback.h"
 #include "threading/GOMutex.h"
 
+class GOConfig;
 class GOMidiDialogListener;
 class GOMidiObject;
+class GOMidiSystem;
 class GOOrganController;
 class GOOrgan;
 class GOProgressDialog;
@@ -26,7 +28,9 @@ class GOSoundSystem;
 class GODocument : public GODocumentBase, protected GOMidiCallback {
 private:
   GOResizable *p_MainWindow;
-  GOSoundSystem &m_sound;
+  GOConfig &r_config;
+  GOSoundSystem &r_SoundSystem;
+  GOMidiSystem &r_MidiSystem;
 
   GOMutex m_lock;
   bool m_OrganFileReady;
@@ -47,7 +51,11 @@ private:
   void CloseOrgan();
 
 public:
-  GODocument(GOResizable *pMainWindow, GOSoundSystem *sound);
+  GODocument(
+    GOResizable *pMainWindow,
+    GOConfig *config,
+    GOSoundSystem *soundSystem,
+    GOMidiSystem *midiSystem);
   ~GODocument();
 
   GOOrganController *GetOrganController() const { return m_OrganController; }
