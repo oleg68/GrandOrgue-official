@@ -243,6 +243,6 @@ public:
 #define GO_DECLARE_LOCAL_SOUND_BUFFER(varName, nChannels, nFrames)             \
   GOSoundBuffer::Item                                                          \
     varName##Memory[GOSoundBuffer::getNItems(nChannels, nFrames)];             \
-  GOSoundBufferMutable varName(varName##Memory, nChannels, nFrames)
+  GOSoundBufferMutable varName(varName##Memory, nChannels, nFrames);
 
 #endif /* GOSOUNDBUFFERMUTABLE_H */

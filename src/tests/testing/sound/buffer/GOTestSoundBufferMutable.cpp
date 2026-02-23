@@ -93,7 +93,7 @@ void GOTestSoundBufferMutable::TestInheritanceAndMutableAccess() {
   const unsigned nFrames = 3;
 
   // Use macro to declare local buffer
-  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, nChannels, nFrames)
 
   AssertDimensions("InheritanceAndMutableAccess", buffer, nChannels, nFrames);
 
@@ -112,7 +112,7 @@ void GOTestSoundBufferMutable::TestFillWithSilence() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 4;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, nChannels, nFrames)
 
   // Initialize with non-zero values using FillWith
   buffer.FillWith({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
@@ -127,8 +127,8 @@ void GOTestSoundBufferMutable::TestCopyFrom() {
   const unsigned nFrames = 3;
 
   // Create source buffer with test data
-  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceBuffer, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(destBuffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceBuffer, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(destBuffer, nChannels, nFrames)
 
   // Initialize source with test data using FillWith
   sourceBuffer.FillWith({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f});
@@ -145,9 +145,9 @@ void GOTestSoundBufferMutable::TestAddFrom() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 2;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferA, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferB, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(result, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferA, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferB, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(result, nChannels, nFrames)
 
   // Initialize buffers with FillWith
   bufferA.FillWith({1.0f, 2.0f, 3.0f, 4.0f});
@@ -174,9 +174,9 @@ void GOTestSoundBufferMutable::TestAddFromWithCoefficient() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 2;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferA, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferB, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(result, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferA, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(bufferB, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(result, nChannels, nFrames)
 
   // Initialize buffers with FillWith
   bufferA.FillWith({1.0f, 2.0f, 3.0f, 4.0f});
@@ -204,7 +204,7 @@ void GOTestSoundBufferMutable::TestMutableGetSubBuffer() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 4;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, nChannels, nFrames)
 
   // Initialize with sequential values using FillWith
   buffer.FillWith({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f});
@@ -240,8 +240,8 @@ void GOTestSoundBufferMutable::TestCompatibilityChecks() {
   const unsigned nFrames = 3;
 
   // Compatible buffers
-  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer1, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(mutableBuffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer1, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(mutableBuffer, nChannels, nFrames)
 
   // Initialize buffer1 with 1.0f using FillWith
   buffer1.FillWith({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
@@ -263,9 +263,9 @@ void GOTestSoundBufferMutable::TestComplexOperations() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 3;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceA, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceB, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(result, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceA, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceB, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(result, nChannels, nFrames)
 
   // Initialize sourceA: 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f
   sourceA.FillWith({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f});
@@ -304,8 +304,8 @@ void GOTestSoundBufferMutable::TestCopyChannelFrom() {
   const unsigned nFrames = 4;
 
   // Source buffer with 3 channels
-  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, srcNChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, dstNChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, srcNChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, dstNChannels, nFrames)
 
   // Initialize source buffer with test data using FillWith
   srcBuffer.FillWith({
@@ -351,8 +351,8 @@ void GOTestSoundBufferMutable::TestAddChannelFrom() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 3;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, nChannels, nFrames)
 
   // Initialize source buffer with FillWith
   srcBuffer.FillWith({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f});
@@ -407,9 +407,9 @@ void GOTestSoundBufferMutable::TestAddChannelFromWithCoefficient() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 3;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer2, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer2, nChannels, nFrames)
 
   // Initialize source buffer with FillWith
   srcBuffer.FillWith({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f});
@@ -477,8 +477,8 @@ void GOTestSoundBufferMutable::TestCrossChannelOperations() {
   const unsigned nChannels = 3;
   const unsigned nFrames = 4;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, nChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, nChannels, nFrames)
 
   // Initialize source buffer with FillWith
   srcBuffer.FillWith(
@@ -539,8 +539,8 @@ void GOTestSoundBufferMutable::TestChannelOperationsWithSubBuffers() {
   const unsigned nChannels = 2;
   const unsigned nFrames = 6;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(mainBuffer, nChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceBuffer, nChannels, 3); // 3 frames
+  GO_DECLARE_LOCAL_SOUND_BUFFER(mainBuffer, nChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(sourceBuffer, nChannels, 3) // 3 frames
 
   // Initialize main buffer with FillWith
   mainBuffer.FillWith(
@@ -596,8 +596,8 @@ void GOTestSoundBufferMutable::TestInvalidChannelIndices() {
   const unsigned dstNChannels = 2;
   const unsigned nFrames = 3;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, srcNChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, dstNChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(srcBuffer, srcNChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(dstBuffer, dstNChannels, nFrames)
 
   // Initialize source with 1.0f using FillWith
   srcBuffer.FillWith({1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f});
@@ -629,8 +629,8 @@ void GOTestSoundBufferMutable::TestSingleChannelBuffer() {
   const unsigned stereoNChannels = 2;
   const unsigned nFrames = 4;
 
-  GO_DECLARE_LOCAL_SOUND_BUFFER(monoBuffer, monoNChannels, nFrames);
-  GO_DECLARE_LOCAL_SOUND_BUFFER(stereoBuffer, stereoNChannels, nFrames);
+  GO_DECLARE_LOCAL_SOUND_BUFFER(monoBuffer, monoNChannels, nFrames)
+  GO_DECLARE_LOCAL_SOUND_BUFFER(stereoBuffer, stereoNChannels, nFrames)
 
   // Initialize mono buffer with FillWith
   monoBuffer.FillWith({1.0f, 2.0f, 3.0f, 4.0f});

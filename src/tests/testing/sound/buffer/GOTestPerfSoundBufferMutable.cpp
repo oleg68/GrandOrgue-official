@@ -236,7 +236,7 @@ void GOTestPerfSoundBufferMutable::TestPerfFillWithSilence() {
 
   for (const Baseline &baseline : BASELINE_FILL_WITH_SILENCE) {
     // Use macro to declare local buffer on stack
-    GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, NUM_CHANNELS, baseline.m_BufferSize);
+    GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(buffer);
 
@@ -251,9 +251,9 @@ void GOTestPerfSoundBufferMutable::TestPerfCopyFrom() {
   for (const Baseline &baseline : BASELINE_COPY_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(srcBuffer);
     dstBuffer.FillWithSilence();
@@ -270,9 +270,9 @@ void GOTestPerfSoundBufferMutable::TestPerfAddFrom() {
   for (const Baseline &baseline : BASELINE_ADD_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(srcBuffer);
     fill_with_sine_wave(dstBuffer);
@@ -289,9 +289,9 @@ void GOTestPerfSoundBufferMutable::TestPerfAddFromWithCoefficient() {
   for (const Baseline &baseline : BASELINE_ADD_FROM_COEFF) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(srcBuffer);
     fill_with_sine_wave(dstBuffer);
@@ -310,9 +310,9 @@ void GOTestPerfSoundBufferMutable::TestPerfCopyChannelFrom() {
   for (const Baseline &baseline : BASELINE_COPY_CHANNEL_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(srcBuffer);
     dstBuffer.FillWithSilence();
@@ -329,9 +329,9 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFrom() {
   for (const Baseline &baseline : BASELINE_ADD_CHANNEL_FROM) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(srcBuffer);
     fill_with_sine_wave(dstBuffer);
@@ -348,9 +348,9 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromWithCoefficient() {
   for (const Baseline &baseline : BASELINE_ADD_CHANNEL_FROM_COEFF) {
     // Declare source and destination buffers using macro
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      dstBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     fill_with_sine_wave(srcBuffer);
     fill_with_sine_wave(dstBuffer);
@@ -370,7 +370,7 @@ void GOTestPerfSoundBufferMutable::TestPerfAddChannelFromMonoRecipient() {
 
   for (const Baseline &baseline : BASELINE_MONO_COPY_ADD_FROM_COEFF) {
     GO_DECLARE_LOCAL_SOUND_BUFFER(
-      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize);
+      srcBuffer, NUM_CHANNELS, baseline.m_BufferSize)
 
     GOSoundBuffer::Item srcMonoMemory[baseline.m_BufferSize];
     GOSoundBufferMutableMono srcMono(srcMonoMemory, baseline.m_BufferSize);
