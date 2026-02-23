@@ -49,6 +49,7 @@ int GOSoundJackPort::jackProcessCallback(jack_nframes_t nFrames, void *pData) {
   GOSoundJackPort *const pPort = (GOSoundJackPort *)pData;
   GOSoundBufferMutable outputBuffer(
     pPort->mp_GoBuffer, pPort->m_Channels, nFrames);
+
   const bool isContinue = pPort->AudioCallback(outputBuffer);
 
   if (isContinue) {
