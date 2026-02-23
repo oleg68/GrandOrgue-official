@@ -11,6 +11,7 @@
 #include <atomic>
 #include <vector>
 
+#include "sound/GOSoundReverb.h"
 #include "sound/scheduler/GOSoundTask.h"
 #include "threading/GOMutex.h"
 
