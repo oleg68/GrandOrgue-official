@@ -205,12 +205,19 @@ This pattern flows through: `GOSoundPort` → `GOSound` → `GOSoundEngine`
 ### Main Source Directories
 
 - `src/grandorgue/`: Main application (wxWidgets GUI, controllers, config)
+  - `combinations/`: Combination system (pistons, generals, divisionals)
   - `config/`: Configuration management
-  - `sound/`: Audio engine and sound processing
-  - `model/`: Organ model (pipes, stops, windchests)
+  - `control/`: Organ control elements (buttons, sliders, etc.)
+  - `document-base/`: Document base classes
   - `gui/`: wxWidgets UI panels
-  - `midi/`: MIDI handling
+  - `help/`: Help system
   - `loader/`: ODF parsing
+  - `midi/`: MIDI handling
+  - `model/`: Organ model (pipes, stops, windchests)
+  - `modification/`: Organ modification tracking
+  - `sound/`: Audio engine and sound processing
+  - `updater/`: ODF/CMB version updater
+  - `yaml/`: YAML serialization utilities
 
 - `src/core/`: Core utilities (file I/O, memory management, abstractions)
 
@@ -241,48 +248,159 @@ Key CMake options (see `CMakeLists.txt` for full list):
 
 ## Coding Conventions
 
-### Naming Patterns
+### Naming: Variables and Parameters
 
-**Variables:**
-- Local variables/parameters: `camelCase` (e.g., `nSamples`, `devIndex`)
-- Loop index from 0: suffix `I` (e.g., `sampleI`, `channelI`)
-- Count from 1: suffix `N` (e.g., `windchestN`, `deviceN`)
-- Member variables: `m_` prefix + PascalCase for compound names (e.g., `m_NChannels`, `m_AudioOutput`)
+- **Style**: `camelCase` for local variables and parameters
+  - ✅ `devIndex`, `nSamples`, `outputIndex`
+  - ❌ `dev_index`, `n_frames`, `audio_output`
 
-**Pointers:**
-- Local pointers: `pCamelCase` prefix (e.g., `pData`, `pBuffer`)
-- Non-owning member pointers: `p_` prefix (e.g., `p_buffer`, `p_AudioEngine`)
-- Owning member pointers: `mp_` prefix (e.g., `mp_buffer`, `mp_AudioOutput`)
+- **Count variables**: prefix `n` (not `Count` suffix)
+  - ✅ `nAudioGroups`, `nSamples`, `nFrames`, `nSamplesPerBuffer`
+  - ❌ `audioGroupCount`, `sampleCount`, `frameCount`
 
-**Output Parameters:**
-- Place at end of parameter lists
-- Prefix with `out` (e.g., `GOSoundBufferMutable &outOutputBuffer`)
+- **Loop index from 0**: suffix `I`
+  - ✅ `for (unsigned sampleI = 0; sampleI < nSamples; ++sampleI)`
+  - ✅ `channelI`, `deviceI`, `frameI`
 
-**Types:**
-- Classes/structs: `PascalCase` (e.g., `GOSoundEngine`, `GOSoundBuffer`)
+- **Loop number from 1**: suffix `N`
+  - ✅ `for (unsigned deviceN = 1; deviceN <= deviceCount; ++deviceN)`
+  - ✅ `channelN`, `stopN`
 
-### Code Style
+### Naming: Member Variables
 
-**Formatting:**
-- Empty line between variable declarations and code
-- Empty line after pointer declaration before using it
-- Use ternary operator for simple conditional returns
+- `m_` prefix; simple names lowercase, compound names PascalCase
+  - Simple: ✅ `m_buffer`, `m_data`
+  - Compound: ✅ `m_AudioOutput`, `m_NChannels`, `m_InterleavedBuffer`
+  - Rule: `audioOutput` → `m_AudioOutput`, `nChannels` → `m_NChannels`
+  - ❌ No prefix: `interleavedBuffer`, `channels`, `sampleRate`
 
-**Type Preferences:**
-- Prefer references over pointers where appropriate
-- Use RAII and managed objects over manual memory management
-- Pass buffers by reference when possible
+### Naming: Pointers
 
-**Assertions:**
+- **Local pointers**: `pCamelCase`
+  - ✅ `pData`, `pBuffer`, `pDevice`, `pSrc`, `pDst`
+
+- **Non-owning member pointers**: `p_` prefix
+  - Simple names lowercase: `p_buffer`, `p_data`
+  - Compound names PascalCase: `p_AudioOutput`, `p_AudioEngine`
+
+- **Owning member pointers**: `mp_` prefix
+  - Simple names lowercase: `mp_buffer`, `mp_device`
+  - Compound names PascalCase: `mp_AudioOutput`, `mp_AudioEngine`
+
+- **Non-owning references stored as members** (injected via constructor): `r_` prefix
+  - ✅ `GOOrganModel &r_OrganModel`, `GOMemoryPool &r_MemoryPool`
+  - Prefer reference over pointer when non-nullable
+
+- **Never compare pointers explicitly with `nullptr`** — use implicit bool conversion
+  - ✅ `if (pEngine)`, `return mp_Engine.load();`
+  - ❌ `if (pEngine != nullptr)`, `return mp_Engine.load() != nullptr;`
+
+### Naming: Output Parameters
+
+- Place at **end** of parameter lists, prefix with `out`
+  - ✅ `void GetAudioOutput(unsigned outputIndex, bool isLast, GOSoundBufferMutable &outOutputBuffer)`
+  - ❌ `void GetAudioOutput(GOSoundBufferMutable &outputBuffer, unsigned outputIndex, bool isLast)`
+
+### Naming: Boolean Variables
+
+- **Must start with a question word**: `is`, `has`, `are`, `was`, `can`, `will`, etc.
+  - ✅ `isEnabled`, `hasTask`, `isDirect`, `wasSetup`
+  - ❌ `enabled`, `direct`, `downmix`, `taskBuilt`
+- Applies to all contexts: local vars, parameters, struct fields, member variables (after prefix)
+  - ✅ `m_IsWorking`, `m_HasTaskBuilt`, `m_IsDownmix`
+  - ❌ `m_Downmix`, `m_Working`, `m_TaskBuilt`
+
+### Naming: Boolean Accessors
+
+- **Setter**: `Set` + name **without** question word
+  - ✅ `SetDownmix(bool isDownmix)`, `SetScaleRelease(bool isScaleRelease)`
+  - ❌ `SetIsDownmix(...)`, `SetIsScaleRelease(...)`
+- **Getter**: question word directly, **no** `Get` prefix
+  - ✅ `IsDownmix()`, `HasTaskBuilt()`, `IsWorking()`
+  - ❌ `GetIsDownmix()`, `GetDownmix()`
+
+### Naming: Types and Functions
+
+- **Classes/structs**: `PascalCase` (e.g., `GOSoundEngine`, `GOSoundBuffer`)
+- **Enum values**: `UPPER_CASE`, no prefix (e.g., `IDLE`, `WORKING`, `USED`)
+- **File-scope static functions**: `snake_case` (e.g., `assert_item_equal`, `fill_with_sine_wave`)
+- **Static class member functions**: `camelCase` (e.g., `fillWithSequential`, `computeOffset`)
+
+### Naming: Idempotent Methods
+
+- Complex idempotent methods (not setters) should start with `Ensure`
+  - ✅ `EnsureInitialized()`, `EnsureAllocated()`, `EnsureBufferReady()`
+  - ❌ `Initialize()`, `Allocate()` (for idempotent operations)
+
+### Header vs Implementation Files
+
+- **Single-line methods** only in `.h` (inline): `bool IsOrganStarted() const { return m_IsOrganStarted; }`
+- **Two-line and multi-line methods** must be in `.cpp`
+  - ✅ `void OnSoundClosing(...) override;` in `.h`, implementation in `.cpp`
+  - ❌ Multi-line body in `.h`
+
+### Code Formatting
+
+- **Empty line** between variable declarations and surrounding code (both before and after the declaration block), but no empty lines between consecutive declarations:
+  ```cpp
+  // ✅
+  const unsigned nChannels = 2;
+  const unsigned nFrames = 4;
+  const unsigned nItems = nChannels * nFrames;
+
+  std::vector<float> data(nItems);
+  ```
+
+- **Ternary operator** for simple conditional returns:
+  - ✅ `return condition ? trueValue : falseValue;`
+  - ❌ Multi-line if/else for simple returns
+
+- **Prefer references over pointers** where appropriate:
+  - ✅ `GOSoundOutput &device = m_AudioOutputs[devIndex];`
+  - ❌ `GOSoundOutput *device = &m_AudioOutputs[devIndex];`
+
+### Control Flow
+
+- **Single return point**: functions must have only one `return` statement, at the end
+  - ✅ Use guard variables or restructure logic to avoid early returns
+  - ❌ Early returns (`if (condition) return;`) are not allowed
+
+- **Avoid `continue`** in loops — use `if` to wrap the body instead
+  - ✅ `if (cond) { ... loop body ... }`
+  - ❌ `if (!cond) continue;`
+
+- **Avoid recomputing `size()` in loop condition** — compute once before the loop:
+  - ✅ `for (unsigned n = v.size(), i = 0; i < n; i++)`
+  - ❌ `for (unsigned i = 0; i < v.size(); i++)`
+
+- **Loop variable naming** depends on whether the bound is already in scope:
+  - Bound is a named variable already in scope → use named index, reference bound directly:
+    - ✅ `for (unsigned itemI = 0; itemI < nItems; ++itemI)`
+  - Bound is a method call or expression → both named (multi-line body) or both unnamed (single-line body):
+    - ✅ multi-line: `for (unsigned nGroups = ..., groupI = 0; groupI < nGroups; groupI++)`
+    - ✅ single-line: `for (unsigned n = v.size(), i = 0; i < n; i++)`
+    - ❌ mixed: `for (unsigned n = v.size(), groupI = 0; groupI < n; groupI++)`
+
+- **Use range-based `for`** when loop index is not used in body:
+  - ✅ `for (GOSoundThread *pThread : m_Threads) pThread->Wakeup();`
+  - ❌ `for (unsigned n = m_Threads.size(), i = 0; i < n; i++) m_Threads[i]->Wakeup();`
+
+- **Pre-compute repeated subexpressions** (e.g. `v[i]`, `v[i].size()`) into named variables before use
+
+### Includes and Forward Declarations
+
+- **Sort alphabetically within a group**
+  - Forward declarations: all `class GOSound*;` together, sorted
+  - Includes: all includes in a group sorted by full path
+- Avoid duplicate includes — if a header is included in `.h`, don't re-include in `.cpp`
+
+### Memory Management and Assertions
+
+- **Prefer RAII** and managed objects over manual memory management
+  - ✅ `GOSoundBufferManaged m_Buffer;`
+  - ❌ `float *m_Buffer = new float[size]; ... delete m_Buffer;`
 - Use `assert()` to check invariants, especially in real-time audio code
-
-**Comments:**
-- Update comments when refactoring to match new implementation
-- Use clear, descriptive comments for non-obvious operations
-
-**Memory Management:**
-- Prefer `GOSoundBufferManaged` over manual `new`/`delete`
-- Use managed buffers for owned memory
+- Add documentation for all new classes, functions, and methods in header files
 
 ## Important Patterns
 
@@ -304,6 +422,11 @@ Return `true` to continue, `false` to stop audio.
 
 ### Task-Based Processing
 For multi-threaded audio processing, create tasks that inherit from appropriate base classes and register with `GOSoundScheduler`. Tasks execute on worker threads from the thread pool.
+
+### Replacing Methods
+When eliminating redundant methods, prefer using existing object methods rather than custom helpers:
+- ✅ `outOutputBuffer.FillWithSilence()`
+- ❌ `m_SoundEngine.GetEmptyAudioOutput(devIndex, nFrames, outputBuffer)`
 
 ## Common Development Workflows
 
