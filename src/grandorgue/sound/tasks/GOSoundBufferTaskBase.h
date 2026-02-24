@@ -9,8 +9,7 @@
 #define GOSOUNDBUFFERTASKBASE_H
 
 #include "sound/buffer/GOSoundBufferManaged.h"
-
-#include "GOSoundTask.h"
+#include "sound/scheduler/GOSoundTask.h"
 
 class GOSoundThread;
 
