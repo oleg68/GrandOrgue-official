@@ -176,6 +176,7 @@ void GOSoundSystem::BuildAndStartEngine() {
     m_OrganController->GetMemoryPool(),
     m_config.ReleaseConcurrency());
   StartThreads();
+  m_SoundEngine.GetScheduler().ResumeGivingWork();
 }
 
 void GOSoundSystem::StartSoundSystem() {
@@ -210,6 +211,9 @@ void GOSoundSystem::StopAndDestroyEngine() {
   for (GOSoundOutput &output : m_AudioOutputs)
     multi.Add(output.mutex);
 
+  m_SoundEngine.GetScheduler().PauseGivingWork();
+  for (GOSoundThread *pThread : m_Threads)
+    pThread->WaitForIdle();
   StopThreads();
   m_SoundEngine.ClearSetup();
 }
