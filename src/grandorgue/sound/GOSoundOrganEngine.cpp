@@ -58,6 +58,111 @@ GOSoundOrganEngine::~GOSoundOrganEngine() {
     delete m_ReleaseProcessor;
 }
 
+void GOSoundOrganEngine::SetVolume(int volume) {
+  m_Volume = volume;
+  m_Gain = powf(10.0f, m_Volume * 0.05f);
+}
+
+void GOSoundOrganEngine::SetHardPolyphony(unsigned polyphony) {
+  m_SamplerPool.SetUsageLimit(polyphony);
+  m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
+}
+
+void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
+  if (groups < 1)
+    groups = 1;
+  m_AudioGroupCount = groups;
+  m_AudioGroupTasks.clear();
+  for (unsigned i = 0; i < m_AudioGroupCount; i++)
+    m_AudioGroupTasks.push_back(
+      new GOSoundGroupTask(*this, m_SamplesPerBuffer));
+}
+
+void GOSoundOrganEngine::SetAudioOutput(
+  std::vector<GOAudioOutputConfiguration> audio_outputs) {
+  m_AudioOutputTasks.clear();
+  {
+    std::vector<float> scale_factors;
+    scale_factors.resize(m_AudioGroupCount * 2 * 2);
+    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
+    for (unsigned i = 0; i < m_AudioGroupCount; i++) {
+      scale_factors[i * 4] = 1;
+      scale_factors[i * 4 + 3] = 1;
+    }
+    m_AudioOutputTasks.push_back(
+      new GOSoundOutputTask(2, scale_factors, m_SamplesPerBuffer));
+  }
+  unsigned channels = 0;
+  for (unsigned i = 0; i < audio_outputs.size(); i++) {
+    std::vector<float> scale_factors;
+    scale_factors.resize(m_AudioGroupCount * audio_outputs[i].channels * 2);
+    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
+    for (unsigned j = 0; j < audio_outputs[i].channels; j++)
+      for (unsigned k = 0; k < audio_outputs[i].scale_factors[j].size(); k++) {
+        if (k >= m_AudioGroupCount * 2)
+          continue;
+        float factor = audio_outputs[i].scale_factors[j][k];
+        if (factor >= -120 && factor < 40)
+          factor = powf(10.0f, factor * 0.05f);
+        else
+          factor = 0;
+        scale_factors[j * m_AudioGroupCount * 2 + k] = factor;
+      }
+    m_AudioOutputTasks.push_back(new GOSoundOutputTask(
+      audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
+    channels += audio_outputs[i].channels;
+  }
+  std::vector<GOSoundBufferTaskBase *> outputs;
+  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
+    outputs.push_back(m_AudioGroupTasks[i]);
+  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
+    m_AudioOutputTasks[i]->SetOutputs(outputs);
+  m_MeterInfo.resize(channels + 1);
+}
+
+void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
+  const GOSoundReverb::ReverbConfig reverbConfig
+    = GOSoundReverb::createReverbConfig(settings);
+
+  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
+    if (m_AudioOutputTasks[i])
+      m_AudioOutputTasks[i]->SetupReverb(
+        reverbConfig, settings.SamplesPerBuffer(), settings.SampleRate());
+}
+
+void GOSoundOrganEngine::SetAudioRecorder(
+  GOSoundRecorder *recorder, bool downmix) {
+  m_AudioRecorder = recorder;
+  std::vector<GOSoundBufferTaskBase *> outputs;
+  if (downmix)
+    outputs.push_back(m_AudioOutputTasks[0]);
+  else {
+    m_Scheduler.Remove(m_AudioOutputTasks[0]);
+    delete m_AudioOutputTasks[0];
+    m_AudioOutputTasks[0] = NULL;
+    for (unsigned i = 1; i < m_AudioOutputTasks.size(); i++)
+      outputs.push_back(m_AudioOutputTasks[i]);
+  }
+  m_AudioRecorder->SetOutputs(outputs, m_SamplesPerBuffer);
+}
+
+const std::vector<double> &GOSoundOrganEngine::GetMeterInfo() {
+  m_MeterInfo[0] = m_UsedPolyphony.load() / (double)GetHardPolyphony();
+  m_UsedPolyphony.store(0);
+
+  for (unsigned i = 1; i < m_MeterInfo.size(); i++)
+    m_MeterInfo[i] = 0;
+  for (unsigned i = 0, nr = 1; i < m_AudioOutputTasks.size(); i++) {
+    if (!m_AudioOutputTasks[i])
+      continue;
+    const std::vector<float> &info = m_AudioOutputTasks[i]->GetMeterInfo();
+    for (unsigned j = 0; j < info.size(); j++)
+      m_MeterInfo[nr++] = info[j];
+    m_AudioOutputTasks[i]->ResetMeterInfo();
+  }
+  return m_MeterInfo;
+}
+
 void GOSoundOrganEngine::Reset() {
   if (m_HasBeenSetup.load()) {
     for (unsigned i = 0; i < m_WindchestTasks.size(); i++)
@@ -87,24 +192,41 @@ void GOSoundOrganEngine::Reset() {
   m_Scheduler.Reset();
 }
 
-void GOSoundOrganEngine::SetVolume(int volume) {
-  m_Volume = volume;
-  m_Gain = powf(10.0f, m_Volume * 0.05f);
+void GOSoundOrganEngine::Setup(
+  GOOrganModel &organModel, GOMemoryPool &memoryPool, unsigned releaseCount) {
+  m_Scheduler.Clear();
+  if (releaseCount < 1)
+    releaseCount = 1;
+  m_Scheduler.SetRepeatCount(releaseCount);
+  m_TremulantTasks.clear();
+  for (unsigned i = 0; i < organModel.GetTremulantCount(); i++)
+    m_TremulantTasks.push_back(
+      new GOSoundTremulantTask(*this, m_SamplesPerBuffer));
+  m_WindchestTasks.clear();
+  // a special windchest task for detached releases
+  m_WindchestTasks.push_back(new GOSoundWindchestTask(*this, NULL));
+  for (unsigned i = 0; i < organModel.GetWindchestCount(); i++)
+    m_WindchestTasks.push_back(
+      new GOSoundWindchestTask(*this, organModel.GetWindchest(i)));
+  m_TouchTask
+    = std::unique_ptr<GOSoundTouchTask>(new GOSoundTouchTask(memoryPool));
+  m_HasBeenSetup.store(true);
+  Reset();
 }
 
-void GOSoundOrganEngine::SetHardPolyphony(unsigned polyphony) {
-  m_SamplerPool.SetUsageLimit(polyphony);
-  m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
-}
+void GOSoundOrganEngine::ClearSetup() {
+  m_HasBeenSetup.store(false);
 
-void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
-  if (groups < 1)
-    groups = 1;
-  m_AudioGroupCount = groups;
-  m_AudioGroupTasks.clear();
-  for (unsigned i = 0; i < m_AudioGroupCount; i++)
-    m_AudioGroupTasks.push_back(
-      new GOSoundGroupTask(*this, m_SamplesPerBuffer));
+  // the winchests may be still used from audio callbacks.
+  // clear the pending sound before destroying the windchests
+  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
+    m_AudioGroupTasks[i]->WaitAndClear();
+
+  m_Scheduler.Clear();
+  m_WindchestTasks.clear();
+  m_TremulantTasks.clear();
+  m_TouchTask = NULL;
+  Reset();
 }
 
 float GOSoundOrganEngine::GetRandomFactor() const {
@@ -134,43 +256,6 @@ void GOSoundOrganEngine::StartSampler(GOSoundSampler *sampler) {
     ? m_WindchestTasks[windchestTaskToIndex(taskId)]
     : nullptr;
   PassSampler(sampler);
-}
-
-void GOSoundOrganEngine::ClearSetup() {
-  m_HasBeenSetup.store(false);
-
-  // the winchests may be still used from audio callbacks.
-  // clear the pending sound before destroying the windchests
-  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
-    m_AudioGroupTasks[i]->WaitAndClear();
-
-  m_Scheduler.Clear();
-  m_WindchestTasks.clear();
-  m_TremulantTasks.clear();
-  m_TouchTask = NULL;
-  Reset();
-}
-
-void GOSoundOrganEngine::Setup(
-  GOOrganModel &organModel, GOMemoryPool &memoryPool, unsigned releaseCount) {
-  m_Scheduler.Clear();
-  if (releaseCount < 1)
-    releaseCount = 1;
-  m_Scheduler.SetRepeatCount(releaseCount);
-  m_TremulantTasks.clear();
-  for (unsigned i = 0; i < organModel.GetTremulantCount(); i++)
-    m_TremulantTasks.push_back(
-      new GOSoundTremulantTask(*this, m_SamplesPerBuffer));
-  m_WindchestTasks.clear();
-  // a special windchest task for detached releases
-  m_WindchestTasks.push_back(new GOSoundWindchestTask(*this, NULL));
-  for (unsigned i = 0; i < organModel.GetWindchestCount(); i++)
-    m_WindchestTasks.push_back(
-      new GOSoundWindchestTask(*this, organModel.GetWindchest(i)));
-  m_TouchTask
-    = std::unique_ptr<GOSoundTouchTask>(new GOSoundTouchTask(memoryPool));
-  m_HasBeenSetup.store(true);
-  Reset();
 }
 
 bool GOSoundOrganEngine::ProcessSampler(
@@ -241,74 +326,6 @@ void GOSoundOrganEngine::ProcessRelease(GOSoundSampler *sampler) {
 
 void GOSoundOrganEngine::ReturnSampler(GOSoundSampler *sampler) {
   m_SamplerPool.ReturnSampler(sampler);
-}
-
-void GOSoundOrganEngine::SetAudioOutput(
-  std::vector<GOAudioOutputConfiguration> audio_outputs) {
-  m_AudioOutputTasks.clear();
-  {
-    std::vector<float> scale_factors;
-    scale_factors.resize(m_AudioGroupCount * 2 * 2);
-    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
-    for (unsigned i = 0; i < m_AudioGroupCount; i++) {
-      scale_factors[i * 4] = 1;
-      scale_factors[i * 4 + 3] = 1;
-    }
-    m_AudioOutputTasks.push_back(
-      new GOSoundOutputTask(2, scale_factors, m_SamplesPerBuffer));
-  }
-  unsigned channels = 0;
-  for (unsigned i = 0; i < audio_outputs.size(); i++) {
-    std::vector<float> scale_factors;
-    scale_factors.resize(m_AudioGroupCount * audio_outputs[i].channels * 2);
-    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
-    for (unsigned j = 0; j < audio_outputs[i].channels; j++)
-      for (unsigned k = 0; k < audio_outputs[i].scale_factors[j].size(); k++) {
-        if (k >= m_AudioGroupCount * 2)
-          continue;
-        float factor = audio_outputs[i].scale_factors[j][k];
-        if (factor >= -120 && factor < 40)
-          factor = powf(10.0f, factor * 0.05f);
-        else
-          factor = 0;
-        scale_factors[j * m_AudioGroupCount * 2 + k] = factor;
-      }
-    m_AudioOutputTasks.push_back(new GOSoundOutputTask(
-      audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
-    channels += audio_outputs[i].channels;
-  }
-  std::vector<GOSoundBufferTaskBase *> outputs;
-  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
-    outputs.push_back(m_AudioGroupTasks[i]);
-  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-    m_AudioOutputTasks[i]->SetOutputs(outputs);
-  m_MeterInfo.resize(channels + 1);
-}
-
-void GOSoundOrganEngine::SetAudioRecorder(
-  GOSoundRecorder *recorder, bool downmix) {
-  m_AudioRecorder = recorder;
-  std::vector<GOSoundBufferTaskBase *> outputs;
-  if (downmix)
-    outputs.push_back(m_AudioOutputTasks[0]);
-  else {
-    m_Scheduler.Remove(m_AudioOutputTasks[0]);
-    delete m_AudioOutputTasks[0];
-    m_AudioOutputTasks[0] = NULL;
-    for (unsigned i = 1; i < m_AudioOutputTasks.size(); i++)
-      outputs.push_back(m_AudioOutputTasks[i]);
-  }
-  m_AudioRecorder->SetOutputs(outputs, m_SamplesPerBuffer);
-}
-
-void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
-  const GOSoundReverb::ReverbConfig reverbConfig
-    = GOSoundReverb::createReverbConfig(settings);
-
-  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-    if (m_AudioOutputTasks[i])
-      m_AudioOutputTasks[i]->SetupReverb(
-        reverbConfig, settings.SamplesPerBuffer(), settings.SampleRate());
 }
 
 unsigned GOSoundOrganEngine::GetBufferSizeFor(
@@ -633,21 +650,4 @@ void GOSoundOrganEngine::UpdateVelocity(
     handle->velocity = velocity;
     handle->fader.SetVelocityVolume(pipe->GetVelocityVolume(velocity));
   }
-}
-
-const std::vector<double> &GOSoundOrganEngine::GetMeterInfo() {
-  m_MeterInfo[0] = m_UsedPolyphony.load() / (double)GetHardPolyphony();
-  m_UsedPolyphony.store(0);
-
-  for (unsigned i = 1; i < m_MeterInfo.size(); i++)
-    m_MeterInfo[i] = 0;
-  for (unsigned i = 0, nr = 1; i < m_AudioOutputTasks.size(); i++) {
-    if (!m_AudioOutputTasks[i])
-      continue;
-    const std::vector<float> &info = m_AudioOutputTasks[i]->GetMeterInfo();
-    for (unsigned j = 0; j < info.size(); j++)
-      m_MeterInfo[nr++] = info[j];
-    m_AudioOutputTasks[i]->ResetMeterInfo();
-  }
-  return m_MeterInfo;
 }
