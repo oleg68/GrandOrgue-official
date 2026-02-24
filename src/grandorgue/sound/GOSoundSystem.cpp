@@ -181,6 +181,15 @@ void GOSoundSystem::BuildAndStartEngine() {
 }
 
 void GOSoundSystem::StartSoundSystem() {
+  // Enable all outputs
+  for (GOSoundOutput &output : m_AudioOutputs) {
+    GOMutexLocker dev_lock(output.mutex);
+
+    output.wait = false;
+    output.waiting = true;
+  }
+  m_WaitCount.store(0);
+  m_CalcCount.store(0);
   m_NCallbacksEntered.store(0);
   m_IsRunning.store(true);
 }
@@ -204,14 +213,28 @@ void GOSoundSystem::StopSoundSystem() {
         "GOSoundSystem::StopSoundSystem waits for all callbacks to finish",
         nullptr);
   }
+
+  // Disable all outputs
+  {
+    GOMultiMutexLocker multi;
+
+    for (GOSoundOutput &output : m_AudioOutputs)
+      multi.Add(output.mutex);
+
+    for (GOSoundOutput &output : m_AudioOutputs) {
+      output.waiting = false;
+      output.wait = false;
+      output.condition.Broadcast();
+    }
+
+    for (unsigned n = m_AudioOutputs.size(), i = 1; i < n; i++) {
+      GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
+      m_AudioOutputs[i].condition.Broadcast();
+    }
+  }
 }
 
 void GOSoundSystem::StopAndDestroyEngine() {
-  GOMultiMutexLocker multi;
-
-  for (GOSoundOutput &output : m_AudioOutputs)
-    multi.Add(output.mutex);
-
   m_SoundEngine.GetScheduler().PauseGivingWork();
   for (GOSoundThread *pThread : m_Threads)
     pThread->WaitForIdle();
@@ -220,17 +243,6 @@ void GOSoundSystem::StopAndDestroyEngine() {
 }
 
 void GOSoundSystem::CloseSoundSystem() {
-  for (GOSoundOutput &output : m_AudioOutputs) {
-    output.waiting = false;
-    output.wait = false;
-    output.condition.Broadcast();
-  }
-
-  for (unsigned n = m_AudioOutputs.size(), i = 1; i < n; i++) {
-    GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
-    m_AudioOutputs[i].condition.Broadcast();
-  }
-
   for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
     if (m_AudioOutputs[i].port) {
       GOSoundPort *const port = m_AudioOutputs[i].port;
@@ -255,15 +267,6 @@ void GOSoundSystem::StartStreams() {
       _("Cannot use buffer size above %d samples; "
         "unacceptable quantization would occur."),
       MAX_FRAME_SIZE);
-
-  m_WaitCount.exchange(0);
-  m_CalcCount.exchange(0);
-  for (GOSoundOutput &output : m_AudioOutputs) {
-    GOMutexLocker dev_lock(output.mutex);
-    output.wait = false;
-    output.waiting = true;
-  }
-
   for (GOSoundOutput &output : m_AudioOutputs)
     output.port->StartStream();
 }
