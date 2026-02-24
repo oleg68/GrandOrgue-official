@@ -91,31 +91,9 @@ void GOSoundOrganEngine::SetVolume(int volume) {
   m_Gain = powf(10.0f, m_Volume * 0.05f);
 }
 
-float GOSoundOrganEngine::GetGain() { return m_Gain; }
-
-void GOSoundOrganEngine::SetSamplesPerBuffer(unsigned samples_per_buffer) {
-  m_SamplesPerBuffer = samples_per_buffer;
-}
-
-void GOSoundOrganEngine::SetSampleRate(unsigned sample_rate) {
-  m_SampleRate = sample_rate;
-}
-
-void GOSoundOrganEngine::SetInterpolationType(unsigned type) {
-  m_interpolation = (GOSoundResample::InterpolationType)type;
-}
-
 void GOSoundOrganEngine::SetHardPolyphony(unsigned polyphony) {
   m_SamplerPool.SetUsageLimit(polyphony);
   m_PolyphonySoftLimit = (m_SamplerPool.GetUsageLimit() * 3) / 4;
-}
-
-void GOSoundOrganEngine::SetPolyphonyLimiting(bool limiting) {
-  m_PolyphonyLimiting = limiting;
-}
-
-unsigned GOSoundOrganEngine::GetHardPolyphony() const {
-  return m_SamplerPool.GetUsageLimit();
 }
 
 void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
@@ -126,18 +104,6 @@ void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
   for (unsigned i = 0; i < m_AudioGroupCount; i++)
     m_AudioGroupTasks.push_back(
       new GOSoundGroupTask(*this, m_SamplesPerBuffer));
-}
-
-unsigned GOSoundOrganEngine::GetAudioGroupCount() { return m_AudioGroupCount; }
-
-int GOSoundOrganEngine::GetVolume() const { return m_Volume; }
-
-void GOSoundOrganEngine::SetScaledReleases(bool enable) {
-  m_ScaledReleases = enable;
-}
-
-void GOSoundOrganEngine::SetRandomizeSpeaking(bool enable) {
-  m_RandomizeSpeaking = enable;
 }
 
 float GOSoundOrganEngine::GetRandomFactor() {
@@ -275,8 +241,6 @@ void GOSoundOrganEngine::ProcessRelease(GOSoundSampler *sampler) {
 void GOSoundOrganEngine::ReturnSampler(GOSoundSampler *sampler) {
   m_SamplerPool.ReturnSampler(sampler);
 }
-
-GOSoundScheduler &GOSoundOrganEngine::GetScheduler() { return m_Scheduler; }
 
 void GOSoundOrganEngine::SetAudioOutput(
   std::vector<GOAudioOutputConfiguration> audio_outputs) {

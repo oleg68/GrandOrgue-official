@@ -131,18 +131,22 @@ public:
   void SetAudioOutput(std::vector<GOAudioOutputConfiguration> audio_outputs);
   void SetupReverb(GOConfig &settings);
   void SetVolume(int volume);
-  void SetSampleRate(unsigned sample_rate);
-  void SetSamplesPerBuffer(unsigned sample_per_buffer);
-  void SetInterpolationType(unsigned type);
+  void SetSampleRate(unsigned sample_rate) { m_SampleRate = sample_rate; }
+  void SetSamplesPerBuffer(unsigned sample_per_buffer) {
+    m_SamplesPerBuffer = sample_per_buffer;
+  }
+  void SetInterpolationType(unsigned type) {
+    m_interpolation = (GOSoundResample::InterpolationType)type;
+  }
   unsigned GetSampleRate() const override { return m_SampleRate; }
   void SetAudioGroupCount(unsigned groups);
-  unsigned GetAudioGroupCount();
+  unsigned GetAudioGroupCount() { return m_AudioGroupCount; }
   void SetHardPolyphony(unsigned polyphony);
-  void SetPolyphonyLimiting(bool limiting);
-  unsigned GetHardPolyphony() const;
-  int GetVolume() const;
-  void SetScaledReleases(bool enable);
-  void SetRandomizeSpeaking(bool enable);
+  void SetPolyphonyLimiting(bool limiting) { m_PolyphonyLimiting = limiting; }
+  unsigned GetHardPolyphony() const { return m_SamplerPool.GetUsageLimit(); }
+  int GetVolume() const { return m_Volume; }
+  void SetScaledReleases(bool enable) { m_ScaledReleases = enable; }
+  void SetRandomizeSpeaking(bool enable) { m_RandomizeSpeaking = enable; }
   const std::vector<double> &GetMeterInfo();
   void SetAudioRecorder(GOSoundRecorder *recorder, bool downmix);
 
@@ -188,14 +192,14 @@ public:
   void GetAudioOutput(
     float *output_buffer, unsigned n_frames, unsigned audio_output, bool last);
   void NextPeriod();
-  GOSoundScheduler &GetScheduler();
+  GOSoundScheduler &GetScheduler() { return m_Scheduler; }
 
   bool ProcessSampler(
     float *buffer, GOSoundSampler *sampler, unsigned n_frames, float volume);
   void ProcessRelease(GOSoundSampler *sampler);
   void PassSampler(GOSoundSampler *sampler);
   void ReturnSampler(GOSoundSampler *sampler);
-  float GetGain();
+  float GetGain() { return m_Gain; }
   uint64_t GetTime() const { return m_CurrentTime; }
 };
 
