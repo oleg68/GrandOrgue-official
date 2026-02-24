@@ -106,7 +106,7 @@ void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
       new GOSoundGroupTask(*this, m_SamplesPerBuffer));
 }
 
-float GOSoundOrganEngine::GetRandomFactor() {
+float GOSoundOrganEngine::GetRandomFactor() const {
   if (m_RandomizeSpeaking) {
     const double factor = (pow(2, 1.0 / 1200.0) - 1) / (RAND_MAX / 2);
     int num = rand() - RAND_MAX / 2;
@@ -311,7 +311,7 @@ void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
 }
 
 unsigned GOSoundOrganEngine::GetBufferSizeFor(
-  unsigned outputIndex, unsigned nFrames) {
+  unsigned outputIndex, unsigned nFrames) const {
   return sizeof(float) * nFrames
     * m_AudioOutputTasks[outputIndex + 1]->GetChannels();
 }

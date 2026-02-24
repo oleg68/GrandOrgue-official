@@ -28,7 +28,7 @@ public:
 
   unsigned GetSamplesPerBuffer() { return m_SamplesPerBuffer; }
 
-  unsigned GetChannels() { return m_Channels; }
+  unsigned GetChannels() const { return m_Channels; }
 };
 
 #endif /* GOSOUNDBUFFERTASKBASE_H */

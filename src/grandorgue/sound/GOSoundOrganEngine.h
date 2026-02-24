@@ -116,8 +116,8 @@ private:
    * @param pSampler current playing sampler for switching to a new attack
    */
   void SwitchToAnotherAttack(GOSoundSampler *pSampler);
-  float GetRandomFactor();
-  unsigned GetBufferSizeFor(unsigned outputIndex, unsigned n_frames);
+  float GetRandomFactor() const;
+  unsigned GetBufferSizeFor(unsigned outputIndex, unsigned n_frames) const;
 
 public:
   GOSoundOrganEngine();
@@ -140,7 +140,7 @@ public:
   }
   unsigned GetSampleRate() const override { return m_SampleRate; }
   void SetAudioGroupCount(unsigned groups);
-  unsigned GetAudioGroupCount() { return m_AudioGroupCount; }
+  unsigned GetAudioGroupCount() const { return m_AudioGroupCount; }
   void SetHardPolyphony(unsigned polyphony);
   void SetPolyphonyLimiting(bool limiting) { m_PolyphonyLimiting = limiting; }
   unsigned GetHardPolyphony() const { return m_SamplerPool.GetUsageLimit(); }
@@ -199,7 +199,7 @@ public:
   void ProcessRelease(GOSoundSampler *sampler);
   void PassSampler(GOSoundSampler *sampler);
   void ReturnSampler(GOSoundSampler *sampler);
-  float GetGain() { return m_Gain; }
+  float GetGain() const { return m_Gain; }
   uint64_t GetTime() const { return m_CurrentTime; }
 };
 
