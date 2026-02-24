@@ -11,7 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "GOSoundDefs.h"
+#include "sound/GOSoundDefs.h"
 
 static inline int AudioReadCompressed8(const unsigned char *&ptr) {
   int val = *(const int8_t *)ptr;
