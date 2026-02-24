@@ -46,7 +46,7 @@ void GOSoundJackPort::jackLatencyCallback(
 
 int GOSoundJackPort::jackProcessCallback(jack_nframes_t nFrames, void *pData) {
   GOSoundJackPort *const pPort = (GOSoundJackPort *)pData;
-  const bool isContinue = AudioCallback(port->m_GoBuffer, nFrames);
+  const bool isContinue = pPort->AudioCallback(pPort->mp_GoBuffer, nFrames);
 
   if (isContinue) {
     const unsigned nChannels = pPort->m_Channels;
