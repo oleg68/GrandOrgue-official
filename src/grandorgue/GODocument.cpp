@@ -65,8 +65,6 @@ GOOrganController *GODocument::LoadOrgan(
       wxCommandEvent event(wxEVT_SETVALUE, ID_METER_AUDIO_SPIN);
       event.SetInt(m_OrganController->GetVolume());
       wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
-
-      m_sound.GetEngine().SetVolume(m_OrganController->GetVolume());
     }
 
     wxCommandEvent event(wxEVT_WINTITLE, 0);
@@ -83,7 +81,6 @@ GOOrganController *GODocument::LoadOrgan(
     if (!mRect.IsEmpty() && p_MainWindow)
       p_MainWindow->SetPosSize(mRect);
 
-    m_sound.AssignOrganFile(m_OrganController);
     m_OrganFileReady = true;
     m_listener.SetCallback(this);
     if (!cmb.IsEmpty())
@@ -114,7 +111,6 @@ void GODocument::ShowPanel(unsigned id) {
 }
 
 void GODocument::SyncState() {
-  m_OrganController->SetVolume(m_sound.GetEngine().GetVolume());
   if (p_MainWindow)
     m_OrganController->GetMainWindowData()->SetWindowRect(
       p_MainWindow->GetPosSize());
@@ -135,7 +131,6 @@ bool GODocument::Export(const wxString &cmb) {
 
 void GODocument::CloseOrgan() {
   m_listener.SetCallback(NULL);
-  m_sound.AssignOrganFile(NULL);
   // m_sound.CloseSound();
   CloseWindows();
   wxTheApp->ProcessPendingEvents();

@@ -9,11 +9,13 @@
 #define GOSOUNDORGANENGINE_H
 
 #include <atomic>
+#include <memory>
 #include <vector>
 
 #include "playing/GOSoundResample.h"
 #include "playing/GOSoundSampler.h"
 #include "playing/GOSoundSamplerPool.h"
+#include "reverb/GOSoundReverb.h"
 #include "scheduler/GOSoundScheduler.h"
 
 #include "GOSoundOrganInterface.h"
@@ -22,78 +24,195 @@ class GOConfig;
 class GOMemoryPool;
 class GOOrganModel;
 class GOSoundBufferMutable;
-class GOSoundProvider;
-class GOSoundRecorder;
 class GOSoundGroupTask;
 class GOSoundOutputTask;
+class GOSoundProvider;
+class GOSoundRecorder;
 class GOSoundReleaseTask;
+class GOSoundTask;
 class GOSoundThread;
 class GOSoundTouchTask;
 class GOSoundTremulantTask;
 class GOSoundWindchestTask;
-class GOSoundTask;
 class GOWindchest;
 
-typedef struct {
-  unsigned channels;
-  std::vector<std::vector<float>> scale_factors;
-} GOAudioOutputConfiguration;
-
 /**
- * This class represents a sound engine of one loaded organ. It reflects some
- * GrandOrgue-wide objects (AudioGroup) and some objects of it's model
- * (WindChests, Tremulants)
+ * @brief Sound engine for one loaded organ.
+ *
+ * Lifecycle (steps 3-4 are repeatable for restart with new parameters):
+ *
+ *   1. Constructor: GOSoundOrganEngine(organModel, memoryPool)
+ *   2. Configuration: SetFromConfig(config) or manual setters
+ *   3. BuildAndStart(audioOutputConfigs, nSamplesPerBuffer, sampleRate,
+ * recorder) — builds tasks and starts the engine
+ *      ... GetAudioOutput() is called from the audio thread ...
+ *   4. StopAndDestroy() — stops the engine and destroys tasks
  */
-
 class GOSoundOrganEngine : public GOSoundOrganInterface {
+public:
+  /*
+   * Nested type
+   */
+
+  /**
+   * @brief Configuration for one audio output device.
+   *
+   * scaleFactors[ch][groupI*2+ch] = 0.0f means direct output of group groupI
+   * into channel ch. Other values = GOAudioDeviceConfig::MUTE_VOLUME (-121.0f).
+   */
+  struct AudioOutputConfig {
+    unsigned channels;
+    std::vector<std::vector<float>> scaleFactors;
+  };
+
+  /*
+   * Factory functions
+   */
+
+  /**
+   * @brief Creates output configurations from GOConfig.
+   */
+  static std::vector<AudioOutputConfig> createAudioOutputConfigs(
+    GOConfig &config, unsigned nAudioGroups);
+
+  /**
+   * @brief Creates a single stereo output for nAudioGroups groups.
+   *
+   * For each group i:
+   *   scaleFactors[0][i*2] = 0.0f (L),
+   *   scaleFactors[0][i*2+1] = MUTE_VOLUME (-121.0f) (R)
+   *   scaleFactors[1][i*2] = MUTE_VOLUME (-121.0f) (L)
+   *   scaleFactors[1][i*2+1] = 0.0f (R)
+   */
+  static std::vector<AudioOutputConfig> createDefaultOutputConfigs(
+    unsigned nAudioGroups = 1);
+
 private:
   static constexpr int DETACHED_RELEASE_TASK_ID = 0;
 
+  /*
+   * Constructor constants: objects that live for the entire instance lifetime
+   */
+
+  GOOrganModel &r_OrganModel;
+  GOMemoryPool &r_MemoryPool;
+  // mp_ReleaseTask references mp_AudioGroupTasks [B1]; created in constructor,
+  // added to m_Scheduler in BuildEngine [B8]
+  std::unique_ptr<GOSoundReleaseTask> mp_ReleaseTask;
+  // mp_TouchTask references r_MemoryPool; created in constructor,
+  // added to m_Scheduler in BuildEngine [B8]
+  std::unique_ptr<GOSoundTouchTask> mp_TouchTask;
+  GOSoundResample m_resample;
+
+  /*
+   * Configuration parameters
+   */
+
+  unsigned m_NAudioGroups;
+  unsigned m_NAuxThreads;
+  bool m_IsDownmix;
+  unsigned m_NReleaseRepeats;
+  bool m_IsPolyphonyLimiting;
   unsigned m_PolyphonySoftLimit;
-  bool m_PolyphonyLimiting;
-  bool m_ScaledReleases;
-  bool m_ReleaseAlignmentEnabled;
-  bool m_RandomizeSpeaking;
-  int m_Volume;
-  unsigned m_SamplesPerBuffer;
-  float m_Gain;
+  bool m_IsScaledReleases;
+  bool m_IsReleaseAlignmentEnabled;
+  bool m_IsRandomizeSpeaking;
+  // TODO: rename to m_gain (stores gain in dB; in GrandOrgue "gain" means dB)
+  int m_volume;
+  // TODO: rename to m_amplitude (stores the linear amplitude coefficient
+  // derived
+  //       from m_volume; in GrandOrgue "amplitude" means a linear coefficient)
+  float m_gain;
+  GOSoundResample::InterpolationType m_InterpolationType;
+  GOSoundReverb::ReverbConfig m_ReverbConfig;
+
+  /*
+   * Start parameters (set from BuildAndStart arguments)
+   */
+
+  unsigned m_NSamplesPerBuffer;
   unsigned m_SampleRate;
 
-  // time in samples
+  /*
+   * Lifecycle state
+   */
+
+  enum class LifecycleState { IDLE, BUILT, WORKING };
+
+  std::atomic<LifecycleState> m_LifecycleState;
+  std::atomic_bool m_IsUsed;
+
+  /*
+   * Tasks built in BuildEngine (in build order [B1]-[B9])
+   */
+
+  // [B1] mp_AudioGroupTasks: created per audio group (m_NAudioGroups entries)
+  //   — referenced by: mp_ReleaseTask (constructor), mp_AudioOutputTasks [B2]
+  ptr_vector<GOSoundGroupTask> mp_AudioGroupTasks;
+  // [B2] mp_AudioOutputTasks: created from audioOutputConfigs (per-device
+  // tasks)
+  //   — uses mp_AudioGroupTasks [B1] via SetOutputs()
+  //   — referenced by: p_AudioRecorder [B4], reverb setup [B5]
+  std::vector<std::unique_ptr<GOSoundOutputTask>> mp_AudioOutputTasks;
+  // [B3] mp_DownmixTask: optional stereo downmix task (only when m_IsDownmix)
+  //   — uses mp_AudioGroupTasks [B1] via SetOutputs()
+  //   — referenced by: p_AudioRecorder [B4], reverb setup [B5]
+  std::unique_ptr<GOSoundOutputTask> mp_DownmixTask;
+  // [B4] p_AudioRecorder: non-owning pointer to the recorder passed in
+  //   — uses mp_DownmixTask [B3] or mp_AudioOutputTasks [B2]
+  GOSoundRecorder *p_AudioRecorder;
+  // [B5] reverb: set up inline on mp_DownmixTask [B3] and mp_AudioOutputTasks
+  // [B2]
+  //   — uses m_ReverbConfig, m_SampleRate, m_NSamplesPerBuffer
+  //
+  // [B6] mp_TremulantTasks: one per tremulant in r_OrganModel
+  //   — referenced by mp_WindchestTasks after [B8] Init()
+  ptr_vector<GOSoundTremulantTask> mp_TremulantTasks;
+  // [B7] mp_WindchestTasks: one special + one per windchest in r_OrganModel
+  //   — initialized in [B8] with mp_TremulantTasks [B6]
+  std::vector<std::unique_ptr<GOSoundWindchestTask>> mp_WindchestTasks;
+  // [B8] Init(): connects mp_WindchestTasks [B7] to mp_TremulantTasks [B6]
+  //
+  // [B9] m_Scheduler: all tasks added; SetRepeatCount(m_NReleaseRepeats)
+  //   — uses all tasks above + mp_ReleaseTask + mp_TouchTask (constructor)
+  GOSoundScheduler m_Scheduler;
+  // [B10] mp_threads: worker threads created via BuildThreads(m_NAuxThreads)
+  //   — uses m_Scheduler [B9]
+  std::vector<std::unique_ptr<GOSoundThread>> mp_threads;
+
+  /*
+   * Counters
+   */
+
   uint64_t m_CurrentTime;
   GOSoundSamplerPool m_SamplerPool;
-  unsigned m_AudioGroupCount;
   std::atomic_uint m_UsedPolyphony;
   std::vector<double> m_MeterInfo;
-  ptr_vector<GOSoundTremulantTask> m_TremulantTasks;
-  ptr_vector<GOSoundWindchestTask> m_WindchestTasks;
-  ptr_vector<GOSoundGroupTask> m_AudioGroupTasks;
-  ptr_vector<GOSoundOutputTask> m_AudioOutputTasks;
-  GOSoundRecorder *m_AudioRecorder;
-  GOSoundReleaseTask *m_ReleaseProcessor;
-  std::unique_ptr<GOSoundTouchTask> m_TouchTask;
-  GOSoundScheduler m_Scheduler;
 
-  std::vector<std::unique_ptr<GOSoundThread>> mp_threads;
-  GOMutex m_ThreadLock;
+  /*
+   * Private lifecycle functions (callee first)
+   */
 
-  GOSoundResample m_resample;
-  GOSoundResample::InterpolationType m_interpolation;
+  void BuildEngine(
+    const std::vector<AudioOutputConfig> &audioOutputConfigs,
+    unsigned nSamplesPerBuffer,
+    unsigned sampleRate,
+    GOSoundRecorder &recorder);
+  void DestroyEngine();
 
-  std::atomic_bool m_HasBeenSetup;
+  void ResetCounters();
 
-  void StartThreads(unsigned nConcurrency);
-  void StopThreads();
+  void StartEngine();
+  void StopEngine();
+
+  /*
+   * Other private functions
+   */
 
   unsigned MsToSamples(unsigned ms) const { return m_SampleRate * ms / 1000; }
 
   unsigned SamplesDiffToMs(uint64_t fromSamples, uint64_t toSamples) const;
 
-  /* samplerTaskId:
-     -1 .. -n Tremulants
-     0 (DETACHED_RELEASE_TASK_ID) detached release
-     1 .. n Windchests
-  */
   inline static unsigned isWindchestTask(int taskId) { return taskId >= 0; }
 
   inline static unsigned windchestTaskToIndex(int taskId) {
@@ -115,63 +234,158 @@ private:
     uint64_t prevEventTime,
     bool isRelease,
     uint64_t *pStartTimeSamples);
+
   void CreateReleaseSampler(GOSoundSampler *sampler);
 
   /**
    * Creates a new sampler with decay of current loop.
-   * Switch this sampler to the new attack.
-   * It is used when a wave tremulant is switched on or off.
+   * Switches this sampler to the new attack.
+   * Used when a wave tremulant is switched on or off.
    * @param pSampler current playing sampler for switching to a new attack
    */
   void SwitchToAnotherAttack(GOSoundSampler *pSampler);
+
   float GetRandomFactor() const;
-  unsigned GetBufferSizeFor(unsigned outputIndex, unsigned n_frames) const;
 
 public:
-  GOSoundOrganEngine();
+  /*
+   * Constructors and destructors
+   */
+
+  GOSoundOrganEngine(GOOrganModel &organModel, GOMemoryPool &memoryPool);
+  // Defined in the .cpp file because the destructor of std::unique_ptr requires
+  // the complete type of the managed object, which is only forward-declared
+  // here.
   ~GOSoundOrganEngine();
 
-  // Group 1: Independent setters (no call-order dependencies)
-  unsigned GetSampleRate() const override { return m_SampleRate; }
-  void SetSampleRate(unsigned sample_rate) { m_SampleRate = sample_rate; }
-  void SetSamplesPerBuffer(unsigned sample_per_buffer) {
-    m_SamplesPerBuffer = sample_per_buffer;
+  /*
+   * Configuration getters and setters
+   */
+
+  unsigned GetNAudioGroups() const { return m_NAudioGroups; }
+  void SetNAudioGroups(unsigned nAudioGroups) { m_NAudioGroups = nAudioGroups; }
+
+  unsigned GetNAuxThreads() const { return m_NAuxThreads; }
+  void SetNAuxThreads(unsigned nAuxThreads) { m_NAuxThreads = nAuxThreads; }
+
+  bool IsDownmix() const { return m_IsDownmix; }
+  void SetDownmix(bool isDownmix) { m_IsDownmix = isDownmix; }
+
+  unsigned GetNReleaseRepeats() const { return m_NReleaseRepeats; }
+  void SetNReleaseRepeats(unsigned nReleaseRepeats) {
+    m_NReleaseRepeats = nReleaseRepeats;
   }
-  int GetVolume() const { return m_Volume; }
+
+  bool IsReleaseAlignmentEnabled() const { return m_IsReleaseAlignmentEnabled; }
+  void SetReleaseAlignmentEnabled(bool isEnabled) {
+    m_IsReleaseAlignmentEnabled = isEnabled;
+  }
+
+  const GOSoundReverb::ReverbConfig &GetReverbConfig() const {
+    return m_ReverbConfig;
+  }
+  void SetReverbConfig(const GOSoundReverb::ReverbConfig &config) {
+    m_ReverbConfig = config;
+  }
+
+  // TODO: rename to GetAmplitude() (returns linear amplitude coefficient)
+  float GetGain() const { return m_gain; }
+
+  // TODO: rename to GetGain() (returns gain in dB)
+  int GetVolume() const { return m_volume; }
+  // TODO: rename to SetGain(int gain)
   void SetVolume(int volume);
+
   unsigned GetHardPolyphony() const { return m_SamplerPool.GetUsageLimit(); }
   void SetHardPolyphony(unsigned polyphony);
-  void SetPolyphonyLimiting(bool limiting) { m_PolyphonyLimiting = limiting; }
-  void SetScaledReleases(bool enable) { m_ScaledReleases = enable; }
-  void SetRandomizeSpeaking(bool enable) { m_RandomizeSpeaking = enable; }
-  void SetInterpolationType(unsigned type) {
-    m_interpolation = (GOSoundResample::InterpolationType)type;
+
+  bool IsPolyphonyLimiting() const { return m_IsPolyphonyLimiting; }
+  void SetPolyphonyLimiting(bool isLimiting) {
+    m_IsPolyphonyLimiting = isLimiting;
   }
 
-  // Group 2: Dependent setters (must be called in this order)
-  // Must be called after SetSamplesPerBuffer because uses m_SamplesPerBuffer
-  unsigned GetAudioGroupCount() const { return m_AudioGroupCount; }
-  void SetAudioGroupCount(unsigned groups);
-  // Must be called after SetAudioGroupCount because uses m_AudioGroupCount and
-  // m_SamplesPerBuffer
-  void SetAudioOutput(std::vector<GOAudioOutputConfiguration> audio_outputs);
-  // Must be called after SetAudioOutput because iterates m_AudioOutputTasks
-  void SetupReverb(GOConfig &settings);
-  // Must be called after SetAudioOutput because uses m_AudioOutputTasks
-  void SetAudioRecorder(GOSoundRecorder *recorder, bool downmix);
+  bool IsScaledReleases() const { return m_IsScaledReleases; }
+  void SetScaledReleases(bool isEnabled) { m_IsScaledReleases = isEnabled; }
 
-  // Group 3: Other getters
-  float GetGain() const { return m_Gain; }
+  bool IsRandomizeSpeaking() const { return m_IsRandomizeSpeaking; }
+  void SetRandomizeSpeaking(bool isEnabled) {
+    m_IsRandomizeSpeaking = isEnabled;
+  }
+
+  GOSoundResample::InterpolationType GetInterpolationType() const {
+    return m_InterpolationType;
+  }
+  void SetInterpolationType(unsigned type) {
+    m_InterpolationType = (GOSoundResample::InterpolationType)type;
+  }
+
+  /** Reads parameters from GOConfig and stores them via setters. */
+  void SetFromConfig(GOConfig &config);
+
+  /*
+   * Start parameter getters (values come via BuildAndStart)
+   */
+
+  unsigned GetSampleRate() const override { return m_SampleRate; }
+  unsigned GetNSamplesPerBuffer() const { return m_NSamplesPerBuffer; }
+
+  /*
+   * Other getters
+   */
+
   uint64_t GetTime() const { return m_CurrentTime; }
-  const std::vector<double> &GetMeterInfo();
-  GOSoundScheduler &GetScheduler() { return m_Scheduler; }
 
-  void Reset();
-  void Setup(
-    GOOrganModel &organModel,
-    GOMemoryPool &memoryPool,
-    unsigned releaseCount = 1);
-  void ClearSetup();
+  /*
+   * Lifecycle state
+   */
+
+  /** true if the engine is in the initial state (before BuildAndStart or after
+   * StopAndDestroy). */
+  bool IsIdle() const {
+    return m_LifecycleState.load() == LifecycleState::IDLE;
+  }
+
+  /** true if the engine is running (WORKING). */
+  bool IsWorking() const {
+    return m_LifecycleState.load() == LifecycleState::WORKING;
+  }
+
+  /** true if the engine is connected to the audio system. */
+  bool IsUsed() const { return m_IsUsed.load(); }
+
+  /** Switches between connected and disconnected; called from GOSoundSystem. */
+  void SetUsed(bool isUsed);
+
+  /*
+   * Public lifecycle functions
+   */
+
+  /**
+   * @brief Creates tasks and starts the engine.
+   *
+   * Call after SetFromConfig() or manual setters.
+   * After return the engine is ready to receive GetAudioOutput() calls.
+   * @param audioOutputConfigs  Output configurations; must not be empty.
+   * @param nSamplesPerBuffer   Buffer size in samples (from audio system).
+   * @param sampleRate          Sample rate in Hz (from audio system).
+   * @param recorder            Recorder (non-owning).
+   */
+  void BuildAndStart(
+    const std::vector<AudioOutputConfig> &audioOutputConfigs,
+    unsigned nSamplesPerBuffer,
+    unsigned sampleRate,
+    GOSoundRecorder &recorder);
+
+  /**
+   * @brief Stops the engine and destroys tasks.
+   *
+   * Call after the audio system has disconnected from the engine.
+   */
+  void StopAndDestroy();
+
+  /*
+   * Organ interface (from GOSoundOrganInterface)
+   */
 
   GOSoundSampler *StartPipeSample(
     const GOSoundProvider *pipeProvider,
@@ -210,25 +424,22 @@ public:
     GOSoundSampler *handle,
     unsigned velocity) override;
 
-  /** Configure the engine for the given organ and start worker threads */
-  void BuildAndStart(
-    GOConfig &config,
-    unsigned sampleRate,
-    unsigned samplesPerBuffer,
-    GOOrganModel &organModel,
-    GOMemoryPool &memoryPool,
-    unsigned releaseConcurrency,
-    GOSoundRecorder &audioRecorder);
-
-  /** Stop worker threads and tear down the organ setup */
-  void StopAndDestroy();
-
-  /** Wake up all worker threads. Called from the audio callback. */
-  void WakeupThreads();
+  /*
+   * Functions called from GOSoundSystem
+   */
 
   void GetAudioOutput(
     unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
   void NextPeriod();
+
+  /** Wake up all worker threads. Called from the audio callback. */
+  void WakeupThreads();
+
+  /*
+   * Other public functions
+   */
+
+  const std::vector<double> &GetMeterInfo();
 
   bool ProcessSampler(
     float *buffer, GOSoundSampler *sampler, unsigned n_frames, float volume);
