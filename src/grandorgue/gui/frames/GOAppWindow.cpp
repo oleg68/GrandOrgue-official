@@ -394,9 +394,9 @@ GOAppWindow::GOAppWindow(
 }
 
 GOAppWindow::~GOAppWindow() {
-  r_SoundSystem.SetCloseListener(nullptr);
   m_isMeterReady = false;
   m_listener.SetCallback(NULL);
+  r_SoundSystem.SetCloseListener(nullptr);
 }
 
 bool GOAppWindow::AdjustVolumeControlWithSettings() {
@@ -576,36 +576,14 @@ void GOAppWindow::OnBeforeSoundClose() { EnsureOrganStopped(); }
 
 void GOAppWindow::EnsureOrganStartedIfReady() {
   if (
-    p_OrganController && r_SoundSystem.IsOpen() && r_SoundSystem.GetOrganFile()
-    && !r_SoundSystem.GetEngine().IsWorking()) {
-    GOSoundOrganEngine &engine = r_SoundSystem.GetEngine();
-
-    engine.SetFromConfig(r_SoundSystem.GetSettings());
-
-    auto configs = GOSoundOrganEngine::createAudioOutputConfigs(
-      r_SoundSystem.GetSettings(), engine.GetNAudioGroups());
-
-    engine.BuildAndStart(
-      configs,
-      r_SoundSystem.GetSamplesPerBuffer(),
-      r_SoundSystem.GetSampleRate(),
-      r_SoundSystem.GetAudioRecorder());
-    r_SoundSystem.ConnectToEngine(engine);
-    p_OrganController->PreparePlayback(
-      &engine, &r_SoundSystem.GetMidi(), &r_SoundSystem.GetAudioRecorder());
-  }
+    p_OrganController && r_SoundSystem.IsOpen()
+    && !p_OrganController->IsOrganStarted())
+    p_OrganController->StartOrgan(r_SoundSystem);
 }
 
 void GOAppWindow::EnsureOrganStopped() {
-  if (
-    p_OrganController && r_SoundSystem.GetOrganFile()
-    && r_SoundSystem.GetEngine().IsWorking()) {
-    GOSoundOrganEngine &engine = r_SoundSystem.GetEngine();
-
-    p_OrganController->Abort();
-    r_SoundSystem.DisconnectFromEngine(engine);
-    engine.StopAndDestroy();
-  }
+  if (p_OrganController && p_OrganController->IsOrganStarted())
+    p_OrganController->StopOrgan(r_SoundSystem);
 }
 
 bool GOAppWindow::CloseOrgan(bool isForce) {
@@ -803,7 +781,9 @@ void GOAppWindow::OnSize(wxSizeEvent &event) {
 
 void GOAppWindow::OnMeters(wxCommandEvent &event) {
   if (m_isMeterReady) {
-    const std::vector<float> vals = r_SoundSystem.GetEngine().GetMeterInfo();
+    const std::vector<float> vals = p_OrganController
+      ? p_OrganController->GetMeterInfo()
+      : std::vector<float>(1, 0.0f);
 
     if (vals.size() == m_VolumeGauge.size() + 1) {
       m_SamplerUsage->SetValue(33 * vals[0]);
@@ -1129,6 +1109,7 @@ void GOAppWindow::OnProperties(wxCommandEvent &event) {
 }
 
 void GOAppWindow::OnAudioPanic(wxCommandEvent &WXUNUSED(event)) {
+  // EnsureOrganStopped() is called via OnBeforeSoundClose callback
   r_SoundSystem.AssureSoundIsClosed();
   r_SoundSystem.AssureSoundIsOpen();
   EnsureOrganStartedIfReady();
@@ -1182,6 +1163,7 @@ void GOAppWindow::OnSettings(wxCommandEvent &event) {
     r_config.SetMainWindowRect(GetPosSize());
 
     // because the sound settings might be changed, close sound.
+    // EnsureOrganStopped() is called via OnBeforeSoundClose callback.
     // It will reopened later
     r_SoundSystem.AssureSoundIsClosed();
 
@@ -1269,8 +1251,8 @@ void GOAppWindow::OnSettingsPolyphony(wxCommandEvent &event) {
   long n = m_Polyphony->GetValue();
 
   r_config.PolyphonyLimit(n);
-  if (r_SoundSystem.GetOrganFile())
-    r_SoundSystem.GetEngine().SetHardPolyphony(n);
+  if (p_OrganController)
+    p_OrganController->SetHardPolyphony(n);
   m_SamplerUsage->ResetClip();
 }
 
