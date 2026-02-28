@@ -17,6 +17,8 @@
 #include "playing/GOSoundSamplerPool.h"
 #include "reverb/GOSoundReverb.h"
 #include "scheduler/GOSoundScheduler.h"
+#include "threading/GOCondition.h"
+#include "threading/GOMutex.h"
 
 #include "GOSoundOrganInterface.h"
 
@@ -45,7 +47,7 @@ class GOWindchest;
  *   2. Configuration: SetFromConfig(config) or manual setters
  *   3. BuildAndStart(audioOutputConfigs, nSamplesPerBuffer, sampleRate,
  * recorder) — builds tasks and starts the engine
- *      ... GetAudioOutput() is called from the audio thread ...
+ *      ... ProcessAudioCallback() is called from the audio thread ...
  *   4. StopAndDestroy() — stops the engine and destroys tasks
  */
 class GOSoundOrganEngine : public GOSoundOrganInterface {
@@ -88,6 +90,32 @@ public:
     unsigned nAudioGroups = 1);
 
 private:
+  /*
+   * Private nested types
+   */
+
+  /**
+   * @brief Per-output state: owns the output task and carries the callback
+   * synchronization primitives shared between concurrent audio callbacks.
+   */
+  struct OutputState {
+    std::unique_ptr<GOSoundOutputTask> mp_task;
+    GOMutex mutex;
+    GOCondition condition;
+
+    /** true if this output has already been processed in the current period.
+     * The next audio callback for this output will block at [W1] until
+     * the period advances and this flag is reset to false. */
+    bool isFinishedCurrPeriod;
+
+    OutputState();
+    // Needed to allow std::vector<OutputState>::resize(): GOMutex and
+    // GOCondition are not moveable, so condition must be re-constructed
+    // referencing the new object's mutex rather than the old one.
+    OutputState(OutputState &&other) noexcept;
+    ~OutputState();
+  };
+
   static constexpr int DETACHED_RELEASE_TASK_ID = 0;
 
   /*
@@ -137,7 +165,7 @@ private:
    * Lifecycle state
    */
 
-  enum class LifecycleState { IDLE, BUILT, WORKING, USED };
+  enum class LifecycleState { IDLE, BUILT, WORKING, USED, STREAMING };
 
   std::atomic<LifecycleState> m_LifecycleState;
 
@@ -146,13 +174,13 @@ private:
    */
 
   // [B1] mp_AudioGroupTasks: created per audio group (m_NAudioGroups entries)
-  //   — referenced by: mp_ReleaseTask (constructor), mp_AudioOutputTasks [B2]
+  //   — referenced by: mp_ReleaseTask (constructor), m_OutputStates [B2]
   ptr_vector<GOSoundGroupTask> mp_AudioGroupTasks;
-  // [B2] mp_AudioOutputTasks: created from audioOutputConfigs (per-device
-  // tasks)
+  // [B2] m_OutputStates: created from audioOutputConfigs (per-device
+  // tasks + callback sync state)
   //   — uses mp_AudioGroupTasks [B1] via SetOutputs()
   //   — referenced by: p_AudioRecorder [B4], reverb setup [B5]
-  std::vector<std::unique_ptr<GOSoundOutputTask>> mp_AudioOutputTasks;
+  std::vector<OutputState> m_OutputStates;
   // [B3] mp_DownmixTask: optional stereo downmix task (only when m_IsDownmix)
   //   — uses mp_AudioGroupTasks [B1] via SetOutputs()
   //   — referenced by: p_AudioRecorder [B4], reverb setup [B5]
@@ -180,12 +208,30 @@ private:
   std::vector<std::unique_ptr<GOSoundThread>> mp_threads;
 
   /*
-   * Counters
+   * Counters reset by ResetCounters() at engine start
    */
 
   uint64_t m_CurrentTime;
   GOSoundSamplerPool m_SamplerPool;
   std::atomic_uint m_UsedPolyphony;
+
+  /*
+   * Per-period counters reset by SetStreaming(true) at each streaming session
+   */
+
+  /** Number of audio callbacks that have entered the processing critical
+   * section in the current period. Incremented atomically at the start of
+   * the critical section in ProcessAudioCallback(). Reset to zero at the
+   * end of each period and at the start of each streaming session. */
+  std::atomic_uint m_NCallbacksEnteredCurrPeriod;
+
+  /** Number of audio callbacks that have finished processing in the current
+   * period. Incremented atomically after the output buffer is filled in
+   * ProcessAudioCallback(). When it reaches the total number of outputs,
+   * the period advances and both counters are reset to zero. Reset at the
+   * start of each streaming session. */
+  std::atomic_uint m_NCallbacksFinishedCurrPeriod;
+
   std::vector<double> m_MeterInfo;
 
   /*
@@ -203,6 +249,12 @@ private:
 
   void StartEngine();
   void StopEngine();
+
+  /*
+   * Private helpers for functions called from GOSoundSystem
+   */
+
+  void NextPeriod();
 
   /*
    * Other private functions
@@ -349,13 +401,24 @@ public:
     return m_LifecycleState.load() >= LifecycleState::WORKING;
   }
 
-  /** true if the engine is connected to the audio system. */
+  /** true if the engine is connected to the audio system (USED or STREAMING).
+   */
   bool IsUsed() const {
     return m_LifecycleState.load() >= LifecycleState::USED;
   }
 
+  /** true if audio callbacks are flowing (STREAMING). */
+  bool IsStreaming() const {
+    return m_LifecycleState.load() >= LifecycleState::STREAMING;
+  }
+
   /** Switches between WORKING and USED; called from GOSoundSystem. */
   void SetUsed(bool isUsed);
+
+  /** Switches between USED and STREAMING; called from GOSoundSystem.
+   *  SetStreaming(false) broadcasts all output conditions to unblock any
+   *  callbacks waiting at [W1]. */
+  void SetStreaming(bool isActive);
 
   /*
    * Public lifecycle functions
@@ -429,12 +492,21 @@ public:
    * Functions called from GOSoundSystem
    */
 
-  void GetAudioOutput(
-    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
-  void NextPeriod();
-
-  /** Wake up all worker threads. Called from the audio callback. */
-  void WakeupThreads();
+  /**
+   * @brief Fills one output buffer and, when all outputs have been filled,
+   * advances to the next period.
+   *
+   * Several callbacks may be called cuncurrently, but only one callback per
+   * output may finish in one period. All other callbacks will wait for thr next
+   * periods.
+   *
+   * @param outputIndex  Zero-based index of the audio output device.
+   * @param outBuffer    Buffer to fill with audio data for this device.
+   * @return true if all outputs have been processed and a new period has been
+   * started (NextPeriod was invoked and worker threads were woken up).
+   */
+  bool ProcessAudioCallback(
+    unsigned outputIndex, GOSoundBufferMutable &outBuffer);
 
   /*
    * Other public functions
