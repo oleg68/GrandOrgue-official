@@ -128,6 +128,8 @@ void GOPerfTestApp::RunTest(
         samples_per_frame,
         sample_rate,
         recorder);
+      engine.SetUsed(true);
+      engine.SetStreaming(true);
 
       std::vector<GOSoundSampler *> handles;
       float output_buffer[samples_per_frame * 2];
@@ -149,8 +151,7 @@ void GOPerfTestApp::RunTest(
 
       do {
         for (unsigned i = 0; i < batch_size; i++) {
-          engine.GetAudioOutput(0, false, outputBufferMutable);
-          engine.NextPeriod();
+          engine.ProcessAudioCallback(0, outputBufferMutable);
           blocks++;
         }
         end = getCPUTime();
@@ -173,8 +174,10 @@ void GOPerfTestApp::RunTest(
         diff.ToLong(),
         playback_time * 1000.0 * pipes.size() / diff.ToLong());
 
-      pipes.clear();
+      engine.SetStreaming(false);
+      engine.SetUsed(false);
       engine.StopAndDestroy();
+      pipes.clear();
     } catch (wxString msg) {
       wxLogError(wxT("Error: %s"), msg.c_str());
     }
