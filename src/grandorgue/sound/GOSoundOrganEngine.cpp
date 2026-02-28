@@ -24,6 +24,7 @@
 #include "tasks/GOSoundTouchTask.h"
 #include "tasks/GOSoundTremulantTask.h"
 #include "tasks/GOSoundWindchestTask.h"
+#include "threading/GOMutexLocker.h"
 
 #include "GOEvent.h"
 #include "GOSoundRecorder.h"
@@ -94,6 +95,17 @@ std::vector<GOSoundOrganEngine::AudioOutputConfig> GOSoundOrganEngine::
  * Constructors and destructors
  */
 
+GOSoundOrganEngine::OutputState::OutputState()
+  : condition(mutex), wait(false), waiting(false) {}
+
+GOSoundOrganEngine::OutputState::OutputState(OutputState &&other) noexcept
+  : mp_task(std::move(other.mp_task)),
+    condition(mutex),
+    wait(other.wait),
+    waiting(other.waiting) {}
+
+GOSoundOrganEngine::OutputState::~OutputState() = default;
+
 GOSoundOrganEngine::GOSoundOrganEngine(
   GOOrganModel &organModel, GOMemoryPool &memoryPool)
   : r_OrganModel(organModel),
@@ -118,6 +130,8 @@ GOSoundOrganEngine::GOSoundOrganEngine(
     p_AudioRecorder(nullptr),
     m_CurrentTime(1),
     m_UsedPolyphony(0),
+    m_CalcCount(0),
+    m_WaitCount(0),
     m_MeterInfo(1) {
   SetVolume(-15);
   m_SamplerPool.SetUsageLimit(2048);
@@ -171,6 +185,7 @@ void GOSoundOrganEngine::BuildEngine(
   GOSoundRecorder &recorder) {
   assert(m_LifecycleState.load() == LifecycleState::IDLE);
 
+  // Fill out thr start parameters
   m_NSamplesPerBuffer = nSamplesPerBuffer;
   m_SampleRate = sampleRate;
   p_AudioRecorder = &recorder;
@@ -186,10 +201,12 @@ void GOSoundOrganEngine::BuildEngine(
     groupOutputs.push_back(pGroupTask);
   }
 
-  // [B2] Build audio output tasks (per-device only)
+  // [B2] Build audio output states (per-device output task + callback sync)
   unsigned nTotalChannels = 0;
 
+  m_OutputStates.resize(audioOutputConfigs.size());
   for (unsigned deviceI = 0; deviceI < audioOutputConfigs.size(); deviceI++) {
+    OutputState &outputState = m_OutputStates[deviceI];
     const AudioOutputConfig &devConfig = audioOutputConfigs[deviceI];
     const unsigned nChannels = devConfig.channels;
     std::vector<float> scaleFactors;
@@ -208,9 +225,9 @@ void GOSoundOrganEngine::BuildEngine(
         scaleFactors[channelI * m_NAudioGroups * 2 + k] = factor;
       }
     }
-    mp_AudioOutputTasks.push_back(std::make_unique<GOSoundOutputTask>(
-      nChannels, scaleFactors, m_NSamplesPerBuffer));
-    mp_AudioOutputTasks.back()->SetOutputs(groupOutputs);
+    outputState.mp_task = std::make_unique<GOSoundOutputTask>(
+      nChannels, scaleFactors, m_NSamplesPerBuffer);
+    outputState.mp_task->SetOutputs(groupOutputs);
     nTotalChannels += nChannels;
   }
 
@@ -236,8 +253,8 @@ void GOSoundOrganEngine::BuildEngine(
     if (mp_DownmixTask)
       recorderOutputs.push_back(mp_DownmixTask.get());
     else
-      for (auto &pTask : mp_AudioOutputTasks)
-        recorderOutputs.push_back(pTask.get());
+      for (OutputState &state : m_OutputStates)
+        recorderOutputs.push_back(state.mp_task.get());
     p_AudioRecorder->SetOutputs(recorderOutputs, m_NSamplesPerBuffer);
   }
 
@@ -245,8 +262,9 @@ void GOSoundOrganEngine::BuildEngine(
   if (mp_DownmixTask)
     mp_DownmixTask->SetupReverb(
       m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
-  for (auto &pTask : mp_AudioOutputTasks)
-    pTask->SetupReverb(m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
+  for (OutputState &state : m_OutputStates)
+    state.mp_task->SetupReverb(
+      m_ReverbConfig, m_NSamplesPerBuffer, m_SampleRate);
 
   m_MeterInfo.resize(nTotalChannels + 1);
 
@@ -280,8 +298,8 @@ void GOSoundOrganEngine::BuildEngine(
     m_Scheduler.Add(pGroupTask);
   if (mp_DownmixTask)
     m_Scheduler.Add(mp_DownmixTask.get());
-  for (auto &pOutputTask : mp_AudioOutputTasks)
-    m_Scheduler.Add(pOutputTask.get());
+  for (OutputState &state : m_OutputStates)
+    m_Scheduler.Add(state.mp_task.get());
   m_Scheduler.Add(p_AudioRecorder);
   m_Scheduler.Add(mp_ReleaseTask.get());
   m_Scheduler.Add(mp_TouchTask.get());
@@ -318,8 +336,8 @@ void GOSoundOrganEngine::DestroyEngine() {
   // [B3] Destroy downmix task
   mp_DownmixTask.reset();
 
-  // [B2] Destroy audio output tasks
-  mp_AudioOutputTasks.clear();
+  // [B2] Destroy audio output states
+  m_OutputStates.clear();
 
   // [B1] Destroy audio group tasks
   for (GOSoundGroupTask *pGroupTask : mp_AudioGroupTasks)
@@ -334,17 +352,39 @@ void GOSoundOrganEngine::ResetCounters() {
   m_SamplerPool.ReturnAll();
   m_CurrentTime = 1;
   m_Scheduler.Reset();
+  m_CalcCount.store(0);
+  m_WaitCount.store(0);
 }
 
 void GOSoundOrganEngine::StartEngine() {
   assert(m_LifecycleState.load() == LifecycleState::BUILT);
   ResetCounters();
   m_Scheduler.ResumeGivingWork();
+
+  // Enable outputs
+  for (OutputState &state : m_OutputStates) {
+    GOMutexLocker locker(state.mutex);
+
+    state.wait = false;
+    state.waiting = true;
+  }
   m_LifecycleState.store(LifecycleState::WORKING);
 }
 
 void GOSoundOrganEngine::StopEngine() {
   assert(m_LifecycleState.load() == LifecycleState::WORKING);
+
+  // Disable outputs
+  for (OutputState &state : m_OutputStates) {
+    GOMutexLocker locker(state.mutex);
+
+    state.waiting = false;
+    state.wait = false;
+    // seems it is not necessary because we come here only after all callbacks
+    // heve finished
+    state.condition.Broadcast();
+  }
+
   m_Scheduler.PauseGivingWork();
   for (auto &pThread : mp_threads)
     pThread->WaitForIdle();
@@ -382,10 +422,10 @@ void GOSoundOrganEngine::SetUsed(bool isUsed) {
 void GOSoundOrganEngine::GetAudioOutput(
   unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer) {
   if (IsWorking()) {
-    GOSoundOutputTask *pOutputTask = mp_AudioOutputTasks[outputIndex].get();
+    GOSoundOutputTask &outputTask = *m_OutputStates[outputIndex].mp_task;
 
-    pOutputTask->Finish(isLast);
-    outBuffer.CopyFrom(*pOutputTask);
+    outputTask.Finish(isLast);
+    outBuffer.CopyFrom(outputTask);
   } else
     outBuffer.FillWithSilence();
 }
@@ -405,6 +445,38 @@ void GOSoundOrganEngine::NextPeriod() {
 void GOSoundOrganEngine::WakeupThreads() {
   for (auto &pThread : mp_threads)
     pThread->Wakeup();
+}
+
+bool GOSoundOrganEngine::ProcessAudioCallback(
+  unsigned outputIndex, GOSoundBufferMutable &outBuffer) {
+  const unsigned nOutputs = m_OutputStates.size();
+  OutputState &state = m_OutputStates[outputIndex];
+  GOMutexLocker locker(state.mutex);
+
+  while (state.wait && state.waiting)
+    state.condition.Wait();
+
+  unsigned cnt = m_CalcCount.fetch_add(1);
+
+  GetAudioOutput(outputIndex, cnt + 1 >= nOutputs, outBuffer);
+  state.wait = true;
+
+  unsigned count = m_WaitCount.fetch_add(1);
+  bool isNewPeriod = count + 1 == nOutputs;
+
+  if (isNewPeriod) {
+    NextPeriod();
+    WakeupThreads();
+    m_CalcCount.exchange(0);
+    m_WaitCount.exchange(0);
+    for (unsigned outputI = 0; outputI < nOutputs; ++outputI) {
+      GOMutexLocker lock(m_OutputStates[outputI].mutex, outputI == outputIndex);
+
+      m_OutputStates[outputI].wait = false;
+      m_OutputStates[outputI].condition.Signal();
+    }
+  }
+  return isNewPeriod;
 }
 
 /*
@@ -822,13 +894,15 @@ const std::vector<double> &GOSoundOrganEngine::GetMeterInfo() {
 
   for (unsigned i = 1; i < m_MeterInfo.size(); i++)
     m_MeterInfo[i] = 0;
-  for (unsigned taskI = 0, nr = 1; taskI < mp_AudioOutputTasks.size();
-       taskI++) {
-    const std::vector<float> &info = mp_AudioOutputTasks[taskI]->GetMeterInfo();
+  for (unsigned nStates = m_OutputStates.size(), stateI = 0, nr = 1;
+       stateI < nStates;
+       stateI++) {
+    GOSoundOutputTask &outputTask = *m_OutputStates[stateI].mp_task;
+    const std::vector<float> &info = outputTask.GetMeterInfo();
 
     for (unsigned j = 0; j < info.size(); j++)
       m_MeterInfo[nr++] = info[j];
-    mp_AudioOutputTasks[taskI]->ResetMeterInfo();
+    outputTask.ResetMeterInfo();
   }
   return m_MeterInfo;
 }
