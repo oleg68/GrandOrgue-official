@@ -47,7 +47,7 @@ class GOWindchest;
  *   2. Configuration: SetFromConfig(config) or manual setters
  *   3. BuildAndStart(audioOutputConfigs, nSamplesPerBuffer, sampleRate,
  * recorder) — builds tasks and starts the engine
- *      ... GetAudioOutput() is called from the audio thread ...
+ *      ... ProcessAudioCallback() is called from the audio thread ...
  *   4. StopAndDestroy() — stops the engine and destroys tasks
  */
 class GOSoundOrganEngine : public GOSoundOrganInterface {
@@ -102,8 +102,17 @@ private:
     std::unique_ptr<GOSoundOutputTask> mp_task;
     GOMutex mutex;
     GOCondition condition;
+
+    /** true if this output has already been processed in the current period.
+     * The next audio callback for this output will block at [W1] until
+     * the period advances and this flag is reset to false. */
     bool wait;
+
+    /** true while the engine is running and callbacks are expected.
+     * When set to false (in StopEngine), callbacks waiting at [W1]
+     * are unblocked and bypass the wait loop. */
     bool waiting;
+
     OutputState();
     // Needed to allow std::vector<OutputState>::resize(): GOMutex and
     // GOCondition are not moveable, so condition must be re-constructed
@@ -210,8 +219,19 @@ private:
   uint64_t m_CurrentTime;
   GOSoundSamplerPool m_SamplerPool;
   std::atomic_uint m_UsedPolyphony;
-  std::atomic_uint m_CalcCount;
-  std::atomic_uint m_WaitCount;
+
+  /** Number of audio callbacks that have entered the processing critical
+   * section in the current period. Incremented atomically at the start of
+   * the critical section in ProcessAudioCallback(). Reset to zero at the
+   * end of each period. */
+  std::atomic_uint m_NCallbacksEntered;
+
+  /** Number of audio callbacks that have finished processing in the current
+   * period. Incremented atomically after the output buffer is filled in
+   * ProcessAudioCallback(). When it reaches the total number of outputs,
+   * the period advances and both counters are reset to zero. */
+  std::atomic_uint m_NCallbacksFinished;
+
   std::vector<double> m_MeterInfo;
 
   /*
@@ -234,12 +254,7 @@ private:
    * Private helpers for functions called from GOSoundSystem
    */
 
-  void GetAudioOutput(
-    unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer);
   void NextPeriod();
-
-  /** Wake up all worker threads. */
-  void WakeupThreads();
 
   /*
    * Other private functions
@@ -470,13 +485,14 @@ public:
    * @brief Fills one output buffer and, when all outputs have been filled,
    * advances to the next period.
    *
-   * Handles per-output mutex locking.
-   * Must be called once per audio callback per output device.
+   * Several callbacks may be called cuncurrently, but only one callback per
+   * output may finish in one period. All other callbacks will wait for thr next
+   * periods.
    *
    * @param outputIndex  Zero-based index of the audio output device.
    * @param outBuffer    Buffer to fill with audio data for this device.
    * @return true if all outputs have been processed and a new period has been
-   * started (NextPeriod and WakeupThreads were invoked).
+   * started (NextPeriod was invoked and worker threads were woken up).
    */
   bool ProcessAudioCallback(
     unsigned outputIndex, GOSoundBufferMutable &outBuffer);

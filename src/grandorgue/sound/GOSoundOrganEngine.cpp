@@ -130,8 +130,8 @@ GOSoundOrganEngine::GOSoundOrganEngine(
     p_AudioRecorder(nullptr),
     m_CurrentTime(1),
     m_UsedPolyphony(0),
-    m_CalcCount(0),
-    m_WaitCount(0),
+    m_NCallbacksEntered(0),
+    m_NCallbacksFinished(0),
     m_MeterInfo(1) {
   SetVolume(-15);
   m_SamplerPool.SetUsageLimit(2048);
@@ -352,8 +352,8 @@ void GOSoundOrganEngine::ResetCounters() {
   m_SamplerPool.ReturnAll();
   m_CurrentTime = 1;
   m_Scheduler.Reset();
-  m_CalcCount.store(0);
-  m_WaitCount.store(0);
+  m_NCallbacksEntered.store(0);
+  m_NCallbacksFinished.store(0);
 }
 
 void GOSoundOrganEngine::StartEngine() {
@@ -419,17 +419,6 @@ void GOSoundOrganEngine::SetUsed(bool isUsed) {
  * Functions called from GOSoundSystem
  */
 
-void GOSoundOrganEngine::GetAudioOutput(
-  unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer) {
-  if (IsWorking()) {
-    GOSoundOutputTask &outputTask = *m_OutputStates[outputIndex].mp_task;
-
-    outputTask.Finish(isLast);
-    outBuffer.CopyFrom(outputTask);
-  } else
-    outBuffer.FillWithSilence();
-}
-
 void GOSoundOrganEngine::NextPeriod() {
   m_Scheduler.Exec();
 
@@ -442,40 +431,71 @@ void GOSoundOrganEngine::NextPeriod() {
   m_Scheduler.Reset();
 }
 
-void GOSoundOrganEngine::WakeupThreads() {
-  for (auto &pThread : mp_threads)
-    pThread->Wakeup();
-}
-
 bool GOSoundOrganEngine::ProcessAudioCallback(
   unsigned outputIndex, GOSoundBufferMutable &outBuffer) {
+  assert(IsWorking());
+
   const unsigned nOutputs = m_OutputStates.size();
+
+  assert(outputIndex < nOutputs);
+
+  bool isNewPeriod = false;
   OutputState &state = m_OutputStates[outputIndex];
+
+  // Only one callback for this output may hold this mutex at a time.
   GOMutexLocker locker(state.mutex);
 
+  // [W1] Wait until this output has not yet been processed in the current
+  // period.
   while (state.wait && state.waiting)
     state.condition.Wait();
 
-  unsigned cnt = m_CalcCount.fetch_add(1);
+  {
+    /*
+     * The main callback critical section. Only one callback per output may
+     * enter here, and only once per period.
+     */
 
-  GetAudioOutput(outputIndex, cnt + 1 >= nOutputs, outBuffer);
-  state.wait = true;
+    // Number of callbacks that have entered the critical section this period.
+    unsigned nEntered = ++m_NCallbacksEntered; // atomic
+    bool isLastEntered = nEntered >= nOutputs;
 
-  unsigned count = m_WaitCount.fetch_add(1);
-  bool isNewPeriod = count + 1 == nOutputs;
+    // Finish computing the output task and copy the result into the buffer.
+    GOSoundOutputTask &outputTask = *m_OutputStates[outputIndex].mp_task;
 
-  if (isNewPeriod) {
-    NextPeriod();
-    WakeupThreads();
-    m_CalcCount.exchange(0);
-    m_WaitCount.exchange(0);
-    for (unsigned outputI = 0; outputI < nOutputs; ++outputI) {
-      GOMutexLocker lock(m_OutputStates[outputI].mutex, outputI == outputIndex);
+    outputTask.Finish(isLastEntered);
+    outBuffer.CopyFrom(outputTask);
 
-      m_OutputStates[outputI].wait = false;
-      m_OutputStates[outputI].condition.Signal();
+    // Mark this output as done for the current period so that future callbacks
+    // for this output will block at [W1] until the period advances.
+    state.wait = true;
+
+    unsigned nFinished = ++m_NCallbacksFinished; // atomic
+    bool isLastFinished = nFinished >= nOutputs;
+
+    // The last output to enter may not be the last to finish.
+    if (isLastFinished) {
+      // Advance to the next period.
+      NextPeriod();
+
+      // Wake up worker threads to start processing the new period.
+      for (auto &pThread : mp_threads)
+        pThread->Wakeup();
+
+      // Reset per-period counters.
+      m_NCallbacksEntered.store(0);
+      m_NCallbacksFinished.store(0);
+
+      // Mark all outputs as not yet processed for the new period
+      // and wake up callbacks waiting at [W1].
+      for (OutputState &state : m_OutputStates) {
+        state.wait = false;
+        state.condition.Signal();
+      }
+      isNewPeriod = true;
     }
   }
+
   return isNewPeriod;
 }
 
