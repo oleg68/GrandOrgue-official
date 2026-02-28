@@ -381,7 +381,7 @@ void GOSoundOrganEngine::SetUsed(bool isUsed) {
 
 void GOSoundOrganEngine::GetAudioOutput(
   unsigned outputIndex, bool isLast, GOSoundBufferMutable &outBuffer) {
-  if (m_LifecycleState.load() == LifecycleState::WORKING) {
+  if (IsWorking()) {
     GOSoundOutputTask *pOutputTask = mp_AudioOutputTasks[outputIndex].get();
 
     pOutputTask->Finish(isLast);
