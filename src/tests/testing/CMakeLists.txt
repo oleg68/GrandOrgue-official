@@ -12,6 +12,8 @@ set(go_tests
     sound/buffer/GOTestSoundBufferMutableMono.cpp
     sound/GOTestSoundOrganEngineBase.cpp
     sound/GOTestSoundOrganEngine.cpp
+    sound/GOTestSoundCallbackConnector.cpp
+    sound/GOTestSoundOrganEngineStress.cpp
     GOTestNameMap.cpp
 )
 add_library(GOTests STATIC ${go_tests})

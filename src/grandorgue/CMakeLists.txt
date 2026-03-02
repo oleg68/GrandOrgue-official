@@ -230,6 +230,7 @@ sound/tasks/GOSoundReleaseTask.cpp
 sound/tasks/GOSoundTouchTask.cpp
 sound/tasks/GOSoundTremulantTask.cpp
 sound/tasks/GOSoundWindchestTask.cpp
+sound/GOSoundCallbackConnector.cpp
 sound/GOSoundDevInfo.cpp
 sound/GOSoundOrganEngine.cpp
 sound/GOSoundRecorder.cpp
