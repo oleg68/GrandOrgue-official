@@ -13,7 +13,9 @@
 #include "testing/model/GOTestOrganModel.h"
 #include "testing/model/GOTestSwitch.h"
 #include "testing/model/GOTestWindchest.h"
+#include "testing/sound/GOTestSoundCallbackConnector.h"
 #include "testing/sound/GOTestSoundOrganEngine.h"
+#include "testing/sound/GOTestSoundOrganEngineStress.h"
 #include "testing/sound/buffer/GOTestPerfSoundBufferMutable.h"
 #include "testing/sound/buffer/GOTestSoundBuffer.h"
 #include "testing/sound/buffer/GOTestSoundBufferManaged.h"
@@ -40,6 +42,8 @@ int main() {
   GOTestSoundBufferMutableMono testSoundBufferMutableMono;
   GOTestPerfSoundBufferMutable testPerfSoundBufferMutable;
   GOTestSoundOrganEngine testSoundOrganEngine;
+  GOTestSoundCallbackConnector testSoundCallbackConnector;
+  GOTestSoundOrganEngineStress testSoundOrganEngineStress;
   /* end of instanciation */
   GOTestResultCollection test_result_collection;
   test_result_collection = GOTestCollection::Instance()->run();
