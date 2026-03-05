@@ -203,6 +203,7 @@ model/GOTremulant.cpp
 model/GOWindchest.cpp
 modification/GOModificationProxy.cpp
 sound/buffer/GOSoundBufferManaged.cpp
+sound/interfaces/GOSoundCallbackConnector.cpp
 sound/playing/GOSoundAudioSection.cpp
 sound/playing/GOSoundFader.cpp
 sound/playing/GOSoundFilter.cpp
@@ -231,7 +232,6 @@ sound/tasks/GOSoundReleaseTask.cpp
 sound/tasks/GOSoundTouchTask.cpp
 sound/tasks/GOSoundTremulantTask.cpp
 sound/tasks/GOSoundWindchestTask.cpp
-sound/GOSoundCallbackConnector.cpp
 sound/GOSoundDevInfo.cpp
 sound/GOSoundOrganEngine.cpp
 sound/GOSoundRecorder.cpp

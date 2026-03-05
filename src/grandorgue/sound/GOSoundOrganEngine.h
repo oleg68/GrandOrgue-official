@@ -263,7 +263,7 @@ public:
    */
 
   /** Returns a reference to the sampler player (used to connect the organ
-   * model via GOSoundOrganInterfaceProxy). */
+   * model via GOSoundSamplerPlayerProxy). */
   GOSoundSamplerPlayer &GetSamplerPlayer() { return m_SamplerPlayer; }
 
   /*

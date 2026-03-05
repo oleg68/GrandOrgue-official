@@ -889,7 +889,7 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
 
   m_MidiSamplesetMatch.clear();
   GOOrganModel::SetMidi(&midi, m_MidiRecorder);
-  GOOrganModel::GOSoundOrganInterfaceProxy::Connect(
+  GOOrganModel::GOSoundSamplerPlayerProxy::Connect(
     &m_SoundEngine.GetSamplerPlayer());
   GOEventDistributor::PreparePlayback();
 
@@ -916,7 +916,7 @@ void GOOrganController::StopOrgan(GOSoundSystem &soundSystem) {
   m_AudioRecorder->SetAudioRecorder(NULL);
   if (p_OnStateButton)
     p_OnStateButton->AbortPlayback();
-  GOOrganModel::GOSoundOrganInterfaceProxy::Disconnect();
+  GOOrganModel::GOSoundSamplerPlayerProxy::Disconnect();
   GOOrganModel::SetMidi(nullptr, nullptr);
   m_midi = NULL;
 
