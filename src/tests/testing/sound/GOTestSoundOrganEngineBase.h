@@ -10,7 +10,7 @@
 
 #include "GOTest.h"
 
-#include "sound/GOSoundCallbackConnector.h"
+#include "sound/interfaces/GOSoundCallbackConnector.h"
 #include "sound/tasks/GOSoundRecorderTask.h"
 
 class GOSoundOrganEngine;

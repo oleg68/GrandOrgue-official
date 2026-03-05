@@ -210,6 +210,7 @@ modification/GOModificationProxy.cpp
 scheduler/GOScheduler.cpp
 scheduler/GOSchedulerThread.cpp
 sound/buffer/GOSoundBufferManaged.cpp
+sound/interfaces/GOSoundCallbackConnector.cpp
 sound/playing/GOSoundAudioSection.cpp
 sound/playing/GOSoundFader.cpp
 sound/playing/GOSoundFilter.cpp
@@ -238,7 +239,6 @@ sound/tasks/GOSoundTaskBase.cpp
 sound/tasks/GOSoundTouchTask.cpp
 sound/tasks/GOSoundTremulantTask.cpp
 sound/tasks/GOSoundWindchestTask.cpp
-sound/GOSoundCallbackConnector.cpp
 sound/GOSoundDevInfo.cpp
 sound/GOSoundOrganEngine.cpp
 sound/GOSoundSystem.cpp

@@ -13,11 +13,11 @@
 
 #include <wx/string.h>
 
+#include "interfaces/GOSoundCallbackConnector.h"
+#include "interfaces/GOSoundCloseListener.h"
 #include "tasks/GOSoundRecorderTask.h"
 #include "threading/GOMutex.h"
 
-#include "GOSoundCallbackConnector.h"
-#include "GOSoundCloseListener.h"
 #include "GOSoundDevInfo.h"
 
 class GOConfig;
