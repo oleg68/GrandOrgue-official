@@ -9,7 +9,7 @@
 
 #include "model/GOCacheObject.h"
 #include "model/GOEventHandlerList.h"
-#include "sound/playing/GOSoundStateHandler.h"
+#include "model/GOOrganLifecycleListener.h"
 
 #include "GOControlChangedHandler.h"
 #include "GOEventHandler.h"
@@ -45,22 +45,22 @@ void GOEventDistributor::UpdateHash(GOHash &hash) {
     obj->UpdateHash(hash);
 }
 
-void GOEventDistributor::PreparePlayback(GOSoundOrganEngine *pSoundEngine) {
-  for (auto handler : p_model->GetSoundStateHandlers())
-    handler->PreparePlaybackExt(pSoundEngine);
+void GOEventDistributor::PreparePlayback() {
+  for (auto handler : p_model->GetLifecycleListeners())
+    handler->PreparePlayback();
 }
 
 void GOEventDistributor::StartPlayback() {
-  for (auto handler : p_model->GetSoundStateHandlers())
-    handler->StartPlaybackExt();
+  for (auto handler : p_model->GetLifecycleListeners())
+    handler->StartPlayback();
 }
 
 void GOEventDistributor::AbortPlayback() {
-  for (auto handler : p_model->GetSoundStateHandlers())
-    handler->AbortPlaybackExt();
+  for (auto handler : p_model->GetLifecycleListeners())
+    handler->AbortPlayback();
 }
 
 void GOEventDistributor::PrepareRecording() {
-  for (auto handler : p_model->GetSoundStateHandlers())
-    handler->PrepareRecordingExt();
+  for (auto handler : p_model->GetLifecycleListeners())
+    handler->PrepareRecording();
 }
