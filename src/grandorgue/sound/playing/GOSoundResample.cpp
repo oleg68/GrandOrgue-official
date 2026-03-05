@@ -21,6 +21,7 @@
 
 #include "GOSoundResample.h"
 
+#include <cassert>
 #include <math.h>
 #include <stdlib.h>
 
@@ -111,6 +112,13 @@ unsigned GOSoundResample::getVectorLength(
     break;
   case GO_POLYPHASE_INTERPOLATION:
     res = PolyphaseResampler::VECTOR_LENGTH;
+    break;
+
+  /* A compiler cannot guarantee that interpolation has a valid value.
+   * So for avoiding the "res may be used uninitialized" warning */
+  default:
+    assert(false);
+    res = 0;
   }
   return res;
 }
