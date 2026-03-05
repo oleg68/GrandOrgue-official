@@ -6,6 +6,8 @@
 
 #include <cstdio>
 #include <iostream>
+#include <optional>
+#include <string>
 
 #include "common/GOTestCollection.h"
 #include "testing/GOTestNameMap.h"
@@ -22,13 +24,27 @@
 #include "testing/sound/buffer/GOTestSoundBufferMutable.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutableMono.h"
 
-int main() {
+int main(int argc, char *argv[]) {
   /*
       This is the main function that will collect all tests in the collection,
       then run the whole bunch.
 
-      TODO: It should displays also the tests results
+      Supported arguments:
+        --perf-only   run only performance tests (GOTest::PERF)
+        --no-perf     run only functional tests (GOTest::FUNCTIONAL)
+        (no argument) run all tests
   */
+
+  std::optional<GOTest::Category> categoryFilter;
+
+  for (int argI = 1; argI < argc; ++argI) {
+    const std::string arg = argv[argI];
+
+    if (arg == "--perf-only")
+      categoryFilter = GOTest::PERF;
+    else if (arg == "--no-perf")
+      categoryFilter = GOTest::FUNCTIONAL;
+  }
 
   /* Instantiate all the test classes here */
   GOTestDrawStop testDrawStop;
@@ -46,7 +62,7 @@ int main() {
   GOTestSoundOrganEngineStress testSoundOrganEngineStress;
   /* end of instanciation */
   GOTestResultCollection test_result_collection;
-  test_result_collection = GOTestCollection::Instance()->run();
+  test_result_collection = GOTestCollection::Instance()->Run(categoryFilter);
 
   // Display tests results
   int run_number_ = 0;
