@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -20,6 +20,6 @@ void GOEventHandlerList::Cleanup() {
   m_ControlChangedHandlers.Clear();
   m_MidiObjects.Clear();
   m_MidiEventHandlers.Clear();
-  m_SoundStateHandlers.Clear();
+  m_LifecycleListeners.Clear();
   m_SaveableObjects.Clear();
 }

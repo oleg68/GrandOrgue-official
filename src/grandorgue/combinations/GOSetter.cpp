@@ -756,7 +756,7 @@ GOSetter::GOSetter(GOOrganController *organController)
   SetSetterType(GOSetterState::SETTER_REGULAR);
   SetCrescendoType(m_crescendobank);
 
-  m_OrganController->RegisterSoundStateHandler(this);
+  m_OrganController->RegisterLifecycleListener(this);
   m_OrganController->RegisterCombinationButtonSet(this);
   m_OrganController->RegisterControlChangedHandler(this);
 }

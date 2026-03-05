@@ -22,8 +22,8 @@
 #include "model/GOCombination.h"
 #include "model/GOEnclosure.h"
 #include "model/GOGeneralCombination.h"
+#include "model/GOOrganLifecycleListener.h"
 #include "model/GOSetterState.h"
-#include "sound/playing/GOSoundStateHandler.h"
 #include "yaml/GOSaveableToYaml.h"
 
 #define N_CRESCENDOS 4
@@ -32,7 +32,7 @@ class GODivisionalCombination;
 class GOGeneralCombination;
 class GOOrganController;
 
-class GOSetter : private GOSoundStateHandler,
+class GOSetter : private GOOrganLifecycleListener,
                  private GOCombinationButtonSet,
                  public GOCombinationController,
                  private GOControlChangedHandler,
