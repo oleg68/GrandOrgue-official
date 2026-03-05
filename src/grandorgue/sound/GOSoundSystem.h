@@ -13,10 +13,10 @@
 
 #include <wx/string.h>
 
+#include "interfaces/GOSoundCallbackConnector.h"
+#include "interfaces/GOSoundCloseListener.h"
 #include "midi/GOMidiSystem.h"
 
-#include "GOSoundCallbackConnector.h"
-#include "GOSoundCloseListener.h"
 #include "GOSoundDevInfo.h"
 #include "GOSoundRecorder.h"
 
