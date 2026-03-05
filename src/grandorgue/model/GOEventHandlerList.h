@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -19,7 +19,7 @@ class GOControlChangedHandler;
 class GOEventHandler;
 class GOMidiPlayingObject;
 class GOReferencingObject;
-class GOSoundStateHandler;
+class GOOrganLifecycleListener;
 class GOSaveableObject;
 
 class GOEventHandlerList {
@@ -63,7 +63,7 @@ private:
   UPVector<GOControlChangedHandler> m_ControlChangedHandlers;
   UPVector<GOMidiPlayingObject> m_MidiObjects;
   UPVector<GOEventHandler> m_MidiEventHandlers;
-  UPVector<GOSoundStateHandler> m_SoundStateHandlers;
+  UPVector<GOOrganLifecycleListener> m_LifecycleListeners;
   UPVector<GOSaveableObject> m_SaveableObjects;
 
 public:
@@ -83,8 +83,8 @@ public:
   const std::vector<GOEventHandler *> &GetMidiEventHandlers() const {
     return m_MidiEventHandlers.AsVector();
   }
-  const std::vector<GOSoundStateHandler *> &GetSoundStateHandlers() const {
-    return m_SoundStateHandlers.AsVector();
+  const std::vector<GOOrganLifecycleListener *> &GetLifecycleListeners() const {
+    return m_LifecycleListeners.AsVector();
   }
   const std::vector<GOSaveableObject *> &GetSaveableObjects() const {
     return m_SaveableObjects.AsVector();
@@ -130,12 +130,12 @@ public:
     m_MidiEventHandlers.Remove(handler);
   }
 
-  void RegisterSoundStateHandler(GOSoundStateHandler *handler) {
-    m_SoundStateHandlers.Add(handler);
+  void RegisterLifecycleListener(GOOrganLifecycleListener *handler) {
+    m_LifecycleListeners.Add(handler);
   }
 
-  void UnRegisterSoundStateHandler(GOSoundStateHandler *handler) {
-    m_SoundStateHandlers.Remove(handler);
+  void UnRegisterLifecycleListener(GOOrganLifecycleListener *handler) {
+    m_LifecycleListeners.Remove(handler);
   }
 
   void RegisterSaveableObject(GOSaveableObject *obj) {

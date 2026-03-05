@@ -285,7 +285,7 @@ void GOOrganController::ReadOrganFile(GOConfigReader &cfg) {
   if (p_OnStateButton) {
     // we do not want to send midi events on m_OnStateButton together with
     // other events. They will be sent separately.
-    UnRegisterSoundStateHandler(p_OnStateButton);
+    UnRegisterLifecycleListener(p_OnStateButton);
   }
 
   m_PitchLabel.Load(cfg, wxT("SetterMasterPitch"), _("organ pitch"));
@@ -891,7 +891,7 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
   GOOrganModel::SetMidi(&midi, m_MidiRecorder);
   GOOrganModel::GOSoundSamplerPlayerProxy::Connect(
     &m_SoundEngine.GetSamplerPlayer());
-  GOEventDistributor::PreparePlayback(&m_SoundEngine);
+  GOEventDistributor::PreparePlayback();
 
   m_setter->UpdateModified(m_OrganModified);
 
@@ -901,9 +901,9 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
 
   // Light the OnState button
   if (p_OnStateButton) {
-    p_OnStateButton->PreparePlaybackExt(&m_SoundEngine);
-    p_OnStateButton->StartPlaybackExt();
-    p_OnStateButton->PrepareRecordingExt();
+    p_OnStateButton->PreparePlayback();
+    p_OnStateButton->StartPlayback();
+    p_OnStateButton->PrepareRecording();
   }
 }
 
@@ -915,7 +915,7 @@ void GOOrganController::StopOrgan(GOSoundSystem &soundSystem) {
   m_AudioRecorder->StopRecording();
   m_AudioRecorder->SetAudioRecorder(NULL);
   if (p_OnStateButton)
-    p_OnStateButton->AbortPlaybackExt();
+    p_OnStateButton->AbortPlayback();
   GOOrganModel::GOSoundSamplerPlayerProxy::Disconnect();
   GOOrganModel::SetMidi(nullptr, nullptr);
   m_midi = NULL;

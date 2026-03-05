@@ -12,14 +12,14 @@
 
 #include <wx/string.h>
 
-#include "sound/playing/GOSoundStateHandler.h"
+#include "GOOrganLifecycleListener.h"
 
 class GOConfigReader;
 class GOEventHandlerList;
 class GORank;
 class GOTemperament;
 
-class GOPipe : protected GOSoundStateHandler {
+class GOPipe : protected GOOrganLifecycleListener {
 private:
   unsigned m_Velocity;
   std::vector<unsigned> m_Velocities;
