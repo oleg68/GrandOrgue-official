@@ -14,7 +14,6 @@
 
 #include "config/GOConfigEnum.h"
 #include "midi/dialog-creator/GOMidiConfigDispatcher.h"
-#include "sound/playing/GOSoundStateHandler.h"
 
 #include "GOSaveableObject.h"
 #include "GOStringSet.h"

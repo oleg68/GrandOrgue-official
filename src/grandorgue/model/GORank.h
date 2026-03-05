@@ -12,7 +12,6 @@
 
 #include "midi/objects/GOMidiSendingObject.h"
 #include "pipe-config/GOPipeConfigTreeNode.h"
-#include "sound/playing/GOSoundStateHandler.h"
 
 #include "GOPipe.h"
 
