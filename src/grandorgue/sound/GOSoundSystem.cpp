@@ -46,8 +46,6 @@ void GOSoundSystem::OpenSoundSystem() {
   m_LastErrorMessage = wxEmptyString;
   SetSampleRate(m_config.SampleRate());
   SetSamplesPerBuffer(m_config.SamplesPerBuffer());
-  m_AudioRecorder.SetBytesPerSample(m_config.WaveFormatBytesPerSample());
-
   mp_SoundPorts.resize(audio_config.size());
 
   const GOPortsConfig &portsConfig(m_config.GetSoundPortsConfig());
@@ -85,7 +83,6 @@ void GOSoundSystem::OpenSoundSystem() {
     // OpenSoundSystem() completes.
     StartStreams();
     OpenMidi();
-    m_AudioRecorder.SetSampleRate(GetSampleRate());
     m_open = true;
   } catch (wxString &msg) {
     if (logSoundErrors)
