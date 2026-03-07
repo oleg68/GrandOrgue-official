@@ -54,7 +54,7 @@ void GOSoundGroupTask::ProcessList(
     if (
       windchest
       && r_SamplerPlayer.ProcessSampler(
-        pOutputBuffer, sampler, GetNFrames(), windchest->GetVolume()))
+        pOutputBuffer, sampler, GetNFrames(), windchest->GetAmplitude()))
       Add(sampler);
   }
 }

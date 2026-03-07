@@ -13,7 +13,7 @@ GOSoundTremulantTask::GOSoundTremulantTask(
   GOSoundSamplerPlayer &samplerPlayer, unsigned nFramesPerBuffer)
   : GOSoundTaskBase(PRIORITY_TREMULANT, false),
     r_SamplerPlayer(samplerPlayer),
-    m_volume(0),
+    m_amplitude(0),
     m_SamplesPerBuffer(nFramesPerBuffer) {}
 
 void GOSoundTremulantTask::Add(GOSoundSampler *sampler) {
@@ -25,7 +25,7 @@ bool GOSoundTremulantTask::DoRun(GOSchedulerThread *pThread) {
 
   m_Samplers.Move();
   if (m_Samplers.Peek() == NULL)
-    m_volume = 1;
+    m_amplitude = 1;
   else {
     float outputBuffer[m_SamplesPerBuffer * 2];
 
@@ -40,7 +40,7 @@ bool GOSoundTremulantTask::DoRun(GOSchedulerThread *pThread) {
       if (keep)
         m_Samplers.Put(sampler);
     }
-    m_volume = outputBuffer[2 * m_SamplesPerBuffer - 1];
+    m_amplitude = outputBuffer[2 * m_SamplesPerBuffer - 1];
   }
 
   return isDone;

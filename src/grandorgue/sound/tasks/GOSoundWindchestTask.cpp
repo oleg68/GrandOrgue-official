@@ -15,7 +15,7 @@ GOSoundWindchestTask::GOSoundWindchestTask(
   GOSoundOrganEngine &soundEngine, GOWindchest *pWindchest)
   : GOSoundTaskBase(PRIORITY_WINDCHEST, false),
     r_engine(soundEngine),
-    m_volume(0),
+    m_amplitude(0),
     p_windchest(pWindchest) {}
 
 void GOSoundWindchestTask::Init(
@@ -28,14 +28,14 @@ void GOSoundWindchestTask::Init(
 }
 
 bool GOSoundWindchestTask::DoRun(GOSchedulerThread *pThread) {
-  float volume = r_engine.GetGain();
+  float amplitude = r_engine.GetAmplitude();
 
   if (p_windchest) {
-    volume *= p_windchest->GetVolume();
+    amplitude *= p_windchest->GetAmplitude();
     for (unsigned i = 0; i < m_pTremulantTasks.size(); i++)
-      volume *= m_pTremulantTasks[i]->GetVolume();
+      amplitude *= m_pTremulantTasks[i]->GetAmplitude();
   }
-  m_volume = volume;
+  m_amplitude = amplitude;
 
   return true;
 }

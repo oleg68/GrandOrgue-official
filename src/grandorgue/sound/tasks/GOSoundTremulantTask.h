@@ -19,7 +19,7 @@ class GOSoundTremulantTask : public GOSoundTaskBase {
 private:
   GOSoundSamplerPlayer &r_SamplerPlayer;
   GOSoundSamplerList m_Samplers;
-  float m_volume;
+  float m_amplitude;
   unsigned m_SamplesPerBuffer;
 
   bool DoRun(GOSchedulerThread *pThread) override;
@@ -33,10 +33,10 @@ public:
   void DiscardContent() override { m_Samplers.Clear(); }
   void Add(GOSoundSampler *sampler);
 
-  float GetVolume() {
+  float GetAmplitude() {
     if (!IsDone())
       Run();
-    return m_volume;
+    return m_amplitude;
   }
 };
 
