@@ -10,8 +10,8 @@
 
 #include "GOTest.h"
 
-#include "sound/GOSoundRecorder.h"
 #include "sound/interfaces/GOSoundCallbackConnector.h"
+#include "sound/tasks/GOSoundRecorderTask.h"
 
 class GOSoundOrganEngine;
 
@@ -32,7 +32,7 @@ public:
   static constexpr unsigned SAMPLE_RATE = 96000;
 
 private:
-  GOSoundRecorder m_recorder;
+  GOSoundRecorderTask m_recorder;
 
 protected:
   GOSoundCallbackConnector m_connector;

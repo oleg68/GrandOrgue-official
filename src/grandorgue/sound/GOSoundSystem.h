@@ -16,9 +16,9 @@
 #include "interfaces/GOSoundCallbackConnector.h"
 #include "interfaces/GOSoundCloseListener.h"
 #include "midi/GOMidiSystem.h"
+#include "tasks/GOSoundRecorderTask.h"
 
 #include "GOSoundDevInfo.h"
-#include "GOSoundRecorder.h"
 
 class GOConfig;
 class GODeviceNamePattern;
@@ -35,7 +35,7 @@ private:
   GOConfig &m_config;
 
   GOMidiSystem m_midi;
-  GOSoundRecorder m_AudioRecorder;
+  GOSoundRecorderTask m_AudioRecorder;
 
   GOSoundCloseListener *p_CloseListener;
 
@@ -85,7 +85,7 @@ public:
   bool IsOpen() const { return m_open; }
 
   /** Returns the audio recorder associated with this sound system. */
-  GOSoundRecorder &GetAudioRecorder() { return m_AudioRecorder; }
+  GOSoundRecorderTask &GetAudioRecorder() { return m_AudioRecorder; }
 
   wxString getState();
 
