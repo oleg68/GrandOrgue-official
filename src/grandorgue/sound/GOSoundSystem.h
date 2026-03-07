@@ -16,7 +16,6 @@
 #include "interfaces/GOSoundCallbackConnector.h"
 #include "interfaces/GOSoundCloseListener.h"
 #include "midi/GOMidiSystem.h"
-#include "tasks/GOSoundRecorderTask.h"
 
 #include "GOSoundDevInfo.h"
 
@@ -35,7 +34,6 @@ private:
   GOConfig &m_config;
 
   GOMidiSystem m_midi;
-  GOSoundRecorderTask m_AudioRecorder;
 
   GOSoundCloseListener *p_CloseListener;
 
@@ -83,9 +81,6 @@ public:
   /** Returns true if the sound system is currently open (audio ports active).
    */
   bool IsOpen() const { return m_open; }
-
-  /** Returns the audio recorder associated with this sound system. */
-  GOSoundRecorderTask &GetAudioRecorder() { return m_AudioRecorder; }
 
   wxString getState();
 

@@ -15,6 +15,7 @@
 #include "playing/GOSoundSamplerPlayer.h"
 #include "reverb/GOSoundReverb.h"
 #include "scheduler/GOSoundScheduler.h"
+#include "tasks/GOSoundRecorderTask.h"
 #include "threading/GOCondition.h"
 #include "threading/GOMutex.h"
 
@@ -24,7 +25,6 @@ class GOOrganModel;
 class GOSoundBufferMutable;
 class GOSoundGroupTask;
 class GOSoundOutputTask;
-class GOSoundRecorderTask;
 class GOSoundReleaseTask;
 class GOSoundTask;
 class GOSoundThread;
@@ -125,6 +125,7 @@ private:
   // mp_TouchTask references r_MemoryPool; created in constructor,
   // added to m_Scheduler in BuildEngine [B8]
   std::unique_ptr<GOSoundTouchTask> mp_TouchTask;
+  GOSoundRecorderTask m_RecorderTask;
   // m_SamplerPlayer is declared after mp_ReleaseTask so that mp_ReleaseTask
   // is already a valid (though null) unique_ptr when passed by reference to
   // the player constructor.
@@ -166,15 +167,14 @@ private:
   // [B2] m_OutputStates: created from audioOutputConfigs (per-device
   // tasks + callback sync state)
   //   — uses mp_AudioGroupTasks [B1] via SetOutputs()
-  //   — referenced by: p_AudioRecorder [B4], reverb setup [B5]
+  //   — referenced by: m_RecorderTask [B4], reverb setup [B5]
   std::vector<OutputState> m_OutputStates;
   // [B3] mp_DownmixTask: optional stereo downmix task (only when m_IsDownmix)
   //   — uses mp_AudioGroupTasks [B1] via SetOutputs()
-  //   — referenced by: p_AudioRecorder [B4], reverb setup [B5]
+  //   — referenced by: m_RecorderTask [B4], reverb setup [B5]
   std::unique_ptr<GOSoundOutputTask> mp_DownmixTask;
-  // [B4] p_AudioRecorder: non-owning pointer to the recorder passed in
-  //   — uses mp_DownmixTask [B3] or mp_AudioOutputTasks [B2]
-  GOSoundRecorderTask *p_AudioRecorder;
+  // [B4] recorder: set up sample rate and outputs on m_RecorderTask
+  //   — uses mp_DownmixTask [B3] or m_OutputStates [B2]
   // [B5] reverb: set up inline on mp_DownmixTask [B3] and mp_AudioOutputTasks
   // [B2]
   //   — uses m_ReverbConfig, m_SampleRate, m_NSamplesPerBuffer
@@ -220,8 +220,7 @@ private:
   void BuildEngine(
     const std::vector<AudioOutputConfig> &audioOutputConfigs,
     unsigned nSamplesPerBuffer,
-    unsigned sampleRate,
-    GOSoundRecorderTask &recorder);
+    unsigned sampleRate);
   void DestroyEngine();
 
   void ResetCounters();
@@ -324,6 +323,14 @@ public:
     m_SamplerPlayer.SetInterpolationType(type);
   }
 
+  unsigned GetNBytesPerSoundItem() const {
+    return m_RecorderTask.GetBytesPerSample();
+  }
+  void SetNBytesPerSoundItem(unsigned nBytes) {
+    m_RecorderTask.SetBytesPerSample(nBytes);
+  }
+  GOSoundRecorderTask &GetRecorderTask() { return m_RecorderTask; }
+
   /** Reads parameters from GOConfig and stores them via setters. */
   void SetFromConfig(GOConfig &config);
 
@@ -376,18 +383,15 @@ public:
    * @brief Creates tasks and starts the engine.
    *
    * Call after SetFromConfig() or manual setters.
-   * After return the engine is ready to receive GetAudioOutput() calls.
+   * After return the engine is ready to receive ProcessAudioCallback() calls.
    * @param audioOutputConfigs  Output configurations; must not be empty.
    * @param nSamplesPerBuffer   Buffer size in samples (from audio system).
    * @param sampleRate          Sample rate in Hz (from audio system).
-   * @param recorder            Recorder (non-owning, must be a
-   * GOSoundRecorderTask).
    */
   void BuildAndStart(
     const std::vector<AudioOutputConfig> &audioOutputConfigs,
     unsigned nSamplesPerBuffer,
-    unsigned sampleRate,
-    GOSoundRecorderTask &recorder);
+    unsigned sampleRate);
 
   /**
    * @brief Stops the engine and destroys tasks.
