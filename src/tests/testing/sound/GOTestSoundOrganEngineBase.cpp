@@ -35,7 +35,7 @@ GOSoundOrganEngine &GOTestSoundOrganEngineBase::BuildAndStartEngine(
       N_OUTPUT_CHANNELS,
       defaultConfigs[0].channels));
 
-  engine.BuildAndStart(configs, N_SAMPLES_PER_BUFFER, SAMPLE_RATE, m_recorder);
+  engine.BuildAndStart(configs, N_SAMPLES_PER_BUFFER, SAMPLE_RATE);
 
   GOAssert(engine.IsWorking(), "Engine should be WORKING after BuildAndStart");
   GOAssert(!engine.IsUsed(), "Engine should not be USED after BuildAndStart");
