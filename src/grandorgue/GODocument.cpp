@@ -63,7 +63,7 @@ GOOrganController *GODocument::LoadOrgan(
     cfg.Flush();
     {
       wxCommandEvent event(wxEVT_SETVALUE, ID_METER_AUDIO_SPIN);
-      event.SetInt(m_OrganController->GetVolume());
+      event.SetInt(m_OrganController->GetGain());
       wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
     }
 
