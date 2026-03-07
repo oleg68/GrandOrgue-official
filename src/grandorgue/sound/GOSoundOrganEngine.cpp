@@ -16,7 +16,6 @@
 #include "scheduler/GOSoundThread.h"
 #include "tasks/GOSoundGroupTask.h"
 #include "tasks/GOSoundOutputTask.h"
-#include "tasks/GOSoundRecorderTask.h"
 #include "tasks/GOSoundReleaseTask.h"
 #include "tasks/GOSoundTouchTask.h"
 #include "tasks/GOSoundTremulantTask.h"
@@ -115,7 +114,6 @@ GOSoundOrganEngine::GOSoundOrganEngine(
     m_ReverbConfig(GOSoundReverb::CONFIG_REVERB_DISABLED),
     m_NSamplesPerBuffer(1),
     m_LifecycleState(LifecycleState::IDLE),
-    p_AudioRecorder(nullptr),
     m_NCallbacksEnteredCurrPeriod(0),
     m_NCallbacksFinishedCurrPeriod(0) {
   SetGain(-15);
@@ -151,6 +149,7 @@ void GOSoundOrganEngine::SetFromConfig(GOConfig &config) {
   SetRandomizeSpeaking(config.RandomizeSpeaking());
   SetInterpolationType(config.m_InterpolationType());
   SetReverbConfig(GOSoundReverb::createReverbConfig(config));
+  SetNBytesPerSoundItem(config.WaveFormatBytesPerSample());
 }
 
 /*
@@ -160,15 +159,13 @@ void GOSoundOrganEngine::SetFromConfig(GOConfig &config) {
 void GOSoundOrganEngine::BuildEngine(
   const std::vector<AudioOutputConfig> &audioOutputConfigs,
   unsigned nSamplesPerBuffer,
-  unsigned sampleRate,
-  GOSoundRecorderTask &recorder) {
+  unsigned sampleRate) {
   GOMutexLocker locker(m_LifecycleMutex);
 
   assert(m_LifecycleState.load() == LifecycleState::IDLE);
 
-  // Fill out thr start parameters
+  // Fill out the start parameters
   m_NSamplesPerBuffer = nSamplesPerBuffer;
-  p_AudioRecorder = &recorder;
 
   // [B1] Build audio group tasks
   std::vector<GOSoundBufferTaskBase *> groupOutputs;
@@ -244,7 +241,8 @@ void GOSoundOrganEngine::BuildEngine(
     else
       for (OutputState &state : m_OutputStates)
         recorderOutputs.push_back(state.mp_task.get());
-    p_AudioRecorder->SetOutputs(recorderOutputs, m_NSamplesPerBuffer);
+    m_RecorderTask.SetSampleRate(sampleRate);
+    m_RecorderTask.SetOutputs(recorderOutputs, m_NSamplesPerBuffer);
   }
 
   // [B6] Set up reverb
@@ -286,7 +284,7 @@ void GOSoundOrganEngine::BuildEngine(
     m_Scheduler.Add(mp_DownmixTask.get());
   for (OutputState &state : m_OutputStates)
     m_Scheduler.Add(state.mp_task.get());
-  m_Scheduler.Add(p_AudioRecorder);
+  m_Scheduler.Add(&m_RecorderTask);
   m_Scheduler.Add(mp_ReleaseTask.get());
   m_Scheduler.Add(mp_TouchTask.get());
 
@@ -365,9 +363,8 @@ void GOSoundOrganEngine::StopEngine() {
 void GOSoundOrganEngine::BuildAndStart(
   const std::vector<AudioOutputConfig> &audioOutputConfigs,
   unsigned nSamplesPerBuffer,
-  unsigned sampleRate,
-  GOSoundRecorderTask &recorder) {
-  BuildEngine(audioOutputConfigs, nSamplesPerBuffer, sampleRate, recorder);
+  unsigned sampleRate) {
+  BuildEngine(audioOutputConfigs, nSamplesPerBuffer, sampleRate);
   StartEngine();
 }
 
