@@ -234,7 +234,7 @@ sound/tasks/GOSoundTremulantTask.cpp
 sound/tasks/GOSoundWindchestTask.cpp
 sound/GOSoundDevInfo.cpp
 sound/GOSoundOrganEngine.cpp
-sound/GOSoundRecorder.cpp
+sound/tasks/GOSoundRecorderTask.cpp
 sound/GOSoundSystem.cpp
 updater/GOUpdateChecker.cpp
 yaml/GOSaveableToYaml.cpp

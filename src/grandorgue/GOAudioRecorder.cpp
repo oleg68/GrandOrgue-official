@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -13,7 +13,7 @@
 #include "config/GOConfig.h"
 #include "control/GOCallbackButtonControl.h"
 #include "midi/objects/GOMidiObjectContext.h"
-#include "sound/GOSoundRecorder.h"
+#include "sound/tasks/GOSoundRecorderTask.h"
 
 #include "GOEvent.h"
 #include "GOOrganController.h"
@@ -63,7 +63,7 @@ GOAudioRecorder::GOAudioRecorder(GOOrganController *organController)
 
 GOAudioRecorder::~GOAudioRecorder() { StopRecording(); }
 
-void GOAudioRecorder::SetAudioRecorder(GOSoundRecorder *recorder) {
+void GOAudioRecorder::SetAudioRecorder(GOSoundRecorderTask *recorder) {
   StopRecording();
   m_recorder = recorder;
 }
