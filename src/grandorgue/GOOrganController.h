@@ -207,9 +207,9 @@ public:
 
   void LoadMIDIFile(const wxString &filename);
 
-  int GetVolume() const { return m_SoundEngine.GetVolume(); }
-  /** Sets the master volume and forwards it to the sound engine. */
-  void SetVolume(int volume) { m_SoundEngine.SetVolume(volume); }
+  int GetGain() const { return m_SoundEngine.GetGain(); }
+  /** Sets the master gain and forwards it to the sound engine. */
+  void SetGain(int gain) { m_SoundEngine.SetGain(gain); }
 
   /** Returns true if the sound engine is running. */
   bool IsStarted() const { return m_SoundEngine.IsWorking(); }

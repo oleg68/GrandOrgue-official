@@ -119,7 +119,7 @@ GOSoundOrganEngine::GOSoundOrganEngine(
     m_NCallbacksEnteredCurrPeriod(0),
     m_NCallbacksFinishedCurrPeriod(0),
     m_MeterInfo(1) {
-  SetVolume(-15);
+  SetGain(-15);
   mp_ReleaseTask
     = std::make_unique<GOSoundReleaseTask>(m_SamplerPlayer, mp_AudioGroupTasks);
 }
@@ -134,10 +134,9 @@ GOSoundOrganEngine::~GOSoundOrganEngine() {}
  * Configuration getters and setters
  */
 
-// TODO: rename to SetGain(int gain), m_volume → m_gain, m_gain → m_amplitude
-void GOSoundOrganEngine::SetVolume(int volume) {
-  m_volume = volume;
-  m_gain = powf(10.0f, m_volume * 0.05f);
+void GOSoundOrganEngine::SetGain(int gain) {
+  m_gain = gain;
+  m_amplitude = powf(10.0f, m_gain * 0.05f);
 }
 
 void GOSoundOrganEngine::SetFromConfig(GOConfig &config) {
