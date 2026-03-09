@@ -11,6 +11,7 @@ set(go_tests
     sound/buffer/GOTestSoundBufferMutable.cpp
     sound/buffer/GOTestSoundBufferMutableMono.cpp
     sound/GOTestSoundOrganEngineBase.cpp
+    sound/playing/GOTestSoundStream.cpp
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundCallbackConnector.cpp
     sound/GOTestSoundOrganEngineStress.cpp
