@@ -23,6 +23,7 @@
 #include "testing/sound/buffer/GOTestSoundBufferManaged.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutable.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutableMono.h"
+#include "testing/sound/playing/GOTestSoundStream.h"
 
 int main(int argc, char *argv[]) {
   /*
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
   GOTestSoundOrganEngine testSoundOrganEngine;
   GOTestSoundCallbackConnector testSoundCallbackConnector;
   GOTestSoundOrganEngineStress testSoundOrganEngineStress;
+  GOTestSoundStream testSoundStream;
   /* end of instanciation */
   GOTestResultCollection test_result_collection;
   test_result_collection = GOTestCollection::Instance()->Run(categoryFilter);
