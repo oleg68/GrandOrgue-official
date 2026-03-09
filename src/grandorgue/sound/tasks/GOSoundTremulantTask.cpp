@@ -7,6 +7,7 @@
 
 #include "GOSoundTremulantTask.h"
 
+#include "sound/buffer/GOSoundBufferMutable.h"
 #include "sound/playing/GOSoundSamplerPlayer.h"
 
 GOSoundTremulantTask::GOSoundTremulantTask(
@@ -27,20 +28,16 @@ bool GOSoundTremulantTask::DoRun(GOSchedulerThread *pThread) {
   if (m_Samplers.Peek() == NULL)
     m_amplitude = 1;
   else {
-    float outputBuffer[m_SamplesPerBuffer * 2];
+    GO_DECLARE_LOCAL_SOUND_BUFFER(outputBuffer, 2, m_SamplesPerBuffer)
 
-    std::fill(outputBuffer, outputBuffer + m_SamplesPerBuffer * 2, 0.0f);
-    outputBuffer[2 * m_SamplesPerBuffer - 1] = 1.0f;
-    for (GOSoundSampler *sampler = m_Samplers.Get(); sampler;
-         sampler = m_Samplers.Get()) {
-      bool keep;
-      keep = r_SamplerPlayer.ProcessSampler(
-        outputBuffer, sampler, m_SamplesPerBuffer, 1);
-
-      if (keep)
-        m_Samplers.Put(sampler);
+    outputBuffer.FillWithSilence();
+    outputBuffer.GetData()[2 * m_SamplesPerBuffer - 1] = 1.0f;
+    for (GOSoundSampler *pSampler = m_Samplers.Get(); pSampler;
+         pSampler = m_Samplers.Get()) {
+      if (r_SamplerPlayer.ProcessSampler(*pSampler, 1.0f, outputBuffer))
+        m_Samplers.Put(pSampler);
     }
-    m_amplitude = outputBuffer[2 * m_SamplesPerBuffer - 1];
+    m_amplitude = outputBuffer.GetData()[2 * m_SamplesPerBuffer - 1];
   }
 
   return isDone;

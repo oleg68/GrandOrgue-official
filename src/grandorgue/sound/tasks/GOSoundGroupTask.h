@@ -16,6 +16,7 @@
 #include "GOSoundBufferTaskBase.h"
 
 class GOSchedulerThread;
+class GOSoundBufferMutable;
 class GOSoundSamplerPlayer;
 
 class GOSoundGroupTask : public GOSoundBufferTaskBase {
@@ -29,7 +30,9 @@ private:
   std::atomic_uint m_ActiveCount;
 
   void ProcessList(
-    GOSoundSamplerList &list, bool isToDropOld, float *pOutputBuffer);
+    GOSoundSamplerList &list,
+    bool isToDropOld,
+    GOSoundBufferMutable &outBuffer);
 
 public:
   GOSoundGroupTask(

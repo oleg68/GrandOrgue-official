@@ -35,7 +35,9 @@ void GOSoundGroupTask::Add(GOSoundSampler *sampler) {
 }
 
 void GOSoundGroupTask::ProcessList(
-  GOSoundSamplerList &list, bool isToDropOld, float *pOutputBuffer) {
+  GOSoundSamplerList &list,
+  bool isToDropOld,
+  GOSoundBufferMutable &outBuffer) {
   GOSoundSampler *sampler;
 
   while ((sampler = list.Get())) {
@@ -54,7 +56,7 @@ void GOSoundGroupTask::ProcessList(
     if (
       windchest
       && r_SamplerPlayer.ProcessSampler(
-        pOutputBuffer, sampler, GetNFrames(), windchest->GetAmplitude()))
+        *sampler, windchest->GetAmplitude(), outBuffer))
       Add(sampler);
   }
 }
@@ -99,8 +101,8 @@ void GOSoundGroupTask::Run(GOSchedulerThread *pThread) {
       GO_DECLARE_LOCAL_SOUND_BUFFER(localBuffer, 2, GetNFrames())
 
       localBuffer.FillWithSilence();
-      ProcessList(m_Active, false, localBuffer.GetData());
-      ProcessList(m_Release, true, localBuffer.GetData());
+      ProcessList(m_Active, false, localBuffer);
+      ProcessList(m_Release, true, localBuffer);
 
       // Blocking on purpose, unlike every other GOMutexLocker in this class:
       // this thread already incremented m_ActiveCount above and computed its
