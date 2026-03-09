@@ -736,6 +736,8 @@ const GOSetter::ButtonDefinitionEntry *const GOSetter::P_BUTTON_DEFS
 GOSetter::GOSetter(GOOrganController *organController)
   : m_OrganController(organController),
     m_pos(0),
+    m_NumericModeDigitsEntered(-1),
+    m_NumericModeAccomulated(0),
     m_bank(0),
     m_crescendopos(0),
     m_crescendobank(0),
