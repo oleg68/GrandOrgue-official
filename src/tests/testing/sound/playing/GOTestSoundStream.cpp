@@ -9,6 +9,7 @@
 #include <format>
 #include <vector>
 
+#include "sound/buffer/GOSoundBufferMutable.h"
 #include "sound/playing/GOSoundAudioSection.h"
 #include "sound/playing/GOSoundStream.h"
 
@@ -23,7 +24,6 @@ static constexpr float SAMPLE_RATE_ADJUSTMENT = 1.0f / SECTION_RATE;
 static constexpr unsigned N_FRAMES = 500;
 static constexpr unsigned N_ATTACK_FRAMES = 100;
 static constexpr unsigned N_FRAMES_PER_BLOCK = 50;
-static constexpr unsigned N_BUFFER_ITEMS = N_FRAMES_PER_BLOCK * 2;
 
 std::unique_ptr<GOSoundAudioSection> GOTestSoundStream::CreateAudioSection(
   unsigned nChannels,
@@ -75,10 +75,10 @@ void GOTestSoundStream::TestReadBlock(
   stream.InitStream(
     &resample, pSection.get(), interpolationType, SAMPLE_RATE_ADJUSTMENT);
 
-  float buffer[N_BUFFER_ITEMS];
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, 2, N_FRAMES_PER_BLOCK)
 
   for (unsigned frameI = 0; frameI < N_FRAMES; frameI += N_FRAMES_PER_BLOCK) {
-    const bool result = stream.ReadBlock(buffer, N_FRAMES_PER_BLOCK);
+    const bool result = stream.ReadBlock(buffer);
 
     GOAssert(
       result,
@@ -87,21 +87,23 @@ void GOTestSoundStream::TestReadBlock(
   }
 
   // ReadBlock should return false after exhaustion
-  const bool resultAfterEnd = stream.ReadBlock(buffer, N_FRAMES_PER_BLOCK);
+  const bool resultAfterEnd = stream.ReadBlock(buffer);
 
   GOAssert(
     !resultAfterEnd,
     std::format("ReadBlock should return false after exhaustion ({})", label));
 
   // Buffer should be filled with zeros after end
-  for (unsigned i = 0; i < N_BUFFER_ITEMS; i++)
+  const float *pData = buffer.GetData();
+
+  for (unsigned n = buffer.GetNItems(), i = 0; i < n; i++)
     GOAssert(
-      buffer[i] == 0.0f,
+      pData[i] == 0.0f,
       std::format(
         "Buffer[{}] should be 0.0f after end ({}, got: {})",
         i,
         label,
-        buffer[i]));
+        pData[i]));
 
   // TODO: verify decoded frame values
 }
@@ -119,10 +121,10 @@ void GOTestSoundStream::TestLoopedStreamAlwaysReturnsTrue() {
     GOSoundResample::GO_LINEAR_INTERPOLATION,
     SAMPLE_RATE_ADJUSTMENT);
 
-  float buffer[N_BUFFER_ITEMS];
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, 2, N_FRAMES_PER_BLOCK)
 
   for (unsigned iterI = 0; iterI < N_ITERATIONS; iterI++) {
-    const bool result = stream.ReadBlock(buffer, N_FRAMES_PER_BLOCK);
+    const bool result = stream.ReadBlock(buffer);
 
     GOAssert(
       result,
@@ -147,18 +149,18 @@ void GOTestSoundStream::TestInitAlignedStream() {
     GOSoundResample::GO_LINEAR_INTERPOLATION,
     SAMPLE_RATE_ADJUSTMENT);
 
-  float buffer[N_BUFFER_ITEMS];
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, 2, N_FRAMES_PER_BLOCK)
 
   for (unsigned frameI = 0; frameI < N_ATTACK_FRAMES;
        frameI += N_FRAMES_PER_BLOCK)
-    attackStream.ReadBlock(buffer, N_FRAMES_PER_BLOCK);
+    attackStream.ReadBlock(buffer);
 
   GOSoundStream releaseStream;
 
   releaseStream.InitAlignedStream(
     pRelease.get(), GOSoundResample::GO_LINEAR_INTERPOLATION, &attackStream);
 
-  const bool result = releaseStream.ReadBlock(buffer, N_FRAMES_PER_BLOCK);
+  const bool result = releaseStream.ReadBlock(buffer);
 
   GOAssert(result, "ReadBlock should return true after InitAlignedStream");
 }
