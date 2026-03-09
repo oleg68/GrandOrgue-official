@@ -18,6 +18,7 @@
 
 #include "GOSoundBufferTaskBase.h"
 
+class GOSoundBufferMutable;
 class GOSoundSamplerPlayer;
 
 class GOSoundGroupTask : public GOSoundBufferTaskBase {
@@ -40,7 +41,9 @@ private:
   std::atomic_bool m_Stop;
 
   void ProcessList(
-    GOSoundSamplerList &list, bool toDropOld, float *output_buffer);
+    GOSoundSamplerList &list,
+    bool isToDropOld,
+    GOSoundBufferMutable &outBuffer);
 
 public:
   GOSoundGroupTask(
