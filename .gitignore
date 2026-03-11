@@ -24,4 +24,13 @@ CMakeFiles/
 Makefile
 /_CPack_Packages/
 
+nbproject/
+CLAUDE.md
 .DS_Store
+.idea/
+.vscode/
+
+# eclipse
+.cproject
+.project
+.settings/
