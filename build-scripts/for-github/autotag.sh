@@ -38,6 +38,6 @@ fi
 echo "NEW_TAG=$NEW_TAG"
 if [[ -n "$NEW_TAG" ]]; then
   # add and push the new tag
-  git tag $NEW_TAG
-  git push origin $NEW_TAG
+  git tag --force $NEW_TAG
+  git push --force origin $NEW_TAG
 fi
