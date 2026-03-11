@@ -25,3 +25,4 @@ Makefile
 /_CPack_Packages/
 
 .DS_Store
+.idea/
