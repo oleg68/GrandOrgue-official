@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -51,7 +51,7 @@ void GOMidiPlayerContent::SetupManual(
   e.SetTime(0);
 
   e.SetMidiType(GOMidiEvent::MIDI_SYSEX_GO_SETUP);
-  e.SetKey(map.GetElementByString(ID));
+  e.SetKey(map.EnsureRecorderElementName(ID));
   e.SetChannel(channel);
   e.SetValue(0);
   m_Events.push_back(e);
