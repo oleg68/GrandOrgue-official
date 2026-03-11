@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -150,7 +150,7 @@ void GOMidiEvent::FromMidi(
         SetChannel((msg[4] & 0x0F) + 1);
         SetValue(((msg[5] & 0x7F) << 7) | (msg[6] & 0x7F));
         wxString s = wxString::FromAscii(b);
-        SetKey(map.GetElementByString(s));
+        SetKey(map.EnsureRecorderElementName(s));
         SetMidiType(MIDI_SYSEX_GO_SETUP);
         break;
       }
@@ -317,7 +317,7 @@ void GOMidiEvent::ToMidi(
     return;
 
   case MIDI_SYSEX_GO_SETUP: {
-    const wxString &s = map.GetElementByID(GetKey());
+    const wxString &s = map.GetRecorderElementNameById(GetKey());
     wxCharBuffer b = s.ToAscii();
     unsigned len = s.length();
     m.resize(len + 8);
@@ -478,7 +478,7 @@ wxString GOMidiEvent::ToString(GOMidiMap &map) const {
       _("sysex GrandOrgue setup channel: %d NRPN: %d: name: %s"),
       GetChannel(),
       GetValue(),
-      map.GetElementByID(GetKey()).c_str());
+      map.GetRecorderElementNameById(GetKey()).c_str());
 
   case MIDI_SYSEX_HW_STRING:
     return wxString::Format(
