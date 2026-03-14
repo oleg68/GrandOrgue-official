@@ -23,7 +23,6 @@
 
 GOSoundSystem::GOSoundSystem(GOConfig &settings)
   : m_config(settings),
-    m_midi(settings),
     p_CloseListener(nullptr),
     m_open(false),
     logSoundErrors(true),
@@ -33,7 +32,6 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
 GOSoundSystem::~GOSoundSystem() {
   AssureSoundIsClosed();
 
-  GOMidiPortFactory::terminate();
   GOSoundPortFactory::terminate();
 }
 
@@ -79,7 +77,6 @@ void GOSoundSystem::OpenSoundSystem() {
         i);
     }
     StartStreams();
-    OpenMidi();
     m_open = true;
   } catch (wxString &msg) {
     if (logSoundErrors)
