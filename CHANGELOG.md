@@ -1,5 +1,6 @@
 - Fixed controlling organ elements when recording or playing MIDI https://github.com/GrandOrgue/grandorgue/issues/2388
 - Fixed Loading organ errors with Tuskish system locale https://github.com/GrandOrgue/grandorgue/issues/2401
+- Fixed running GrandOrgueTool and GrandOrguePerfTest from macOS app bundle https://github.com/GrandOrgue/grandorgue/issues/2400
 # 3.17.1 (2026-03-31)
 - Fixed wrong .cmb group of division sender MIDI settings https://github.com/GrandOrgue/grandorgue/issues/2409
 - Fixed wrong initial position of the Combination Setter https://github.com/GrandOrgue/grandorgue/issues/2430
