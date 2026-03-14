@@ -138,13 +138,15 @@ GOToolbarWindow::GOToolbarWindow(
   const wxPoint &pos,
   const wxSize &size,
   const long type,
-  GOSoundSystem &sound)
+  GOConfig &config,
+  GOSoundSystem &sound,
+  GOMidiSystem &midi)
   : wxFrame(pParentFrame, id, title, pos, size, type),
     GOHelpRequestor(this),
     r_app(app),
-    r_config(sound.GetSettings()),
+    r_config(config),
     r_SoundSystem(sound),
-    r_MidiSystem(sound.GetMidi()),
+    r_MidiSystem(midi),
     m_file_menu(NULL),
     m_panel_menu(NULL),
     m_favorites_menu(NULL),
@@ -523,7 +525,7 @@ void GOToolbarWindow::Init(const wxString &filename, bool isGuiOnly) {
 
   r_SoundSystem.SetLogSoundErrorMessages(false);
 
-  bool soundProblems = !r_SoundSystem.AssureSoundIsOpen();
+  bool soundProblems = !EnsureSoundMidiOpen();
 
   if (soundProblems)
     settingsReasons.push_back(GOSettingsReason(
@@ -579,11 +581,24 @@ void GOToolbarWindow::Init(const wxString &filename, bool isGuiOnly) {
 
 void GOToolbarWindow::OnBeforeSoundClose() { EnsureOrganStopped(); }
 
+bool GOToolbarWindow::EnsureSoundMidiOpen() {
+  const bool wasOpen = r_SoundSystem.IsOpen();
+  const bool isOpen = r_SoundSystem.AssureSoundIsOpen();
+
+  if (!wasOpen && isOpen)
+    r_MidiSystem.Open();
+  return isOpen;
+}
+
+void GOToolbarWindow::EnsureSoundMidiClosed() {
+  r_SoundSystem.AssureSoundIsClosed();
+}
+
 void GOToolbarWindow::EnsureOrganStartedIfReady() {
   if (
     p_OrganController && r_SoundSystem.IsOpen()
     && !p_OrganController->IsOrganStarted())
-    p_OrganController->StartOrgan(r_SoundSystem);
+    p_OrganController->StartOrgan(r_SoundSystem, r_MidiSystem);
 }
 
 void GOToolbarWindow::EnsureOrganStopped() {
@@ -648,7 +663,7 @@ void GOToolbarWindow::Open(const GOOrgan &organ) {
     GOMutexLocker m_locker(m_mutex, true);
 
     if (m_locker.IsLocked()) {
-      mp_organ = std::make_unique<GOGuiOrgan>(this, &r_SoundSystem);
+      mp_organ = std::make_unique<GOGuiOrgan>(this, r_config, r_MidiSystem);
       LoadOrgan(organ);
     }
   }
@@ -1115,8 +1130,8 @@ void GOToolbarWindow::OnProperties(wxCommandEvent &event) {
 
 void GOToolbarWindow::OnAudioPanic(wxCommandEvent &WXUNUSED(event)) {
   // EnsureOrganStopped() is called via OnBeforeSoundClose callback
-  r_SoundSystem.AssureSoundIsClosed();
-  r_SoundSystem.AssureSoundIsOpen();
+  EnsureSoundMidiClosed();
+  EnsureSoundMidiOpen();
   EnsureOrganStartedIfReady();
 }
 
@@ -1170,7 +1185,7 @@ void GOToolbarWindow::OnSettings(wxCommandEvent &event) {
     // because the sound settings might be changed, close sound.
     // EnsureOrganStopped() is called via OnBeforeSoundClose callback.
     // It will reopened later
-    r_SoundSystem.AssureSoundIsClosed();
+    EnsureSoundMidiClosed();
 
     r_config.Flush();
     if (
@@ -1204,7 +1219,7 @@ void GOToolbarWindow::OnSettings(wxCommandEvent &event) {
   // The sound might be closed in the settings dialog (for obtaining the list of
   // devices) or later if the settings were changed
   if (isToContinue) {
-    r_SoundSystem.AssureSoundIsOpen();
+    EnsureSoundMidiOpen();
     EnsureOrganStartedIfReady();
   }
 

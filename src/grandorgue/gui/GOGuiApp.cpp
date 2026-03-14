@@ -14,6 +14,7 @@
 
 #include "config/GOConfig.h"
 #include "frames/GOToolbarWindow.h"
+#include "midi/GOMidiSystem.h"
 #include "sound/GOSoundSystem.h"
 
 #include "GOGuiLog.h"
@@ -157,6 +158,7 @@ bool GOGuiApp::OnInit() {
   m_locale.AddCatalog(wxT("GrandOrgue"));
 
   mp_SoundSystem = std::make_unique<GOSoundSystem>(*mp_config);
+  mp_MidiSystem = std::make_unique<GOMidiSystem>(*mp_config);
 
   p_ToolbarWindow = new GOToolbarWindow(
     *this,
@@ -167,7 +169,9 @@ bool GOGuiApp::OnInit() {
     wxDefaultSize,
     wxMINIMIZE_BOX | wxRESIZE_BORDER | wxSYSTEM_MENU | wxCAPTION | wxCLOSE_BOX
       | wxCLIP_CHILDREN | wxFULL_REPAINT_ON_RESIZE,
-    *mp_SoundSystem);
+    *mp_config,
+    *mp_SoundSystem,
+    *mp_MidiSystem);
   SetTopWindow(p_ToolbarWindow);
   mp_log = std::make_unique<GOGuiLog>(p_ToolbarWindow);
   wxLog::SetActiveTarget(mp_log.get());
