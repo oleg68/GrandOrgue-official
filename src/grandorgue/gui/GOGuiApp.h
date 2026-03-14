@@ -29,6 +29,7 @@
 class GOConfig;
 class GOAppWindow;
 class GOGuiLog;
+class GOMidiSystem;
 class GOSoundSystem;
 
 class GOGuiApp : public wxApp {
@@ -74,6 +75,7 @@ protected:
   wxLocale m_locale;
   std::unique_ptr<GOConfig> mp_config;
   std::unique_ptr<GOSoundSystem> mp_SoundSystem;
+  std::unique_ptr<GOMidiSystem> mp_MidiSystem;
   std::unique_ptr<GOGuiLog> mp_log;
   wxString m_FileName;
   std::string m_InstanceName;

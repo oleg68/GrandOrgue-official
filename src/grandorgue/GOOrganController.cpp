@@ -846,7 +846,8 @@ void GOOrganController::PreconfigRecorder() {
   }
 }
 
-void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
+void GOOrganController::StartOrgan(
+  GOSoundSystem &soundSystem, GOMidiSystem &midi) {
   const std::vector<GOSoundOrganEngine::AudioOutputConfig> audioOutputConfigs
     = GOSoundOrganEngine::createAudioOutputConfigs(
       m_config, m_config.GetAudioGroups().size());
@@ -857,8 +858,6 @@ void GOOrganController::StartOrgan(GOSoundSystem &soundSystem) {
     soundSystem.GetSamplesPerBuffer(),
     soundSystem.GetSampleRate());
   soundSystem.ConnectToEngine(m_SoundEngine);
-
-  GOMidiSystem &midi = soundSystem.GetMidi();
 
   m_midi = &midi;
   m_MidiRecorder->SetOutputDevice(m_config.MidiRecorderOutputDevice());

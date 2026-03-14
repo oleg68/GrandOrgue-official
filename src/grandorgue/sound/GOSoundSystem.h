@@ -15,7 +15,6 @@
 
 #include "interfaces/GOSoundCallbackConnector.h"
 #include "interfaces/GOSoundCloseListener.h"
-#include "midi/GOMidiSystem.h"
 
 #include "GOSoundDevInfo.h"
 
@@ -33,8 +32,6 @@ class GOSoundSystem : public GOSoundCallbackConnector {
 private:
   GOConfig &m_config;
 
-  GOMidiSystem m_midi;
-
   GOSoundCloseListener *p_CloseListener;
 
   bool m_open;
@@ -50,7 +47,6 @@ private:
   unsigned meter_counter;
 
   void StartStreams();
-  void OpenMidi() { m_midi.Open(); }
 
   void UpdateMeter();
   void ResetMeters();
@@ -70,9 +66,6 @@ public:
 
   GOSoundSystem(GOConfig &settings);
   ~GOSoundSystem();
-
-  GOConfig &GetSettings() { return m_config; }
-  GOMidiSystem &GetMidi() { return m_midi; }
 
   std::vector<GOSoundDevInfo> GetAudioDevices(const GOPortsConfig &portsConfig);
   const GOSoundDevInfo &GetDefaultAudioDevice(const GOPortsConfig &portsConfig);

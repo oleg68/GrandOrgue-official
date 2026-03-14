@@ -102,6 +102,7 @@ private:
   GOGUIMouseState m_MouseState;
 
   GOMemoryPool m_pool;
+  GOSoundOrganEngine m_SoundEngine;
   GOGuiImageCache *mp_ImageCache;
   GOLabelControl m_PitchLabel;
   GOLabelControl m_TemperamentLabel;
@@ -175,7 +176,7 @@ public:
    * Starts the organ sound engine: builds audio tasks, connects to the sound
    * system, and begins MIDI and audio playback.
    */
-  void StartOrgan(GOSoundSystem &soundSystem);
+  void StartOrgan(GOSoundSystem &soundSystem, GOMidiSystem &midi);
 
   /**
    * Stops the organ sound engine: aborts playback, disconnects from the sound
