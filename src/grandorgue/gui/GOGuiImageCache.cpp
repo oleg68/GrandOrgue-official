@@ -5,7 +5,7 @@
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
 
-#include "GOImageCache.h"
+#include "GOGuiImageCache.h"
 
 #include <wx/intl.h>
 #include <wx/mstream.h>
@@ -14,7 +14,7 @@
 #include "loader/GOLoaderFilename.h"
 
 #include "GOBuffer.h"
-#include "GOLog.h"
+#include "GOGuiLog.h"
 #include "GOOrganController.h"
 #include "Images.h"
 
@@ -156,9 +156,9 @@ BITMAP_LIST
   static wxImage A##_r(GetImage_##A().Rotate90());                             \
   RegisterImage(wxT(GOBitmapPrefix B), WX_EMPTY_STRING, new wxImage(A##_r));
 
-const wxString GOImageCache::WX_EMPTY_STRING = wxEmptyString;
+const wxString GOGuiImageCache::WX_EMPTY_STRING = wxEmptyString;
 
-GOImageCache::GOImageCache(GOOrganController *organController)
+GOGuiImageCache::GOGuiImageCache(GOOrganController *organController)
   : m_OrganController(organController),
     m_images(),
     m_filenames(),
@@ -168,9 +168,10 @@ GOImageCache::GOImageCache(GOOrganController *organController)
   }
 }
 
-bool GOImageCache::LoadImageFromFile(const wxString &filename, wxImage &image) {
+bool GOGuiImageCache::LoadImageFromFile(
+  const wxString &filename, wxImage &image) {
   bool result;
-  GOLog *const log = dynamic_cast<GOLog *>(wxLog::GetActiveTarget());
+  GOGuiLog *const log = dynamic_cast<GOGuiLog *>(wxLog::GetActiveTarget());
 
   if (log)
     log->SetCurrentFileName(filename);
@@ -200,14 +201,14 @@ bool GOImageCache::LoadImageFromFile(const wxString &filename, wxImage &image) {
   return result;
 }
 
-void GOImageCache::RegisterImage(
+void GOGuiImageCache::RegisterImage(
   const wxString &filename, const wxString &maskname, wxImage *pImage) {
   m_images.push_back(pImage);
   m_filenames.push_back(filename);
   m_masknames.push_back(maskname);
 }
 
-const wxImage *GOImageCache::LoadImage(
+const wxImage *GOGuiImageCache::LoadImage(
   const wxString &filename, const wxString &maskName) {
   for (unsigned i = 0; i < m_filenames.size(); i++)
     if (m_filenames[i] == filename && m_masknames[i] == maskName)
