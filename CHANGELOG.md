@@ -1,3 +1,4 @@
+- Fixed running GrandOrgueTool and GrandOrguePerfTest from macOS app bundle https://github.com/GrandOrgue/grandorgue/issues/2400
 - Fixed listening a SYSEX Johanus event in the MIDI event editor https://github.com/GrandOrgue/grandorgue/issues/2114
 # 3.17.0 (2026-02-09)
 - Added capability of entering a setter combination number with the new "N" MIDI button https://github.com/GrandOrgue/grandorgue/issues/1237
