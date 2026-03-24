@@ -3,10 +3,11 @@
 # $1 - Version
 # $2 - Build version
 # $3 - Go source Dir. If not set then relative to the script dir
+# $4 - release flag (ON/OFF, default: OFF)
 
 set -e
 
-source $(dirname $0)/../set-ver-prms.sh "$1" "$2"
+source $(dirname $0)/../set-ver-prms.sh "$1" "$2" "$4"
 
 if [[ -n "$3" ]]; then
 	SRC_DIR=$3
@@ -41,7 +42,7 @@ CMAKE_WIN_PRMS="-DASIO_SDK_DIR=/usr/local/asio-sdk \
   -DRTAUDIO_USE_ASIO=ON \
   -DVC_PATH=/usr/local/share/wine/msvc/VC/Tools/MSVC/14.29.30133/bin/Hostx86/x86"
 
-CMAKE_APP_PRMS="-DGO_USE_JACK=ON $CMAKE_VERSION_PRMS"
+CMAKE_APP_PRMS="-DGO_USE_JACK=ON $CMAKE_VERSION_PRMS $CMAKE_RELEASE_FLAG_PRM"
 
 cmake $CMAKE_MINGW_PRMS $CMAKE_WIN_PRMS $CMAKE_APP_PRMS . $SRC_DIR
 make $PARALLEL_PRMS VERBOSE=1 package

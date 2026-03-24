@@ -3,6 +3,7 @@
 # $1 - target deb architecture. Default - current
 # $2 - build type: Debug or Release. Default - Debug
 # $3 - enable coverage: ON or OFF. Default - ON for Debug, OFF for Release
+# $4 - optional: "asan" to enable AddressSanitizer
 
 set -e
 
@@ -24,8 +25,13 @@ if [ "$COVERAGE" = "ON" ]; then
     COVERAGE_FLAG="-DGO_BUILD_COVERAGE=ON"
 fi
 
+ASAN_FLAG=""
+if [ "${4:-}" = "asan" ]; then
+    ASAN_FLAG="-DGO_BUILD_ASAN=ON"
+fi
+
 # Define BUILD_TESTING=ON
-GO_PRMS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTING=ON $COVERAGE_FLAG \
+GO_PRMS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTING=ON $COVERAGE_FLAG $ASAN_FLAG \
   $CMAKE_VERSION_PRMS \
   $($DIR/cmake-prm-yaml-cpp.bash $TARGET_ARCH)"
 

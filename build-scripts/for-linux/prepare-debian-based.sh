@@ -67,6 +67,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
 
 OPTIONAL_PKGS=""
 [[ "$INSTALL_TESTS" == "tests" ]] && OPTIONAL_PKGS="$OPTIONAL_PKGS gcovr"
+# libasan.a (static) is included in the gcc package, no extra install needed for ASAN
 
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   cmake \

@@ -1,5 +1,5 @@
 # Copyright 2006 Milan Digital Audio LLC
-# Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+# Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
 # License GPL-2.0 or later
 # (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
@@ -16,7 +16,7 @@ function(BUILD_LIBRARY TARGET)
   endif()
 
   install(
-    TARGETS ${TARGET} 
+    TARGETS ${TARGET}
     RUNTIME DESTINATION ${LIBINSTDIR} LIBRARY DESTINATION ${LIBINSTDIR}
     NAMELINK_SKIP
     # these permissions required for building rmp on debian/ubuntu
@@ -26,7 +26,24 @@ function(BUILD_LIBRARY TARGET)
       WORLD_EXECUTE WORLD_READ
   )
 
-  if(CV2PDB_EXE)
+  if(UNIX AND NOT APPLE AND GO_SPLIT_DEBUG_SYMBOLS)
+    install(CODE "
+      # \$ENV{DESTDIR} is empty for TGZ (CMAKE_INSTALL_PREFIX is the staging dir),
+      # but set to the staging root for RPM (CMAKE_INSTALL_PREFIX stays /usr).
+      set(_lib \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${LIBINSTDIR}/lib${TARGET}.so.${NUM_VERSION}\")
+      # Extract debug info into a separate .dbg file alongside the library.
+      execute_process(COMMAND ${CMAKE_OBJCOPY} --only-keep-debug \"\${_lib}\" \"\${_lib}.dbg\")
+      # objcopy needs to read the .dbg file to compute its CRC for the debuglink section.
+      # It looks for the file by bare name in WORKING_DIRECTORY, so we set that to the
+      # directory containing both the library and the .dbg file.
+      get_filename_component(_dir \"\${_lib}\" DIRECTORY)
+      execute_process(COMMAND ${CMAKE_OBJCOPY} --strip-debug
+        --add-gnu-debuglink=lib${TARGET}.so.${NUM_VERSION}.dbg \"\${_lib}\"
+        WORKING_DIRECTORY \"\${_dir}\")
+    ")
+  endif()
+
+  if(CV2PDB_EXE AND GO_SPLIT_DEBUG_SYMBOLS)
     add_custom_command(
       OUTPUT "${LIBDIR}/lib${TARGET}.pdb"
       DEPENDS ${TARGET}
