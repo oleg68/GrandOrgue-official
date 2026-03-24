@@ -3,10 +3,11 @@
 # $1 - Version
 # $2 - Build version
 # $3 - Go source Dir. If not set then relative to the script dir
+# $4 - release flag (ON/OFF, default: OFF)
 
 set -e
 
-source $(dirname $0)/../set-ver-prms.sh "$1" "$2"
+source $(dirname $0)/../set-ver-prms.sh "$1" "$2" "$4"
 
 if [[ -n "$3" ]]; then
   SRC_DIR=$3
@@ -30,7 +31,7 @@ case `arch` in
   OS_PRMS="-DDOCBOOK_DIR=/usr/local/opt/docbook-xsl/docbook-xsl -DCMAKE_OSX_DEPLOYMENT_TARGET=12.1"
   ;;
 esac
-GO_PRMS="-DCMAKE_BUILD_TYPE=Release $CMAKE_VERSION_PRMS"
+GO_PRMS="$CMAKE_RELEASE_FLAG_PRM $CMAKE_VERSION_PRMS"
 cmake -G "Unix Makefiles" $OS_PRMS $GO_PRMS . $SRC_DIR
 
 echo "Phase 1"

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 INSTALL_TESTS=notests
+INSTALL_ASAN=noasan
 TARGET_CPU=auto
 WX_VER=auto
 
@@ -14,12 +15,15 @@ while [[ $# -gt 0 ]]; do
       tests | notests)
 	INSTALL_TESTS=$1
 	;;
+      asan | noasan)
+	INSTALL_ASAN=$1
+	;;
       wx30 | wx32)
 	WX_VER=$1
 	;;
       *)
 	echo "Unknown parameter $1" >&2
-	echo "Usage: $(basename $0) [wx30 | wx32] [tests | notests]"
+	echo "Usage: $(basename $0) [wx30 | wx32] [tests | notests] [asan | noasan]"
 	exit 1
 	;;
     esac
