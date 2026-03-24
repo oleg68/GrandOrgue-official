@@ -4,11 +4,12 @@
 # $2 - Build version
 # $3 - Go source Dir. If not set then relative to the script dir
 # $4 - package suffix: empty or wx30
+# $5 - release flag (ON/OFF, default: OFF)
 
 set -e
 
 DIR=$(readlink -f $(dirname $0))
-source $DIR/../set-ver-prms.sh "$1" "$2"
+source $DIR/../set-ver-prms.sh "$1" "$2" "$5"
 
 if [[ -n "$3" ]]; then
 	SRC_DIR=$3
@@ -38,13 +39,15 @@ GO_ARM_PRMS="-DCMAKE_SYSTEM_NAME=Linux \
   -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
   -DCMAKE_C_COMPILER=/usr/bin/aarch64-linux-gnu-gcc \
   -DCMAKE_CXX_COMPILER=/usr/bin/aarch64-linux-gnu-g++ \
+  -DCMAKE_OBJCOPY=/usr/bin/aarch64-linux-gnu-objcopy \
   -DCPACK_DEBIAN_PACKAGE_ARCHITECTURE=arm64 \
   -DCPACK_RPM_PACKAGE_ARCHITECTURE=aarch64 \
   -DIMPORT_EXECUTABLES=../build-tools/ImportExecutables.cmake"
 
-GO_PRMS="-DCMAKE_BUILD_TYPE=Release \
+GO_PRMS="$CMAKE_RELEASE_FLAG_PRM \
   $CMAKE_VERSION_PRMS \
   -DCMAKE_PACKAGE_SUFFIX=$PACKAGE_SUFFIX \
+  -DGO_SPLIT_DEBUG_SYMBOLS=ON \
   $($DIR/../for-linux/cmake-prm-yaml-cpp.bash arm64)"
 
 echo "cmake -G \"Unix Makefiles\" $GO_PRMS . $SRC_DIR"

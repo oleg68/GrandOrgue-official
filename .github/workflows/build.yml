@@ -1,6 +1,13 @@
 name: Build
 
-on: [push]
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      asan:
+        description: 'Build with ASAN'
+        type: boolean
+        default: false
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -33,6 +40,7 @@ jobs:
       release_flag: ${{steps.vers.outputs.release_flag}}
       release_id: ${{ steps.create_release.outputs.id }}
       release_upload_url: ${{ steps.create_release.outputs.upload_url }}
+      asan_flag: ${{steps.vers.outputs.asan_flag}}
 
     steps:
     - name: Checkout
@@ -65,10 +73,17 @@ jobs:
           RELEASE_FLAG=ON
         fi
 
+        if [[ "${{ github.event.inputs.asan }}" == "true" ]]; then
+          ASAN_FLAG=asan
+        else
+          ASAN_FLAG=
+        fi
+
         echo "project_ver=$PROJECT_VERSION" >>$GITHUB_OUTPUT
         echo "build_ver=$BUILD_VERSION" >>$GITHUB_OUTPUT
         echo "full_ver=$PROJECT_VERSION-$BUILD_VERSION" >>$GITHUB_OUTPUT
         echo "release_flag=$RELEASE_FLAG" >>$GITHUB_OUTPUT
+        echo "asan_flag=$ASAN_FLAG" >>$GITHUB_OUTPUT
 
     - name: Display versions
       run: |
@@ -76,6 +91,7 @@ jobs:
         echo "build_ver=${{steps.vers.outputs.build_ver}}"
         echo "full_ver=${{steps.vers.outputs.full_ver}}"
         echo "release_flag=${{steps.vers.outputs.release_flag}}"
+        echo "asan_flag=${{steps.vers.outputs.asan_flag}}"
 
     - name: Create Draft Release
       if: ${{ steps.vers.outputs.release_flag == 'ON' }}
@@ -168,7 +184,15 @@ jobs:
       
     - name: Build
       working-directory: ${{github.workspace}}
-      run: ${{github.workspace}}/build-scripts/for-${{ matrix.for }}/build-on-${{ matrix.build_on }}.sh ${{needs.calc_ver.outputs.project_ver}} ${{needs.calc_ver.outputs.build_ver}} ${{github.workspace}} "${{ matrix.pkg_suffix }}"
+      run: >
+        ${{github.workspace}}/build-scripts/for-${{ matrix.for }}/build-on-${{ matrix.build_on }}.sh
+        ${{needs.calc_ver.outputs.project_ver}}
+        ${{needs.calc_ver.outputs.build_ver}}
+        ${{github.workspace}}
+        "${{ matrix.pkg_suffix }}"
+        ${{needs.calc_ver.outputs.release_flag}}
+        ""
+        ${{needs.calc_ver.outputs.asan_flag}}
 
     - name: Upload result
       uses: nanoufo/action-upload-artifacts-and-release-assets@v2

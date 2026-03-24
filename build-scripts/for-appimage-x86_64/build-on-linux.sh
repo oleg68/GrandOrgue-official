@@ -3,11 +3,12 @@
 # $1 - Version
 # $2 - Build version
 # $3 - Go source Dir. If not set then relative to the script dir
+# $4 - release flag (ON/OFF, default: OFF)
 
 set -e
 
 DIR=$(readlink -f $(dirname $0))
-source $DIR/../set-ver-prms.sh "$1" "$2"
+source $DIR/../set-ver-prms.sh "$1" "$2" "$4"
 
 if [[ -n "$3" ]]; then
 	SRC_DIR=$(readlink -f $3)
@@ -27,7 +28,7 @@ GO_PRMS="-DCMAKE_INSTALL_PREFIX=/usr \
   -DRTAUDIO_USE_JACK=OFF \
   -DRTMIDI_USE_JACK=OFF \
   -DGO_USE_JACK=OFF \
-  -DCMAKE_BUILD_TYPE=Release \
+  $CMAKE_RELEASE_FLAG_PRM \
   $CMAKE_VERSION_PRMS"
 echo "cmake -G \"Unix Makefiles\" $GO_PRMS . $SRC_DIR"
 cmake -G "Unix Makefiles" $GO_PRMS . $SRC_DIR
