@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
   GOTestSoundBufferMutable testSoundBufferMutable;
   GOTestSoundBufferMutableMono testSoundBufferMutableMono;
   GOTestPerfSoundBufferMutable testPerfSoundBufferMutable;
-  /* end of instanciation */
+  /* end of instantiation */
   GOTestResultCollection test_result_collection;
   test_result_collection = GOTestCollection::Instance()->Run(categoryFilter);
 
