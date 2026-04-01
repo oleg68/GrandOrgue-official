@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,6 +8,7 @@
 #include "GOCombination.h"
 
 #include <algorithm>
+#include <cstdio>
 
 #include <wx/intl.h>
 #include <wx/log.h>
@@ -35,9 +36,23 @@ GOCombination::GOCombination(
     m_IsFull(false),
     m_HasScope(false),
     r_ElementDefinitions(cmbDef.GetElements()),
-    m_Protected(false) {}
+    m_Protected(false) {
+  fprintf(
+    stderr,
+    "GOCombination::GOCombination this=%p, m_ElementStates.size()=%zu\n",
+    (void *)this,
+    m_ElementStates.size());
+}
 
-GOCombination::~GOCombination() {}
+GOCombination::~GOCombination() {
+  fprintf(
+    stderr,
+    "GOCombination::~GOCombination this=%p, m_ElementStates.size()=%zu, "
+    "m_ElementStates.data()=%p\n",
+    (void *)this,
+    m_ElementStates.size(),
+    (void *)m_ElementStates.data());
+}
 
 void GOCombination::Clear() {
   EnsureElementStatesAllocated();
@@ -49,7 +64,21 @@ void GOCombination::Clear() {
 
 void GOCombination::Copy(const GOCombination *combination) {
   assert(&m_Template == &combination->m_Template);
+  fprintf(
+    stderr,
+    "GOCombination::Copy this=%p from=%p, before: m_ElementStates.size()=%zu, "
+    "data=%p\n",
+    (void *)this,
+    (void *)combination,
+    m_ElementStates.size(),
+    (void *)m_ElementStates.data());
   m_ElementStates = combination->m_ElementStates;
+  fprintf(
+    stderr,
+    "GOCombination::Copy this=%p, after: m_ElementStates.size()=%zu, data=%p\n",
+    (void *)this,
+    m_ElementStates.size(),
+    (void *)m_ElementStates.data());
   EnsureElementStatesAllocated();
 }
 
@@ -216,14 +245,46 @@ void GOCombination::SetStatesFromYaml(
 void GOCombination::EnsureElementStatesAllocated() {
   unsigned defSize = r_ElementDefinitions.size();
 
-  if (m_ElementStates.size() > defSize)
+  fprintf(
+    stderr,
+    "GOCombination::EnsureElementStatesAllocated this=%p, current size=%zu, "
+    "defSize=%u, data=%p\n",
+    (void *)this,
+    m_ElementStates.size(),
+    defSize,
+    (void *)m_ElementStates.data());
+
+  if (m_ElementStates.size() > defSize) {
+    fprintf(
+      stderr,
+      "GOCombination::EnsureElementStatesAllocated this=%p, shrinking from %zu "
+      "to "
+      "%u\n",
+      (void *)this,
+      m_ElementStates.size(),
+      defSize);
     m_ElementStates.resize(defSize);
-  else if (m_ElementStates.size() < defSize) {
+  } else if (m_ElementStates.size() < defSize) {
     unsigned current = m_ElementStates.size();
+    fprintf(
+      stderr,
+      "GOCombination::EnsureElementStatesAllocated this=%p, growing from %zu "
+      "to "
+      "%u\n",
+      (void *)this,
+      m_ElementStates.size(),
+      defSize);
     m_ElementStates.resize(defSize);
     while (current < defSize)
       m_ElementStates[current++] = BOOL3_DEFAULT;
   }
+  fprintf(
+    stderr,
+    "GOCombination::EnsureElementStatesAllocated this=%p, after: size=%zu, "
+    "data=%p\n",
+    (void *)this,
+    m_ElementStates.size(),
+    (void *)m_ElementStates.data());
 }
 
 static const wxString WX_NUMBER_OF_STOPS = wxT("NumberOfStops");

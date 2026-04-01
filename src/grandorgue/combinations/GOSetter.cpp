@@ -782,6 +782,7 @@ void GOSetter::Load(GOConfigReader &cfg) {
 
   wxString buffer;
 
+  fprintf(stderr, "GOSetter::Load clearing m_framegeneral\n");
   m_framegeneral.resize(0);
   for (unsigned i = 0; i < FRAME_GENERALS; i++) {
     m_framegeneral.push_back(
@@ -790,6 +791,7 @@ void GOSetter::Load(GOConfigReader &cfg) {
     m_framegeneral[i]->Load(cfg, buffer);
   }
 
+  fprintf(stderr, "GOSetter::Load clearing m_general\n");
   m_general.resize(0);
   for (unsigned i = 0; i < GENERALS * GENERAL_BANKS; i++) {
     m_general.push_back(new GOGeneralCombination(*m_OrganController, true));
@@ -797,6 +799,7 @@ void GOSetter::Load(GOConfigReader &cfg) {
     m_general[i]->Load(cfg, buffer);
   }
 
+  fprintf(stderr, "GOSetter::Load clearing m_crescendo\n");
   m_crescendo.resize(0);
   for (unsigned i = 0; i < N_CRESCENDOS; i++) {
     buffer.Printf(wxT("SetterCrescendo%d"), i);

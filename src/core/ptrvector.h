@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2024 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -8,6 +8,7 @@
 #ifndef PTRVECTOR_H
 #define PTRVECTOR_H
 
+#include <cstdio>
 #include <vector>
 
 template <class T> class ptr_vector : protected std::vector<T *> {
@@ -20,6 +21,7 @@ private:
     typename T1,
     std::enable_if_t<std::is_array<T1>::value, bool> = true>
   inline static void delete0(T1 *e) {
+    fprintf(stderr, "ptr_vector::delete0 deleting %p\n", (void *)e);
     delete[] e;
   }
 
@@ -27,6 +29,7 @@ private:
     typename T1,
     std::enable_if_t<!std::is_array<T1>::value, bool> = true>
   inline static void delete0(T1 *e) {
+    fprintf(stderr, "ptr_vector::delete0 deleting %p\n", (void *)e);
     delete e;
   }
 
@@ -60,6 +63,12 @@ public:
 
   void resize(unsigned new_size) {
     unsigned oldsize = size();
+    fprintf(
+      stderr,
+      "ptr_vector::resize this=%p, oldsize=%u, new_size=%u\n",
+      (void *)this,
+      oldsize,
+      new_size);
     for (unsigned i = new_size; i < oldsize; i++)
       delete1(at(i));
     std::vector<T *>::resize(new_size);
@@ -67,7 +76,14 @@ public:
       at(i) = nullptr;
   }
 
-  void push_back(T *ptr) { std::vector<T *>::push_back(ptr); }
+  void push_back(T *ptr) {
+    fprintf(
+      stderr,
+      "ptr_vector::push_back this=%p, ptr=%p\n",
+      (void *)this,
+      (void *)ptr);
+    std::vector<T *>::push_back(ptr);
+  }
 
   void insert(unsigned pos, T *ptr) {
     std::vector<T *>::insert(std::vector<T *>::begin() + pos, ptr);
