@@ -272,12 +272,13 @@ void GOSoundSystem::StartStreams() {
 }
 
 bool GOSoundSystem::AssureSoundIsOpen() {
-  if (!m_open)
+  if (!m_open) {
     OpenSoundSystem();
-  if (m_open && m_OrganController) {
-    BuildAndStartEngine();
-    StartSoundSystem();
-    NotifySoundIsOpen();
+    if (m_open && m_OrganController) {
+      BuildAndStartEngine();
+      StartSoundSystem();
+      NotifySoundIsOpen();
+    }
   }
   return m_open;
 }
