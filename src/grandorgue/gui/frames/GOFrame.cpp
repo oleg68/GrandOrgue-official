@@ -614,7 +614,7 @@ void GOFrame::LoadOrgan(const GOOrgan &organ, const wxString &cmb) {
   if (mp_doc) {
     GOProgressDialog dlg;
 
-    p_OrganController = mp_doc->LoadOrgan(&dlg, organ, cmb, m_IsGuiOnly);
+    p_OrganController = mp_doc->LoadOrgan(organ, cmb, m_IsGuiOnly, dlg);
     OnIsModifiedChanged(false);
 
     // for reflecting model changes
@@ -1017,7 +1017,7 @@ void GOFrame::OnCache(wxCommandEvent &event) {
   GOProgressDialog dlg;
 
   if (p_OrganController)
-    res = p_OrganController->UpdateCache(&dlg, r_config.CompressCache());
+    res = p_OrganController->UpdateCache(r_config.CompressCache(), dlg);
   if (!res) {
     wxLogError(_("Creating the cache failed"));
     GOMessageBox(
