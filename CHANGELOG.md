@@ -1,3 +1,4 @@
+- Fixed Loading organ errors with Tuskish system locale https://github.com/GrandOrgue/grandorgue/issues/2401
 # 3.17.1 (2026-03-31)
 - Fixed wrong .cmb group of division sender MIDI settings https://github.com/GrandOrgue/grandorgue/issues/2409
 - Fixed wrong initial position of the Combination Setter https://github.com/GrandOrgue/grandorgue/issues/2430
