@@ -8,6 +8,7 @@
 #include "GOSetter.h"
 
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <string>
 
@@ -761,7 +762,14 @@ GOSetter::GOSetter(GOOrganController *organController)
   m_OrganController->RegisterControlChangedHandler(this);
 }
 
-GOSetter::~GOSetter() {}
+GOSetter::~GOSetter() {
+  std::cerr << "GOSetter::~GOSetter clearing m_crescendo" << std::endl;
+  m_crescendo.clear();
+  std::cerr << "GOSetter::~GOSetter clearing m_general" << std::endl;
+  m_general.clear();
+  std::cerr << "GOSetter::~GOSetter clearing m_framegeneral" << std::endl;
+  m_framegeneral.clear();
+}
 
 static const wxString WX_OVERRIDE_MODE = wxT("OverrideMode");
 static const wxString WX_EMPTY_STRING = wxEmptyString;
