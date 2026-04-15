@@ -47,9 +47,11 @@ GOCombination::GOCombination(
 GOCombination::~GOCombination() {
   fprintf(
     stderr,
-    "GOCombination::~GOCombination this=%p, m_ElementStates.size()=%zu, "
+    "GOCombination::~GOCombination this=%p, m_group=%s, "
+    "m_ElementStates.size()=%zu, "
     "m_ElementStates.data()=%p\n",
     (void *)this,
+    m_group.c_str().AsChar(),
     m_ElementStates.size(),
     (void *)m_ElementStates.data());
 }
