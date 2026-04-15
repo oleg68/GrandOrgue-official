@@ -19,6 +19,19 @@
 
 static const std::locale C_LOCALE("C");
 
+// wxString::MakeUpper() uses the current locale, which gives wrong results
+// for Turkish and similar locales (e.g. 'i' -> 'I' with dot above).
+// ODF keywords are ASCII-only, so we uppercase using the C locale instead.
+// ctype<wchar_t> in C locale only maps code points 0x0061-0x007A (a-z) to
+// 0x0041-0x005A (A-Z); all other code points are left unchanged.
+static void make_upper_c(wxString &s) {
+  std::wstring wstr = s.ToStdWstring();
+
+  std::use_facet<std::ctype<wchar_t>>(C_LOCALE).toupper(
+    wstr.data(), wstr.data() + wstr.size());
+  s = wstr;
+}
+
 GOConfigReader::GOConfigReader(
   GOConfigReaderDB &cfg, bool strict, bool hw1Check)
   : m_Config(cfg), m_Strict(strict), m_IsHw1Check(hw1Check) {}
@@ -191,7 +204,7 @@ GOBool3 GOConfigReader::ReadBooleanTriple(
     return BOOL3_TRUE;
   if (value == wxT("N") || value == wxT("n"))
     return BOOL3_FALSE;
-  value.MakeUpper();
+  make_upper_c(value);
   wxLogWarning(
     _("Strange boolean value for section '%s' entry '%s': %s"),
     group.c_str(),
@@ -289,7 +302,7 @@ GOLogicalColour GOConfigReader::ReadColor(
   if (!Read(type, group, key, required, true, value))
     value = defaultValue;
 
-  value.MakeUpper();
+  make_upper_c(value);
 
   if (value == wxT("BLACK"))
     return GOLogicalColour::BLACK;
@@ -511,7 +524,7 @@ unsigned GOConfigReader::ReadSize(
   if (!Read(type, group, key, required, true, value))
     value = defaultValue;
 
-  value.MakeUpper();
+  make_upper_c(value);
   if (value == wxT("SMALL"))
     return sizes[size_type][0];
   else if (value == wxT("MEDIUM"))
@@ -566,7 +579,7 @@ unsigned GOConfigReader::ReadFontSize(
   if (!Read(type, group, key, required, true, value))
     value = defaultValue;
 
-  value.MakeUpper();
+  make_upper_c(value);
   if (value == wxT("SMALL"))
     return 6;
   else if (value == wxT("NORMAL"))
