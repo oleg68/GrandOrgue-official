@@ -291,38 +291,27 @@ void GOSoundSystem::AssureSoundIsClosed() {
   }
 }
 
-void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
-  if (organController == m_OrganController)
-    return;
+void GOSoundSystem::AssignOrganFile(GOOrganController *pNewOrganController) {
+  if (pNewOrganController != m_OrganController) {
+    GOMutexLocker locker(m_lock);
 
-  GOMutexLocker locker(m_lock);
-  GOMultiMutexLocker multi;
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    multi.Add(m_AudioOutputs[i].mutex);
+    if (m_open && m_OrganController) {
+      StopSoundSystem();
+      m_SoundEngine.GetScheduler().PauseGivingWork();
+      for (GOSoundThread *thread : m_Threads)
+        thread->WaitForIdle();
+      m_OrganController->Abort();
+      m_SoundEngine.ClearSetup();
+      m_SoundEngine.GetScheduler().ResumeGivingWork();
+    }
 
-  if (m_OrganController) {
-    // ensure pointers to work items are not held by threads
-    m_SoundEngine.GetScheduler().PauseGivingWork();
-    for (GOSoundThread *thread : m_Threads)
-      thread->WaitForIdle();
+    m_OrganController = pNewOrganController;
 
-    m_OrganController->Abort();
-    // now work items are safe to be deleted
-    m_SoundEngine.ClearSetup();
-
-    // resume processing of work items
-    m_SoundEngine.GetScheduler().ResumeGivingWork();
-  }
-
-  m_OrganController = organController;
-
-  if (m_OrganController && m_AudioOutputs.size()) {
-    m_SoundEngine.Setup(
-      *organController,
-      m_OrganController->GetMemoryPool(),
-      m_config.ReleaseConcurrency());
-    m_OrganController->PreparePlayback(
-      &GetEngine(), &GetMidi(), &m_AudioRecorder);
+    if (m_open && m_OrganController) {
+      BuildAndStartEngine();
+      StartSoundSystem();
+      NotifySoundIsOpen();
+    }
   }
 }
 
