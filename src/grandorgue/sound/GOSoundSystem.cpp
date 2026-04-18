@@ -298,13 +298,9 @@ void GOSoundSystem::AssignOrganFile(GOOrganController *pNewOrganController) {
   if (pNewOrganController != m_OrganController) {
     GOMutexLocker locker(m_lock);
     if (m_open && m_OrganController) {
-      m_OrganController->Abort();
+      NotifySoundIsClosing();
       StopSoundSystem();
-      m_SoundEngine.GetScheduler().PauseGivingWork();
-      for (GOSoundThread *thread : m_Threads)
-        thread->WaitForIdle();
-      m_SoundEngine.ClearSetup();
-      m_SoundEngine.GetScheduler().ResumeGivingWork();
+      StopAndDestroyEngine();
     }
 
     m_OrganController = pNewOrganController;
