@@ -301,7 +301,7 @@ void GOSoundSystem::AssignOrganFile(GOOrganController *pNewOrganController) {
     for (GOSoundOutput &output : m_AudioOutputs)
       multi.Add(output.mutex);
 
-    if (m_OrganController) {
+    if (m_open && m_OrganController) {
       m_SoundEngine.GetScheduler().PauseGivingWork();
       for (GOSoundThread *thread : m_Threads)
         thread->WaitForIdle();
