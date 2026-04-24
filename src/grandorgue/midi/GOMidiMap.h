@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -17,7 +17,7 @@
 class GOMidiMap {
 private:
   GONameMap m_DeviceMap;
-  GONameMap m_ElementMap;
+  GONameMap m_RecorderElementMap;
 
   static uint_fast16_t getIdByName(const GONameMap &map, const wxString &name) {
     return map.GetIdByName(name.utf8_str().data());
@@ -56,12 +56,13 @@ public:
     return getNameById(m_DeviceMap, id);
   }
 
-  uint_fast16_t GetElementByString(const wxString &str) {
-    return getIdByName(m_ElementMap, str);
+  // Recoder element ids start with 0
+  uint_fast16_t EnsureRecorderElementName(const wxString &str) {
+    return ensureName(m_RecorderElementMap, str) - 1;
   }
 
-  wxString GetElementByID(uint_fast16_t id) const {
-    return getNameById(m_ElementMap, id);
+  wxString GetRecorderElementNameById(uint_fast16_t id) const {
+    return getNameById(m_RecorderElementMap, id + 1);
   }
 };
 
