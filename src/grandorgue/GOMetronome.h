@@ -10,7 +10,7 @@
 
 #include "control/GOElementCreator.h"
 #include "control/GOLabelControl.h"
-#include "sound/playing/GOSoundStateHandler.h"
+#include "model/GOOrganLifecycleListener.h"
 
 #include "GOSaveableObject.h"
 #include "GOTimerCallback.h"
@@ -20,7 +20,7 @@ class GORank;
 class GOOrganController;
 
 class GOMetronome : private GOTimerCallback,
-                    private GOSoundStateHandler,
+                    private GOOrganLifecycleListener,
                     private GOSaveableObject,
                     public GOElementCreator {
 public:

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -25,7 +25,7 @@ GOWindchest::GOWindchest(GOOrganModel &organModel)
     m_ranks(0),
     m_pipes(0),
     m_PipeConfig(&organModel.GetRootPipeConfigNode(), &organModel, NULL) {
-  organModel.RegisterSoundStateHandler(this);
+  organModel.RegisterLifecycleListener(this);
 }
 
 void GOWindchest::Init(GOConfigReader &cfg, wxString group, wxString name) {

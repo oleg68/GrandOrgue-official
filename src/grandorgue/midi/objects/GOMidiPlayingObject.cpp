@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -15,7 +15,7 @@ GOMidiPlayingObject::GOMidiPlayingObject(
   GOOrganModel &organModel, ObjectType objectType)
   : GOMidiObject(organModel.GetConfig().GetMidiMap(), objectType),
     r_OrganModel(organModel) {
-  r_OrganModel.RegisterSoundStateHandler(this);
+  r_OrganModel.RegisterLifecycleListener(this);
   r_OrganModel.RegisterMidiObject(this);
   r_OrganModel.RegisterSaveableObject(this);
 }
@@ -23,7 +23,7 @@ GOMidiPlayingObject::GOMidiPlayingObject(
 GOMidiPlayingObject::~GOMidiPlayingObject() {
   r_OrganModel.UnregisterSaveableObject(this);
   r_OrganModel.UnRegisterMidiObject(this);
-  r_OrganModel.UnRegisterSoundStateHandler(this);
+  r_OrganModel.UnRegisterLifecycleListener(this);
 }
 
 const GOMidiObject *GOMidiPlayingObject::FindInitialMidiObject() const {
