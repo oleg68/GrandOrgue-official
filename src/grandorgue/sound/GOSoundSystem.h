@@ -109,7 +109,10 @@ private:
 
   void OpenMidi();
 
-  void OpenSound();
+  void OpenSoundSystem();
+  void BuildAndStartEngine();
+  void NotifySoundIsOpen();
+
   void CloseSound();
 
   void StartStreams();
