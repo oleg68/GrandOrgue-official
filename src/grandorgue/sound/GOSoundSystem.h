@@ -113,7 +113,10 @@ private:
   void BuildAndStartEngine();
   void NotifySoundIsOpen();
 
-  void CloseSound();
+  void NotifySoundIsClosing();
+  void StopSoundSystem();
+  void StopAndDestroyEngine();
+  void CloseSoundSystem();
 
   void StartStreams();
   void StartSoundSystem();

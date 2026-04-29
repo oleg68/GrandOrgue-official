@@ -39,7 +39,7 @@ GOSoundSystem::GOSoundSystem(GOConfig &settings)
     m_CalcCount() {}
 
 GOSoundSystem::~GOSoundSystem() {
-  CloseSound();
+  AssureSoundIsClosed();
 
   GOMidiPortFactory::terminate();
   GOSoundPortFactory::terminate();
@@ -123,17 +123,7 @@ void GOSoundSystem::OpenSoundSystem() {
     else
       m_LastErrorMessage = msg;
 
-    for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
-      if (m_AudioOutputs[i].port) {
-        GOSoundPort *const port = m_AudioOutputs[i].port;
-
-        m_AudioOutputs[i].port = NULL;
-        port->Close();
-        delete port;
-      }
-    }
-    ResetMeters();
-    m_AudioOutputs.clear();
+    CloseSoundSystem();
   }
 }
 
@@ -224,7 +214,9 @@ void GOSoundSystem::StartSoundSystem() {
   m_IsRunning.store(true);
 }
 
-void GOSoundSystem::CloseSound() {
+void GOSoundSystem::NotifySoundIsClosing() { m_OrganController->Abort(); }
+
+void GOSoundSystem::StopSoundSystem() {
   m_IsRunning.store(false);
 
   // wait for all started callbacks to finish
@@ -233,22 +225,34 @@ void GOSoundSystem::CloseSound() {
 
     while (m_NCallbacksEntered.load() > 0)
       m_CallbackCondition.WaitOrStop(
-        "GOSoundSystem::CloseSound waits for all callbacks to finish", nullptr);
+        "GOSoundSystem::StopSoundSystem waits for all callbacks to finish",
+        nullptr);
   }
 
+  // Disable all outputs
+  {
+    GOMultiMutexLocker multi;
+
+    for (GOSoundOutput &output : m_AudioOutputs)
+      multi.Add(output.mutex);
+
+    for (GOSoundOutput &output : m_AudioOutputs) {
+      output.waiting = false;
+      output.wait = false;
+      output.condition.Broadcast();
+    }
+  }
+}
+
+void GOSoundSystem::StopAndDestroyEngine() {
+  m_SoundEngine.GetScheduler().PauseGivingWork();
+  for (GOSoundThread *pThread : m_Threads)
+    pThread->WaitForIdle();
   StopThreads();
+  m_SoundEngine.ClearSetup();
+}
 
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++) {
-    m_AudioOutputs[i].waiting = false;
-    m_AudioOutputs[i].wait = false;
-    m_AudioOutputs[i].condition.Broadcast();
-  }
-
-  for (unsigned i = 1; i < m_AudioOutputs.size(); i++) {
-    GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
-    m_AudioOutputs[i].condition.Broadcast();
-  }
-
+void GOSoundSystem::CloseSoundSystem() {
   for (int i = m_AudioOutputs.size() - 1; i >= 0; i--) {
     if (m_AudioOutputs[i].port) {
       GOSoundPort *const port = m_AudioOutputs[i].port;
@@ -259,8 +263,6 @@ void GOSoundSystem::CloseSound() {
     }
   }
 
-  if (m_OrganController)
-    m_OrganController->Abort();
   ResetMeters();
   m_AudioOutputs.clear();
   m_open = false;
@@ -279,8 +281,14 @@ bool GOSoundSystem::AssureSoundIsOpen() {
 }
 
 void GOSoundSystem::AssureSoundIsClosed() {
-  if (m_open)
-    CloseSound();
+  if (m_open) {
+    if (m_OrganController) {
+      NotifySoundIsClosing();
+      StopSoundSystem();
+      StopAndDestroyEngine();
+    }
+    CloseSoundSystem();
+  }
 }
 
 void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
