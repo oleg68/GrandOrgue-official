@@ -170,11 +170,10 @@ void GOSoundSystem::OpenSound() {
     }
 
     OpenMidi();
-    m_NCallbacksEntered.store(0);
     StartStreams();
     StartThreads();
     m_open = true;
-    m_IsRunning.store(true);
+    StartSoundSystem();
 
     if (m_OrganController)
       m_OrganController->PreparePlayback(
@@ -191,8 +190,8 @@ void GOSoundSystem::OpenSound() {
 }
 
 void GOSoundSystem::StartStreams() {
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    m_AudioOutputs[i].port->Open();
+  for (GOSoundOutput &output : m_AudioOutputs)
+    output.port->Open();
 
   if (m_SamplesPerBuffer > MAX_FRAME_SIZE)
     throw wxString::Format(
@@ -200,16 +199,20 @@ void GOSoundSystem::StartStreams() {
         "unacceptable quantization would occur."),
       MAX_FRAME_SIZE);
 
-  m_WaitCount.exchange(0);
-  m_CalcCount.exchange(0);
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++) {
-    GOMutexLocker dev_lock(m_AudioOutputs[i].mutex);
-    m_AudioOutputs[i].wait = false;
-    m_AudioOutputs[i].waiting = true;
-  }
+  for (GOSoundOutput &output : m_AudioOutputs)
+    output.port->StartStream();
+}
 
-  for (unsigned i = 0; i < m_AudioOutputs.size(); i++)
-    m_AudioOutputs[i].port->StartStream();
+void GOSoundSystem::StartSoundSystem() {
+  for (GOSoundOutput &output : m_AudioOutputs) {
+    GOMutexLocker dev_lock(output.mutex);
+    output.wait = false;
+    output.waiting = true;
+  }
+  m_WaitCount.store(0);
+  m_CalcCount.store(0);
+  m_NCallbacksEntered.store(0);
+  m_IsRunning.store(true);
 }
 
 void GOSoundSystem::CloseSound() {

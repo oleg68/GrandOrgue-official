@@ -113,6 +113,7 @@ private:
   void CloseSound();
 
   void StartStreams();
+  void StartSoundSystem();
 
 public:
   static void FillDeviceNamePattern(
