@@ -14,7 +14,6 @@
 #include "buffer/GOSoundBufferMutable.h"
 #include "config/GOConfig.h"
 #include "config/GOPortsConfig.h"
-#include "ports/GOSoundPort.h"
 #include "ports/GOSoundPortFactory.h"
 #include "scheduler/GOSoundThread.h"
 #include "threading/GOMultiMutexLocker.h"
@@ -25,20 +24,19 @@
 #include "GOSoundDefs.h"
 
 GOSoundSystem::GOSoundSystem(GOConfig &settings)
-  : m_open(false),
+  : m_config(settings),
+    m_midi(settings),
+    m_open(false),
+    logSoundErrors(true),
+    m_SamplesPerBuffer(0),
+    m_OrganController(0),
+    m_DefaultAudioDevice(GOSoundDevInfo::getInvalideDeviceInfo()),
     m_IsRunning(false),
     m_NCallbacksEntered(0),
     m_CallbackCondition(m_CallbackMutex),
-    logSoundErrors(true),
-    m_AudioOutputs(),
-    m_WaitCount(),
-    m_CalcCount(),
-    m_SamplesPerBuffer(0),
     meter_counter(0),
-    m_DefaultAudioDevice(GOSoundDevInfo::getInvalideDeviceInfo()),
-    m_OrganController(0),
-    m_config(settings),
-    m_midi(settings) {}
+    m_WaitCount(),
+    m_CalcCount() {}
 
 GOSoundSystem::~GOSoundSystem() {
   CloseSound();
@@ -302,14 +300,6 @@ void GOSoundSystem::AssignOrganFile(GOOrganController *organController) {
   }
 }
 
-GOConfig &GOSoundSystem::GetSettings() { return m_config; }
-
-GOOrganController *GOSoundSystem::GetOrganFile() { return m_OrganController; }
-
-void GOSoundSystem::SetLogSoundErrorMessages(bool settingsDialogVisible) {
-  logSoundErrors = settingsDialogVisible;
-}
-
 std::vector<GOSoundDevInfo> GOSoundSystem::GetAudioDevices(
   const GOPortsConfig &portsConfig) {
   // Getting a device list tries to open and close each device
@@ -344,8 +334,6 @@ void GOSoundSystem::FillDeviceNamePattern(
   pattern.SetApiName(deviceInfo.GetApiName());
   pattern.SetPhysicalName(deviceInfo.GetFullName());
 }
-
-GOMidiSystem &GOSoundSystem::GetMidi() { return m_midi; }
 
 void GOSoundSystem::ResetMeters() {
   wxWindow *const topWindow = wxTheApp ? wxTheApp->GetTopWindow() : nullptr;
@@ -432,8 +420,6 @@ bool GOSoundSystem::AudioCallback(
   }
   return true;
 }
-
-GOSoundOrganEngine &GOSoundSystem::GetEngine() { return m_SoundEngine; }
 
 wxString GOSoundSystem::getState() {
   if (!m_AudioOutputs.size())
