@@ -108,6 +108,97 @@ void GOSoundOrganEngine::SetAudioGroupCount(unsigned groups) {
       new GOSoundGroupTask(*this, m_SamplesPerBuffer));
 }
 
+void GOSoundOrganEngine::SetAudioOutput(
+  std::vector<GOAudioOutputConfiguration> audio_outputs) {
+  m_AudioOutputTasks.clear();
+  {
+    std::vector<float> scale_factors;
+    scale_factors.resize(m_AudioGroupCount * 2 * 2);
+    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
+    for (unsigned i = 0; i < m_AudioGroupCount; i++) {
+      scale_factors[i * 4] = 1;
+      scale_factors[i * 4 + 3] = 1;
+    }
+    m_AudioOutputTasks.push_back(
+      new GOSoundOutputTask(2, scale_factors, m_SamplesPerBuffer));
+  }
+  unsigned channels = 0;
+  for (unsigned i = 0; i < audio_outputs.size(); i++) {
+    std::vector<float> scale_factors;
+    scale_factors.resize(m_AudioGroupCount * audio_outputs[i].channels * 2);
+    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
+    for (unsigned j = 0; j < audio_outputs[i].channels; j++)
+      for (unsigned k = 0; k < audio_outputs[i].scale_factors[j].size(); k++) {
+        if (k >= m_AudioGroupCount * 2)
+          continue;
+        float factor = audio_outputs[i].scale_factors[j][k];
+        if (factor >= -120 && factor < 40)
+          factor = powf(10.0f, factor * 0.05f);
+        else
+          factor = 0;
+        scale_factors[j * m_AudioGroupCount * 2 + k] = factor;
+      }
+    m_AudioOutputTasks.push_back(new GOSoundOutputTask(
+      audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
+    channels += audio_outputs[i].channels;
+  }
+  std::vector<GOSoundBufferTaskBase *> outputs;
+  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
+    outputs.push_back(m_AudioGroupTasks[i]);
+  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
+    m_AudioOutputTasks[i]->SetOutputs(outputs);
+  {
+    // Control thread: prevent GetMeterInfo() from reading the buffer while it
+    // is being replaced. SetAudioOutput() is called only when all audio
+    // callbacks are stopped (between StopSoundSystem and StartSoundSystem),
+    // so the audio thread is not accessing p_MeterInfo concurrently.
+    GOMutexLocker locker(m_MeterMutex);
+
+    if (mp_MeterInfo->size() != channels) {
+      auto newInfo
+        = std::make_unique<std::vector<std::atomic<float>>>(channels);
+
+      // Prior to C++20, std::atomic default construction does not
+      // zero-initialize the value; initialize explicitly for safety.
+      for (auto &v : *newInfo)
+        v.store(0.0f, std::memory_order_relaxed);
+
+      // Store the new pointer before destroying the old vector so that
+      // p_MeterInfo always points to a valid object.
+      // release: the audio thread will see the new vector (size + data) via
+      // acquire-load of p_MeterInfo on the next NextPeriod() call.
+      p_MeterInfo.store(newInfo.get(), std::memory_order_release);
+      mp_MeterInfo = std::move(newInfo);
+    }
+  }
+}
+
+void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
+  const GOSoundReverb::ReverbConfig reverbConfig
+    = GOSoundReverb::createReverbConfig(settings);
+
+  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
+    if (m_AudioOutputTasks[i])
+      m_AudioOutputTasks[i]->SetupReverb(
+        reverbConfig, settings.SamplesPerBuffer(), settings.SampleRate());
+}
+
+void GOSoundOrganEngine::SetAudioRecorder(
+  GOSoundRecorder *recorder, bool downmix) {
+  m_AudioRecorder = recorder;
+  std::vector<GOSoundBufferTaskBase *> outputs;
+  if (downmix)
+    outputs.push_back(m_AudioOutputTasks[0]);
+  else {
+    m_Scheduler.Remove(m_AudioOutputTasks[0]);
+    delete m_AudioOutputTasks[0];
+    m_AudioOutputTasks[0] = NULL;
+    for (unsigned i = 1; i < m_AudioOutputTasks.size(); i++)
+      outputs.push_back(m_AudioOutputTasks[i]);
+  }
+  m_AudioRecorder->SetOutputs(outputs, m_SamplesPerBuffer);
+}
+
 float GOSoundOrganEngine::GetRandomFactor() const {
   if (m_RandomizeSpeaking) {
     const double factor = (pow(2, 1.0 / 1200.0) - 1) / (RAND_MAX / 2);
@@ -242,97 +333,6 @@ void GOSoundOrganEngine::ProcessRelease(GOSoundSampler *sampler) {
 
 void GOSoundOrganEngine::ReturnSampler(GOSoundSampler *sampler) {
   m_SamplerPool.ReturnSampler(sampler);
-}
-
-void GOSoundOrganEngine::SetAudioOutput(
-  std::vector<GOAudioOutputConfiguration> audio_outputs) {
-  m_AudioOutputTasks.clear();
-  {
-    std::vector<float> scale_factors;
-    scale_factors.resize(m_AudioGroupCount * 2 * 2);
-    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
-    for (unsigned i = 0; i < m_AudioGroupCount; i++) {
-      scale_factors[i * 4] = 1;
-      scale_factors[i * 4 + 3] = 1;
-    }
-    m_AudioOutputTasks.push_back(
-      new GOSoundOutputTask(2, scale_factors, m_SamplesPerBuffer));
-  }
-  unsigned channels = 0;
-  for (unsigned i = 0; i < audio_outputs.size(); i++) {
-    std::vector<float> scale_factors;
-    scale_factors.resize(m_AudioGroupCount * audio_outputs[i].channels * 2);
-    std::fill(scale_factors.begin(), scale_factors.end(), 0.0f);
-    for (unsigned j = 0; j < audio_outputs[i].channels; j++)
-      for (unsigned k = 0; k < audio_outputs[i].scale_factors[j].size(); k++) {
-        if (k >= m_AudioGroupCount * 2)
-          continue;
-        float factor = audio_outputs[i].scale_factors[j][k];
-        if (factor >= -120 && factor < 40)
-          factor = powf(10.0f, factor * 0.05f);
-        else
-          factor = 0;
-        scale_factors[j * m_AudioGroupCount * 2 + k] = factor;
-      }
-    m_AudioOutputTasks.push_back(new GOSoundOutputTask(
-      audio_outputs[i].channels, scale_factors, m_SamplesPerBuffer));
-    channels += audio_outputs[i].channels;
-  }
-  std::vector<GOSoundBufferTaskBase *> outputs;
-  for (unsigned i = 0; i < m_AudioGroupTasks.size(); i++)
-    outputs.push_back(m_AudioGroupTasks[i]);
-  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-    m_AudioOutputTasks[i]->SetOutputs(outputs);
-  {
-    // Control thread: prevent GetMeterInfo() from reading the buffer while it
-    // is being replaced. SetAudioOutput() is called only when all audio
-    // callbacks are stopped (between StopSoundSystem and StartSoundSystem),
-    // so the audio thread is not accessing p_MeterInfo concurrently.
-    GOMutexLocker locker(m_MeterMutex);
-
-    if (mp_MeterInfo->size() != channels) {
-      auto newInfo
-        = std::make_unique<std::vector<std::atomic<float>>>(channels);
-
-      // Prior to C++20, std::atomic default construction does not
-      // zero-initialize the value; initialize explicitly for safety.
-      for (auto &v : *newInfo)
-        v.store(0.0f, std::memory_order_relaxed);
-
-      // Store the new pointer before destroying the old vector so that
-      // p_MeterInfo always points to a valid object.
-      // release: the audio thread will see the new vector (size + data) via
-      // acquire-load of p_MeterInfo on the next NextPeriod() call.
-      p_MeterInfo.store(newInfo.get(), std::memory_order_release);
-      mp_MeterInfo = std::move(newInfo);
-    }
-  }
-}
-
-void GOSoundOrganEngine::SetAudioRecorder(
-  GOSoundRecorder *recorder, bool downmix) {
-  m_AudioRecorder = recorder;
-  std::vector<GOSoundBufferTaskBase *> outputs;
-  if (downmix)
-    outputs.push_back(m_AudioOutputTasks[0]);
-  else {
-    m_Scheduler.Remove(m_AudioOutputTasks[0]);
-    delete m_AudioOutputTasks[0];
-    m_AudioOutputTasks[0] = NULL;
-    for (unsigned i = 1; i < m_AudioOutputTasks.size(); i++)
-      outputs.push_back(m_AudioOutputTasks[i]);
-  }
-  m_AudioRecorder->SetOutputs(outputs, m_SamplesPerBuffer);
-}
-
-void GOSoundOrganEngine::SetupReverb(GOConfig &settings) {
-  const GOSoundReverb::ReverbConfig reverbConfig
-    = GOSoundReverb::createReverbConfig(settings);
-
-  for (unsigned i = 0; i < m_AudioOutputTasks.size(); i++)
-    if (m_AudioOutputTasks[i])
-      m_AudioOutputTasks[i]->SetupReverb(
-        reverbConfig, settings.SamplesPerBuffer(), settings.SampleRate());
 }
 
 unsigned GOSoundOrganEngine::GetBufferSizeFor(
