@@ -91,6 +91,11 @@ protected:
    */
   void LoadCmbButtons(GOConfigReader &cfg);
 
+  /** Undoes Load()/LoadCmbButtons(): clears the windchest/manual/enclosure/
+   * switch/tremulant/rank/piston/divisional-coupler/general elements they
+   * populated, plus the inherited GOEventHandlerList registrations. */
+  void Cleanup();
+
   /**
    * Update all generals buttons light.
    * @param buttonToLight - the button that should be lighted on. All other

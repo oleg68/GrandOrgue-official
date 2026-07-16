@@ -11,6 +11,7 @@
 
 #include "common/GOTestCollection.h"
 #include "testing/GOTestNameMap.h"
+#include "testing/GOTestOrganController.h"
 #include "testing/loader/GOTestOrganReader.h"
 #include "testing/model/GOTestDrawStop.h"
 #include "testing/model/GOTestOrganModel.h"
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
 
   /* Instantiate all the test classes here */
   GOTestOrganReader testOrganReader;
+  GOTestOrganController testOrganController;
   GOTestDrawStop testDrawStop;
   GOTestOrganModel testOrganModel;
   GOTestSwitch testSwitch;

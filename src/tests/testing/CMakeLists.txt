@@ -13,7 +13,10 @@ set(go_tests
     sound/buffer/GOTestSoundBufferMutableMono.cpp
     sound/playing/GOTestSoundStream.cpp
     GOTestNameMap.cpp
+    GOTestOrganController.cpp
 )
 add_library(GOTests STATIC ${go_tests})
 
 target_link_libraries(GOTests GOTestLib)
+target_compile_definitions(GOTests PRIVATE
+    GO_TEST_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources")
