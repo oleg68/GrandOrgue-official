@@ -39,16 +39,18 @@ bool GOCommonControllerTest::setUp() {
   GOTest::setUp();
   m_OrganDirectoryTemplate = "./GOTestXXXXXX";
   this->organ_directory = mkdtemp(&m_OrganDirectoryTemplate[0]);
-  GOConfig settings(GetName(), "");
-  this->controller = new GOOrganController(settings);
+  mp_config.emplace(GetName(), "");
+  this->controller = new GOOrganController(*mp_config);
   this->controller->InitOrganDirectory(this->organ_directory);
   return true;
 }
 
 bool GOCommonControllerTest::tearDown() {
-  // This initialize a new GOOrganController object that will be destroyed
-  // during test teardown().
+  // Delete controller before resetting mp_config: ~GOOrganController() may
+  // still read m_config, so mp_config must outlive it.
+  delete this->controller;
   this->controller = nullptr;
+  mp_config.reset();
   if (this->organ_directory)
     std::filesystem::remove_all(this->organ_directory);
   return true;
