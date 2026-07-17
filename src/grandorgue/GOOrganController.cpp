@@ -28,9 +28,7 @@
 #include "config/GOConfigWriter.h"
 #include "control/GOElementCreator.h"
 #include "files/GOOpenedFile.h"
-#include "gui/GOGuiImageCache.h"
 #include "gui/dialogs/go-message-boxes.h"
-#include "gui/panels/GOGUIPanel.h"
 #include "loader/GOLoadThread.h"
 #include "loader/GOLoaderFilename.h"
 #include "loader/GOOrganReader.h"
@@ -67,7 +65,7 @@
 static const wxString WX_ORGAN = wxT("Organ");
 static const wxString WX_GRANDORGUE_VERSION = wxT("GrandOrgueVersion");
 
-GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
+GOOrganController::GOOrganController(GOConfig &config)
   : GOEventDistributor(this),
     GOOrganModel(config),
     m_config(config),
@@ -75,7 +73,6 @@ GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
     m_FileStore(config),
     m_Cacheable(false),
     m_IsOrganCoreDataLoaded(false),
-    m_IsOrganGuiLoaded(false),
     m_IsObjectsLoaded(false),
     m_setter(0),
     m_AudioRecorder(NULL),
@@ -89,19 +86,13 @@ GOOrganController::GOOrganController(GOConfig &config, bool isAppInitialized)
     m_midi(0),
     m_SampleSetId1(0),
     m_SampleSetId2(0),
-    mp_ImageCache(nullptr),
     m_PitchLabel(*this),
-    m_TemperamentLabel(*this),
-    m_MainWindowData(*this, wxT("MainWindow")) {
+    m_TemperamentLabel(*this) {
   // GOTimer needs no live wx event loop to construct (only to fire), so it
   // is created unconditionally: GOAudioRecorder/GOMidiPlayer/GOMidiRecorder/
-  // GOMetronome (created by LoadOrganCoreData(), independent of
-  // isAppInitialized) all assume GetTimer() is non-null.
+  // GOMetronome (created by LoadOrganCoreData()) all assume GetTimer() is
+  // non-null.
   m_timer = new GOTimer();
-  if (isAppInitialized) {
-    // Load here objects that needs App (wx) to be loaded
-    mp_ImageCache = new GOGuiImageCache(m_FileStore);
-  }
   GOOrganModel::SetModelModificationListener(this);
   m_setter = new GOSetter(this);
   m_pool.SetMemoryLimit(m_config.MemoryLimit() * 1024 * 1024);
@@ -113,8 +104,6 @@ GOOrganController::~GOOrganController() {
   // m_timer only afterward.
   Clear();
   m_FileStore.CloseArchives();
-  if (mp_ImageCache)
-    delete mp_ImageCache;
   if (m_timer)
     delete m_timer;
 }
@@ -123,13 +112,6 @@ void GOOrganController::ClearObjects() {
   if (m_IsObjectsLoaded) {
     m_Cacheable = false;
     m_IsObjectsLoaded = false;
-  }
-}
-
-void GOOrganController::ClearOrganGuiData() {
-  if (m_IsOrganGuiLoaded) {
-    m_panels.clear();
-    m_IsOrganGuiLoaded = false;
   }
 }
 
@@ -320,32 +302,6 @@ void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
   m_SampleSetId2 = ((result.hash[4] & 0x7F) << 24)
     | ((result.hash[5] & 0x7F) << 16) | ((result.hash[6] & 0x7F) << 8)
     | (result.hash[7] & 0x7F);
-}
-
-void GOOrganController::LoadOrganGuiData(GOConfigReader &cfg) {
-  m_IsOrganGuiLoaded = true;
-
-  unsigned NumberOfPanels = cfg.ReadInteger(
-    ODFSetting, WX_ORGAN, wxT("NumberOfPanels"), 0, 100, false);
-
-  m_PitchLabel.Load(cfg, wxT("SetterMasterPitch"), _("organ pitch"));
-  m_TemperamentLabel.Load(
-    cfg, wxT("SetterMasterTemperament"), _("temperament"));
-  m_MainWindowData.Load(cfg);
-
-  m_panels.resize(0);
-  m_panels.push_back(new GOGUIPanel(this, GetImageCache(), GetMouseState()));
-  m_panels[0]->Load(cfg, wxT(""));
-
-  wxString buffer;
-
-  for (unsigned i = 0; i < NumberOfPanels; i++) {
-    buffer.Printf(wxT("Panel%03d"), i + 1);
-    m_panels.push_back(new GOGUIPanel(this, GetImageCache(), GetMouseState()));
-    m_panels[i + 1]->Load(cfg, buffer);
-  }
-
-  m_StopWindowSizeKeeper.Load(cfg, wxT("Stops"));
 }
 
 class GOLoadAborted : public std::exception {};
@@ -642,28 +598,13 @@ void GOOrganController::DeleteSettings() {
   wxRemoveFile(m_LoadedOrganInfo.settingsFilePath);
 }
 
-void GOOrganController::SaveOrganCoreData(GOConfigWriter &cfg) {
-  m_LoadedOrganInfo.isCustomized = true;
-  cfg.WriteString(WX_ORGAN, wxT("ODFHash"), m_LoadedOrganInfo.odfHash);
-  cfg.WriteString(WX_ORGAN, wxT("ChurchName"), GetOrganName());
-  cfg.WriteString(WX_ORGAN, wxT("ChurchAddress"), m_ChurchAddress);
-  cfg.WriteString(WX_ORGAN, wxT("ODFPath"), GetODFFilename());
-  if (m_ConfiguredOrgan.GetArchiveID() != wxEmptyString)
-    cfg.WriteString(
-      WX_ORGAN, wxT("ArchiveID"), m_ConfiguredOrgan.GetArchiveID());
-  cfg.WriteString(WX_ORGAN, WX_GRANDORGUE_VERSION, wxT(APP_VERSION));
-  cfg.WriteInteger(WX_ORGAN, wxT("Volume"), m_volume);
-  cfg.WriteString(WX_ORGAN, wxT("Temperament"), m_Temperament);
-
-  GOEventDistributor::Save(cfg);
-  GetDialogSizeSet().Save(cfg);
-  m_VirtualCouplers.Save(cfg);
-}
-
-void GOOrganController::OnSave(GOConfigWriter &cfg) {
-  m_StopWindowSizeKeeper.Save(cfg);
-}
-
+/**
+ * Writes cfgFile to path via a temp-file-then-rename, so a failed write
+ * leaves the previous file intact instead of a truncated one.
+ * @param cfgFile the already-populated config file data to write out
+ * @param path the destination file path
+ * @return true if the file was written and renamed into place successfully
+ */
 static bool write_config_file(
   GOConfigFileWriter &cfgFile, const wxString &path) {
   wxString tmpName = path + wxT(".new");
@@ -682,17 +623,36 @@ static bool write_config_file(
 }
 
 bool GOOrganController::Save(const wxString &path) {
+  BeforeSave();
+
   GOConfigFileWriter cfgFile;
   GOConfigWriter cfg(cfgFile, false);
-
   SaveOrganCoreData(cfg);
   OnSave(cfg);
 
   bool isOk = write_config_file(
     cfgFile, path.IsEmpty() ? m_LoadedOrganInfo.settingsFilePath : path);
-  if (isOk && path.IsEmpty())
-    ResetOrganModified();
-  return isOk;
+  if (isOk && path.IsEmpty()) // only the default ("real" save) resets
+    ResetOrganModified();     // modified; exporting a copy elsewhere
+  return isOk;                // shouldn't mark the organ as saved
+}
+
+void GOOrganController::SaveOrganCoreData(GOConfigWriter &cfg) {
+  m_LoadedOrganInfo.isCustomized = true;
+  cfg.WriteString(WX_ORGAN, wxT("ODFHash"), m_LoadedOrganInfo.odfHash);
+  cfg.WriteString(WX_ORGAN, wxT("ChurchName"), GetOrganName());
+  cfg.WriteString(WX_ORGAN, wxT("ChurchAddress"), m_ChurchAddress);
+  cfg.WriteString(WX_ORGAN, wxT("ODFPath"), GetODFFilename());
+  if (m_ConfiguredOrgan.GetArchiveID() != wxEmptyString)
+    cfg.WriteString(
+      WX_ORGAN, wxT("ArchiveID"), m_ConfiguredOrgan.GetArchiveID());
+  cfg.WriteString(WX_ORGAN, WX_GRANDORGUE_VERSION, wxT(APP_VERSION));
+  cfg.WriteInteger(WX_ORGAN, wxT("Volume"), m_volume);
+  cfg.WriteString(WX_ORGAN, wxT("Temperament"), m_Temperament);
+
+  GOEventDistributor::Save(cfg);
+  GetDialogSizeSet().Save(cfg);
+  m_VirtualCouplers.Save(cfg);
 }
 
 GOEnclosure *GOOrganController::GetEnclosure(
