@@ -41,8 +41,8 @@ class GOWindchest;
  *
  *   1. Constructor: GOSoundOrganEngine(organModel, memoryPool)
  *   2. Configuration: SetFromConfig(config) or manual setters
- *   3. BuildEngine(audioOutputConfigs, nSamplesPerBuffer, sampleRate,
- *      recorder) — builds tasks and the sampler pool. IDLE → BUILT.
+ *   3. BuildEngine(audioOutputConfigs, nSamplesPerBuffer, sampleRate) —
+ *      builds tasks and the sampler pool. IDLE → BUILT.
  *   4. StartEngine() — starts dispatching work to worker threads. BUILT →
  *      WORKING.
  *      ... ProcessAudioCallback() is called from the audio thread ...
