@@ -6,6 +6,8 @@ set(go_tests
     midi/GOTestMidiSendProxy.cpp
     model/GOTestDrawStop.cpp
     model/GOTestOrganModel.cpp
+    model/GOTestPipeConfigTreeNode.cpp
+    model/GOTestSoundingPipe.cpp
     model/GOTestSwitch.cpp
     model/GOTestWindchest.cpp
     sound/buffer/GOTestPerfSoundBufferBase.cpp
@@ -25,10 +27,13 @@ set(go_tests
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundCallbackConnector.cpp
     sound/GOTestSoundOrganEngineStress.cpp
+    sound/GOTestSoundWindchestGroupTaskGrid.cpp
     sound/tasks/GOSoundCooperativeTaskTestImpl.cpp
     sound/tasks/GOSoundTaskTestImpl.cpp
+    sound/tasks/GOSoundWindchestGroupTestFixture.cpp
     sound/tasks/GOTestPerfSoundTaskBase.cpp
     sound/tasks/GOTestSoundTaskBase.cpp
+    sound/tasks/GOTestSoundWindchestGroupTask.cpp
     GOTestNameMap.cpp
     GOTestOrganController.cpp
 )
