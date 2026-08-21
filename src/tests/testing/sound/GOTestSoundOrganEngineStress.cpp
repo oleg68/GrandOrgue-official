@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "sound/GOSoundOrganEngine.h"
-#include "sound/buffer/GOSoundBufferMutable.h"
+#include "sound/buffer/GOSoundBufferPlanarMutable.h"
 #include "sound/interfaces/GOSoundCallbackConnector.h"
 
 const std::string GOTestSoundOrganEngineStress::TEST_NAME
@@ -24,7 +24,7 @@ void GOTestSoundOrganEngineStress::RunCallbackThreads(
   auto makeThread = [&](unsigned outputI) {
     return std::thread([&, outputI]() {
       while (isRunning.load()) {
-        GO_DECLARE_LOCAL_SOUND_BUFFER(
+        GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
           buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
         m_connector.AudioCallback(outputI, buf);
