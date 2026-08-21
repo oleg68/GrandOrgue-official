@@ -39,6 +39,7 @@ set(go_tests
     sound/tasks/GOSoundWindchestGroupTestFixture.cpp
     sound/tasks/GOTestPerfSoundTaskBase.cpp
     sound/tasks/GOTestSoundOutputTask.cpp
+    sound/tasks/GOTestSoundRecorderTask.cpp
     sound/tasks/GOTestSoundTaskBase.cpp
     sound/tasks/GOTestSoundWindchestGroupTask.cpp
     GOTestNameMap.cpp

@@ -122,14 +122,16 @@ void GOSoundWindchestGroupTask::Run(GOSchedulerThread *pThread) {
       GOMutexLocker locker(
         m_mutex, false, "GOSoundWindchestGroupTask::Run.afterProcess");
 
-      if (m_RunState.load() == RUN_STATE_IN_PROGRESS) {
-        // The first thread is finished. Assign the result to the common
-        // buffer
-        CopyFrom(localBuffer);
-        m_RunState.store(RUN_STATE_PARTLY_DONE);
-      } else
-        // not the first thread. Add the result to the common buffer
-        AddFrom(localBuffer);
+      if (locker.IsLocked()) {
+        if (m_RunState.load() == RUN_STATE_IN_PROGRESS) {
+          // The first thread is finished. Assign the result to the common
+          // buffer
+          DeinterleaveFrom(localBuffer);
+          m_RunState.store(RUN_STATE_PARTLY_DONE);
+        } else
+          // not the first thread. Add the result to the common buffer
+          AddDeinterleavedFrom(localBuffer);
+      }
       if (m_ActiveCount.fetch_sub(1) <= 1) {
         // the last thread
         m_RunState.store(RUN_STATE_DONE);

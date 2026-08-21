@@ -30,7 +30,7 @@ class GOMemoryPool;
 class GOOrganModel;
 class GOSchedulerTask;
 class GOSchedulerThread;
-class GOSoundBufferMutable;
+class GOSoundBufferPlanarMutable;
 class GOSoundBufferTaskBase;
 class GOSoundGroupTask;
 class GOSoundOutputTask;
@@ -726,7 +726,7 @@ public:
    * threads were woken up).
    */
   bool ProcessAudioCallback(
-    unsigned outputIndex, GOSoundBufferMutable &outBuffer);
+    unsigned outputIndex, GOSoundBufferPlanarMutable &outBuffer);
 };
 
 #endif /* GOSOUNDORGANENGINE_H */
