@@ -24,6 +24,7 @@
 #include "testing/model/GOTestWindchest.h"
 #include "testing/sound/GOTestSoundCallbackConnector.h"
 #include "testing/sound/GOTestSoundOrganEngine.h"
+#include "testing/sound/GOTestSoundOrganEngineFactory.h"
 #include "testing/sound/GOTestSoundOrganEngineStress.h"
 #include "testing/sound/GOTestSoundWindchestGroupTaskGrid.h"
 #include "testing/sound/buffer/GOTestPerfSoundBufferMutable.h"
@@ -90,6 +91,7 @@ int main(int argc, char *argv[]) {
   GOTestReleaseAlignTable testReleaseAlignTable;
   GOTestSoundStream testSoundStream;
   GOTestSoundOrganEngine testSoundOrganEngine;
+  GOTestSoundOrganEngineFactory testSoundOrganEngineFactory;
   GOTestSoundCallbackConnector testSoundCallbackConnector;
   GOTestSoundOrganEngineStress testSoundOrganEngineStress;
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
