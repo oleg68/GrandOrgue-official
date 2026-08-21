@@ -43,6 +43,8 @@
 #include "testing/sound/processing/GOTestSoundProcessorTyped.h"
 #include "testing/sound/reverb/GOTestSoundReverb.h"
 #include "testing/sound/tasks/GOTestPerfSoundTaskBase.h"
+#include "testing/sound/tasks/GOTestSoundOutputTask.h"
+#include "testing/sound/tasks/GOTestSoundRecorderTask.h"
 #include "testing/sound/tasks/GOTestSoundTaskBase.h"
 #include "testing/sound/tasks/GOTestSoundWindchestGroupTask.h"
 
@@ -103,6 +105,8 @@ int main(int argc, char *argv[]) {
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
   GOTestSoundTaskBase testSoundTaskBase;
   GOTestSoundWindchestGroupTask testSoundWindchestGroupTask;
+  GOTestSoundOutputTask testSoundOutputTask;
+  GOTestSoundRecorderTask testSoundRecorderTask;
   GOTestPerfSoundTaskBase testPerfSoundTaskBase;
   /* end of instanciation */
   GOTestResultCollection test_result_collection;
