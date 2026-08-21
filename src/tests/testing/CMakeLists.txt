@@ -25,6 +25,7 @@ set(go_tests
     sound/playing/GOTestSoundStream.cpp
     sound/GOTestSoundOrganEngineBase.cpp
     sound/GOTestSoundOrganEngine.cpp
+    sound/GOTestSoundOrganEngineFactory.cpp
     sound/GOTestSoundCallbackConnector.cpp
     sound/GOTestSoundOrganEngineStress.cpp
     sound/GOTestSoundWindchestGroupTaskGrid.cpp
