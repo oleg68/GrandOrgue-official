@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <set>
 
-#include "buffer/GOSoundBufferMutable.h"
+#include "buffer/GOSoundBufferPlanarMutable.h"
 #include "config/GOConfig.h"
 #include "model/GOOrganModel.h"
 #include "model/GOWindchest.h"
@@ -582,7 +582,7 @@ void GOSoundOrganEngine::NextPeriod() {
 }
 
 bool GOSoundOrganEngine::ProcessAudioCallback(
-  unsigned outputIndex, GOSoundBufferMutable &outBuffer) {
+  unsigned outputIndex, GOSoundBufferPlanarMutable &outBuffer) {
   assert(IsWorking());
 
   const unsigned nOutputs = m_OutputStates.size();
