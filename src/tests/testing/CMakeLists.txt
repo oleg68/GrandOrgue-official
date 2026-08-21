@@ -23,6 +23,9 @@ set(go_tests
     sound/buffer/GOTestSoundBufferPlanarMutable.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundStream.cpp
+    sound/processing/GOSoundProcessingTestImpls.cpp
+    sound/processing/GOTestSoundProcessingChain.cpp
+    sound/processing/GOTestSoundProcessorTyped.cpp
     sound/GOTestSoundOrganEngineBase.cpp
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundOrganEngineFactory.cpp
