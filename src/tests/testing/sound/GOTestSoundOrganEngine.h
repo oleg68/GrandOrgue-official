@@ -109,6 +109,21 @@ private:
    */
   void TestPrepareAndCommitSoundRoutingFor();
 
+  /*
+   * Starts a real GOSoundProviderSynthedTrem sample and checks that
+   * non-silent audio reaches the final planar output buffer after a few
+   * periods - a content-level canary for the windchest-group merge
+   * (DeinterleaveFrom()/AddDeinterleavedFrom(), Stage 3's planar rewrite):
+   * a channel/frame transpose bug there would very likely silence the
+   * output, which none of the round-state-only checks elsewhere in this
+   * suite would catch. Single-threaded (nAuxThreads=0) on purpose: mixing
+   * direct/synchronous ProcessAudioCallback() calls with a live aux
+   * scheduler thread is exercised only by the dedicated async-callback
+   * tests, which drive every output from its own thread - not by a single
+   * calling thread looping alone, which deadlocked when tried here.
+   */
+  void TestSamplerAudioReachesPlanarOutput();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;

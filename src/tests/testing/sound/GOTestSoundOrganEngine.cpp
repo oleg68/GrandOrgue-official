@@ -17,7 +17,7 @@
 
 #include "model/GOWindchest.h"
 #include "sound/GOSoundOrganEngine.h"
-#include "sound/buffer/GOSoundBufferMutable.h"
+#include "sound/buffer/GOSoundBufferPlanarMutable.h"
 #include "sound/providers/GOSoundProviderSynthedTrem.h"
 
 #include "GOOrganController.h"
@@ -76,7 +76,8 @@ void GOTestSoundOrganEngine::TestSingleOutputLifecycle() {
     /* nAudioGroups */ 1, /* nAuxThreads */ 0, /* nOutputs */ 1);
 
   for (unsigned periodI = 0; periodI < 5; ++periodI) {
-    GO_DECLARE_LOCAL_SOUND_BUFFER(buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
+      buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
     const bool didAdvance = engine.ProcessAudioCallback(0, buf);
 
     GOAssert(
@@ -93,9 +94,9 @@ void GOTestSoundOrganEngine::TestTwoOutputsLifecycleWith(
   GOSoundOrganEngine &engine = BuildStartAndConnectEngine(nAudioGroups, 0, 2);
 
   for (unsigned periodI = 0; periodI < 5; ++periodI) {
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf0, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf1, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
     const bool didAdvanceAfter0 = engine.ProcessAudioCallback(0, buf0);
@@ -174,7 +175,7 @@ void GOTestSoundOrganEngine::TestBuildStopCyclesAsyncCallbacksXrun() {
 
     auto threadBody = [&]() {
       while (isRunning.load()) {
-        GO_DECLARE_LOCAL_SOUND_BUFFER(
+        GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
           buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
         engine.ProcessAudioCallback(0, buf);
@@ -208,7 +209,7 @@ void GOTestSoundOrganEngine::TestMultipleConfigsAsyncCallbacks() {
     for (unsigned outputI = 0; outputI < cfg.nOutputs; ++outputI) {
       threads.emplace_back([&, outputI]() {
         for (unsigned periodI = 0; periodI < N_PERIODS; ++periodI) {
-          GO_DECLARE_LOCAL_SOUND_BUFFER(
+          GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
             buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
           engine.ProcessAudioCallback(outputI, buf);
@@ -232,9 +233,9 @@ void GOTestSoundOrganEngine::TestDisconnectWithXrunDeadlock() {
 
   // Period 0: complete normally so the engine is ready for period 1.
   {
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf0, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf1, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
     engine.ProcessAudioCallback(0, buf0);
@@ -244,7 +245,7 @@ void GOTestSoundOrganEngine::TestDisconnectWithXrunDeadlock() {
   // Period 1, output 0 (first call) — marks state.wait=true for output 0.
   // Output 1 is not yet processed, so the period has not advanced.
   {
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf0, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
     engine.ProcessAudioCallback(0, buf0);
@@ -265,7 +266,7 @@ void GOTestSoundOrganEngine::TestDisconnectWithXrunDeadlock() {
       if (!isStopping.load()) {
         ++nActiveCallbacks;
 
-        GO_DECLARE_LOCAL_SOUND_BUFFER(
+        GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
           buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
         engine.ProcessAudioCallback(0, buf); // blocks at [W1]
@@ -320,9 +321,9 @@ void GOTestSoundOrganEngine::TestReconnectAfterMidPeriodDisconnect() {
   engine.SetStreaming(true);
 
   {
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf0, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf1, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
     engine.ProcessAudioCallback(0, buf0);
@@ -340,11 +341,11 @@ void GOTestSoundOrganEngine::TestReconnectAfterMidPeriodDisconnect() {
   engine.SetStreaming(true);
 
   for (unsigned periodI = 0; periodI < 5; ++periodI) {
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf0, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf1, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
-    GO_DECLARE_LOCAL_SOUND_BUFFER(
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
       buf2, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
 
     const bool didAdvanceAfter0 = engine.ProcessAudioCallback(0, buf0);
@@ -547,6 +548,69 @@ void GOTestSoundOrganEngine::TestPrepareAndCommitSoundRoutingFor() {
   StopAndDestroyEngine();
 }
 
+void GOTestSoundOrganEngine::TestSamplerAudioReachesPlanarOutput() {
+  controller->AddWindchest(new GOWindchest(*controller));
+
+  GOSoundOrganEngine &engine = BuildAndStartEngine(
+    /* nAudioGroups */ 1, /* nAuxThreads */ 0, /* nOutputs */ 1);
+
+  GOSoundOrganEngine::AudioGroupRoutingChange routingChange
+    = engine.PrepareSoundRoutingFor({{1, 0}});
+
+  engine.StopEngine();
+  engine.CommitSoundRoutingFor(std::move(routingChange));
+  engine.StartEngine();
+
+  GOSoundProviderSynthedTrem provider;
+
+  // amp_mod_depth=50 (unlike the other tests in this suite, which pass 0 for
+  // a deliberately silent fixture since they only check pool bookkeeping):
+  // this test needs actual non-zero waveform data to reach the output.
+  provider.Create(controller->GetMemoryPool(), 100, 100, 100, 50);
+
+  GOSoundSampler *pSampler
+    = engine.GetSamplerPlayer().StartPipeSample(&provider, 1, 0, 80, 0, 0);
+
+  GOAssert(pSampler, "Sample should have started");
+
+  engine.SetUsed(true);
+  engine.SetStreaming(true);
+
+  bool foundNonSilentFrame = false;
+
+  for (unsigned periodI = 0; periodI < 20 && !foundNonSilentFrame; ++periodI) {
+    GO_DECLARE_LOCAL_SOUND_BUFFER_PLANAR(
+      buf, N_OUTPUT_CHANNELS, N_SAMPLES_PER_BUFFER);
+
+    engine.ProcessAudioCallback(0, buf);
+
+    for (unsigned channelI = 0;
+         channelI < N_OUTPUT_CHANNELS && !foundNonSilentFrame;
+         ++channelI) {
+      const float *pData = buf.GetChannelBuffer(channelI).GetData();
+
+      for (unsigned frameI = 0; frameI < N_SAMPLES_PER_BUFFER; ++frameI)
+        if (pData[frameI] != 0.0f) {
+          foundNonSilentFrame = true;
+          break;
+        }
+    }
+  }
+
+  // This only proves audio isn't silently lost end-to-end through the
+  // windchest-group merge; it does not by itself distinguish correct output
+  // from a channel/frame transpose, since a transposed signal is still
+  // non-zero and would also pass.
+  GOAssert(
+    foundNonSilentFrame,
+    "a started sample's audio must reach the planar output buffer through "
+    "the windchest-group merge, not be silently lost");
+
+  engine.SetStreaming(false);
+  engine.SetUsed(false);
+  StopAndDestroyEngine();
+}
+
 void GOTestSoundOrganEngine::run() {
   TestSingleOutputLifecycle();
   TestTwoOutputsLifecycle();
@@ -561,4 +625,5 @@ void GOTestSoundOrganEngine::run() {
   TestAudioGroupRoutingChangeIsEmpty();
   TestHasSoundRoutingFor();
   TestPrepareAndCommitSoundRoutingFor();
+  TestSamplerAudioReachesPlanarOutput();
 }
