@@ -21,6 +21,7 @@ set(go_tests
     sound/buffer/GOTestSoundBufferPlanar.cpp
     sound/buffer/GOTestSoundBufferPlanarManaged.cpp
     sound/buffer/GOTestSoundBufferPlanarMutable.cpp
+    sound/effects/GOTestSoundReverbProcessor.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundStream.cpp
     sound/processing/GOSoundProcessingTestImpls.cpp
@@ -41,6 +42,7 @@ set(go_tests
     sound/tasks/GOTestSoundRecorderTask.cpp
     sound/tasks/GOTestSoundTaskBase.cpp
     sound/tasks/GOTestSoundWindchestGroupTask.cpp
+    sound/tasks/GOTestSoundWindchestTask.cpp
     GOTestNameMap.cpp
     GOTestOrganController.cpp
 )
