@@ -36,6 +36,7 @@
 #include "testing/sound/buffer/GOTestSoundBufferPlanar.h"
 #include "testing/sound/buffer/GOTestSoundBufferPlanarManaged.h"
 #include "testing/sound/buffer/GOTestSoundBufferPlanarMutable.h"
+#include "testing/sound/effects/GOTestSoundReverbProcessor.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
 #include "testing/sound/playing/GOTestSoundStream.h"
 #include "testing/sound/processing/GOTestSoundProcessingChain.h"
@@ -46,6 +47,7 @@
 #include "testing/sound/tasks/GOTestSoundRecorderTask.h"
 #include "testing/sound/tasks/GOTestSoundTaskBase.h"
 #include "testing/sound/tasks/GOTestSoundWindchestGroupTask.h"
+#include "testing/sound/tasks/GOTestSoundWindchestTask.h"
 
 int main(int argc, char *argv[]) {
   /*
@@ -100,9 +102,11 @@ int main(int argc, char *argv[]) {
   GOTestSoundProcessingChain testSoundProcessingChain;
   GOTestSoundProcessorTyped testSoundProcessorTyped;
   GOTestSoundReverb testSoundReverb;
+  GOTestSoundReverbProcessor testSoundReverbProcessor;
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
   GOTestSoundTaskBase testSoundTaskBase;
   GOTestSoundWindchestGroupTask testSoundWindchestGroupTask;
+  GOTestSoundWindchestTask testSoundWindchestTask;
   GOTestSoundOutputTask testSoundOutputTask;
   GOTestSoundRecorderTask testSoundRecorderTask;
   GOTestPerfSoundTaskBase testPerfSoundTaskBase;
