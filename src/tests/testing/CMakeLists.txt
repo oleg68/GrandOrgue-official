@@ -26,6 +26,7 @@ set(go_tests
     sound/processing/GOSoundProcessingTestImpls.cpp
     sound/processing/GOTestSoundProcessingChain.cpp
     sound/processing/GOTestSoundProcessorTyped.cpp
+    sound/reverb/GOTestSoundReverb.cpp
     sound/GOTestSoundOrganEngineBase.cpp
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundOrganEngineFactory.cpp
