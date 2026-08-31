@@ -23,6 +23,7 @@ set(go_tests
     sound/buffer/GOTestSoundBufferPlanarMutable.cpp
     sound/effects/GOTestSoundReverbProcessor.cpp
     sound/GOTestSoundCallbackConnector.cpp
+    sound/GOTestSoundOnePoleFilter.cpp
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundOrganEngineBase.cpp
     sound/GOTestSoundOrganEngineFactories.cpp
@@ -30,6 +31,7 @@ set(go_tests
     sound/GOTestSoundWindchestGroupTaskGrid.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundStream.cpp
+    sound/playing/GOTestSoundToneBalanceFilter.cpp
     sound/processing/GOSoundProcessingTestImpls.cpp
     sound/processing/GOTestSoundProcessingChain.cpp
     sound/processing/GOTestSoundProcessorTyped.cpp
