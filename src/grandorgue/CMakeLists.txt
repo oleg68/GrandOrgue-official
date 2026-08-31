@@ -211,6 +211,8 @@ scheduler/GOScheduler.cpp
 scheduler/GOSchedulerThread.cpp
 sound/effects/GOSoundReverbProcessor.cpp
 sound/effects/GOSoundReverbProcessorState.cpp
+sound/effects/GOSoundShelfFilterProcessor.cpp
+sound/effects/GOSoundShelfFilterProcessorState.cpp
 sound/GOSoundOnePoleFilter.cpp
 sound/interfaces/GOSoundCallbackConnector.cpp
 sound/playing/GOSoundAudioSection.cpp
