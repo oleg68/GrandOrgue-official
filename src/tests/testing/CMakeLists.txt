@@ -24,10 +24,12 @@ set(go_tests
     sound/effects/GOTestSoundReverbProcessor.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundStream.cpp
+    sound/playing/GOTestSoundToneBalanceFilter.cpp
     sound/processing/GOSoundProcessingTestImpls.cpp
     sound/processing/GOTestSoundProcessingChain.cpp
     sound/processing/GOTestSoundProcessorTyped.cpp
     sound/reverb/GOTestSoundReverb.cpp
+    sound/GOTestSoundOnePoleFilter.cpp
     sound/GOTestSoundOrganEngineBase.cpp
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundOrganEngineFactory.cpp
