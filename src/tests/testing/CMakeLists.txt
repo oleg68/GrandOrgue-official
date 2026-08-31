@@ -22,6 +22,7 @@ set(go_tests
     sound/buffer/GOTestSoundBufferPlanarManaged.cpp
     sound/buffer/GOTestSoundBufferPlanarMutable.cpp
     sound/effects/GOTestSoundReverbProcessor.cpp
+    sound/effects/GOTestSoundShelfFilterProcessor.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundStream.cpp
     sound/playing/GOTestSoundToneBalanceFilter.cpp
