@@ -24,6 +24,7 @@
 #include "testing/model/GOTestWindchest.h"
 #include "testing/scheduler/GOTestScheduler.h"
 #include "testing/sound/GOTestSoundCallbackConnector.h"
+#include "testing/sound/GOTestSoundOnePoleFilter.h"
 #include "testing/sound/GOTestSoundOrganEngine.h"
 #include "testing/sound/GOTestSoundOrganEngineFactories.h"
 #include "testing/sound/GOTestSoundOrganEngineStress.h"
@@ -40,6 +41,7 @@
 #include "testing/sound/effects/GOTestSoundReverbProcessor.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
 #include "testing/sound/playing/GOTestSoundStream.h"
+#include "testing/sound/playing/GOTestSoundToneBalanceFilter.h"
 #include "testing/sound/processing/GOTestSoundProcessingChain.h"
 #include "testing/sound/processing/GOTestSoundProcessorTyped.h"
 #include "testing/sound/reverb/GOTestSoundReverb.h"
@@ -103,6 +105,8 @@ int main(int argc, char *argv[]) {
   GOTestSoundOrganEngineStress testSoundOrganEngineStress;
   GOTestReleaseAlignTable testReleaseAlignTable;
   GOTestSoundStream testSoundStream;
+  GOTestSoundOnePoleFilter testSoundOnePoleFilter;
+  GOTestSoundToneBalanceFilter testSoundToneBalanceFilter;
   GOTestSoundReverb testSoundReverb;
   GOTestSoundReverbProcessor testSoundReverbProcessor;
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
