@@ -38,6 +38,7 @@
 #include "testing/sound/buffer/GOTestSoundBufferPlanarManaged.h"
 #include "testing/sound/buffer/GOTestSoundBufferPlanarMutable.h"
 #include "testing/sound/effects/GOTestSoundReverbProcessor.h"
+#include "testing/sound/effects/GOTestSoundShelfFilterProcessor.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
 #include "testing/sound/playing/GOTestSoundStream.h"
 #include "testing/sound/playing/GOTestSoundToneBalanceFilter.h"
@@ -103,6 +104,7 @@ int main(int argc, char *argv[]) {
   GOTestSoundProcessorTyped testSoundProcessorTyped;
   GOTestSoundReverb testSoundReverb;
   GOTestSoundReverbProcessor testSoundReverbProcessor;
+  GOTestSoundShelfFilterProcessor testSoundShelfFilterProcessor;
   GOTestSoundOrganEngine testSoundOrganEngine;
   GOTestSoundOrganEngineFactory testSoundOrganEngineFactory;
   GOTestSoundCallbackConnector testSoundCallbackConnector;
