@@ -233,7 +233,7 @@ GOSoundSampler *GOSoundSamplerPlayer::CreateTaskSample(
       sampler->delay = delay_samples;
       sampler->time = start_time;
       sampler->toneBalanceFilterState.Init(
-        sampler->p_SoundProvider->GetToneBalance()->GetFilter());
+        sampler->p_SoundProvider->GetToneBalance());
       sampler->is_release = isRelease;
       sampler->m_SamplerTaskId = samplerTaskId;
       sampler->m_MixWindchestTaskId = samplerTaskId;
@@ -281,7 +281,7 @@ void GOSoundSamplerPlayer::SwitchToAnotherAttack(GOSoundSampler *pSampler) {
         pSampler->is_release = false;
 
         new_sampler->toneBalanceFilterState.Init(
-          new_sampler->p_SoundProvider->GetToneBalance()->GetFilter());
+          new_sampler->p_SoundProvider->GetToneBalance());
 
         StartSampler(new_sampler);
       }
@@ -439,7 +439,7 @@ void GOSoundSamplerPlayer::CreateReleaseSampler(GOSoundSampler *handle) {
       new_sampler->m_MixWindchestTaskId = handle->m_MixWindchestTaskId;
       new_sampler->m_AudioGroupId = handle->m_AudioGroupId;
       new_sampler->toneBalanceFilterState.Init(
-        new_sampler->p_SoundProvider->GetToneBalance()->GetFilter());
+        new_sampler->p_SoundProvider->GetToneBalance());
       StartSampler(new_sampler);
       handle->time = m_CurrentTime;
     }
