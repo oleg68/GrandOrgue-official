@@ -1,3 +1,4 @@
+- Added a swell-box shelf equalizer: enclosures can now cut low or high frequencies as they close, in addition to overall volume attenuation https://github.com/GrandOrgue/grandorgue/issues/717
 - Added Belarusian, Lithuanian, Russian, and Ukrainian UI translations
 - Added capability of building GrandOrgue natively on Windows via MSYS2, without needing a Linux machine for cross-compiling https://github.com/GrandOrgue/grandorgue/issues/2378
 # 3.17.3 (2026-08-10)
