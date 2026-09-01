@@ -215,6 +215,7 @@ sound/effects/GOSoundShelfFilterProcessor.cpp
 sound/effects/GOSoundShelfFilterProcessorState.cpp
 sound/GOSoundOnePoleFilter.cpp
 sound/interfaces/GOSoundCallbackConnector.cpp
+sound/mappers/GOSoundEnclosureShelfMapper.cpp
 sound/playing/GOSoundAudioSection.cpp
 sound/playing/GOSoundFader.cpp
 sound/playing/GOSoundReleaseAlignTable.cpp
