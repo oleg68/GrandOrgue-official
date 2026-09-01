@@ -38,6 +38,8 @@
 #include "testing/sound/buffer/GOTestSoundBufferPlanarMutable.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
 #include "testing/sound/playing/GOTestSoundStream.h"
+#include "testing/sound/processing/GOTestSoundProcessingChain.h"
+#include "testing/sound/processing/GOTestSoundProcessorTyped.h"
 #include "testing/sound/tasks/GOTestPerfSoundTaskBase.h"
 #include "testing/sound/tasks/GOTestSoundOutputTask.h"
 #include "testing/sound/tasks/GOTestSoundRecorderTask.h"
@@ -90,6 +92,8 @@ int main(int argc, char *argv[]) {
   GOTestPerfSoundBufferPlanarMutable testPerfSoundBufferPlanarMutable;
   GOTestReleaseAlignTable testReleaseAlignTable;
   GOTestSoundStream testSoundStream;
+  GOTestSoundProcessingChain testSoundProcessingChain;
+  GOTestSoundProcessorTyped testSoundProcessorTyped;
   GOTestSoundOrganEngine testSoundOrganEngine;
   GOTestSoundOrganEngineFactory testSoundOrganEngineFactory;
   GOTestSoundCallbackConnector testSoundCallbackConnector;
