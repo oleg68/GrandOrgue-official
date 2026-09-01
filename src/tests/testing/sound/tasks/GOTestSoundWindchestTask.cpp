@@ -83,10 +83,16 @@ void GOTestSoundWindchestTask::TestDoRunCallsEnsureParametersUpToDate() {
   GOWindchestTaskTestEngine testEngine;
   std::unique_ptr<GOSoundProcessingChain> pChain
     = std::make_unique<GOSoundProcessingChain>();
-  auto pOwnedMapper = std::make_unique<GOCountingMapper>();
+  auto pOwnedProcessor = std::make_unique<GOAddConstProcessor>(0.0f);
+  GOAddConstProcessor *pProcessor = pOwnedProcessor.get();
+
+  pChain->AddProcessor(std::move(pOwnedProcessor));
+
+  auto pOwnedMapper = std::make_unique<GOCountingMapper>(*pProcessor);
   GOCountingMapper *pMapper = pOwnedMapper.get();
 
   pChain->AddMapper(std::move(pOwnedMapper));
+  pChain->EnsureSetup(2, 1, 44100);
 
   GOSoundWindchestTask task(testEngine.engine, nullptr, std::move(pChain));
 
