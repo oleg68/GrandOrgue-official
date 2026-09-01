@@ -5,6 +5,7 @@ set(go_tests
     midi/GOTestMidiPlayerContent.cpp
     midi/GOTestMidiSendProxy.cpp
     model/GOTestDrawStop.cpp
+    model/GOTestEnclosure.cpp
     model/GOTestOrganModel.cpp
     model/GOTestPipeConfigTreeNode.cpp
     model/GOTestSoundingPipe.cpp
@@ -21,8 +22,11 @@ set(go_tests
     sound/buffer/GOTestSoundBufferPlanar.cpp
     sound/buffer/GOTestSoundBufferPlanarManaged.cpp
     sound/buffer/GOTestSoundBufferPlanarMutable.cpp
+    sound/effects/GOTestPerfSoundShelfFilterProcessor.cpp
     sound/effects/GOTestSoundReverbProcessor.cpp
     sound/effects/GOTestSoundShelfFilterProcessor.cpp
+    sound/mappers/GOTestPerfSoundEnclosureShelfMapper.cpp
+    sound/mappers/GOTestSoundEnclosureShelfMapper.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundStream.cpp
     sound/playing/GOTestSoundToneBalanceFilter.cpp
