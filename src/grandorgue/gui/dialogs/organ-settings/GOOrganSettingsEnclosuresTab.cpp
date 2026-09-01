@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -20,12 +20,17 @@
 #include "GOEvent.h"
 
 static const wxSize EDIT_SIZE = wxSize(60, -1);
+static const wxString WX_FLOAT_FORMAT = wxT("%.1f");
 static const wxString WX_TAB_CODE = wxT("Enclosures");
 static const wxString WX_TAB_TITLE = _("Enclosures");
 
 enum {
   ID_EVENT_TREE = 200,
   ID_EVENT_MIN_AMP_LEVEL,
+  ID_EVENT_LOW_SHELF_FREQUENCY,
+  ID_EVENT_LOW_SHELF_ATTENUATION_DB,
+  ID_EVENT_HIGH_SHELF_FREQUENCY,
+  ID_EVENT_HIGH_SHELF_ATTENUATION_DB,
 };
 
 BEGIN_EVENT_TABLE(GOOrganSettingsEnclosuresTab, wxPanel)
@@ -34,6 +39,18 @@ EVT_TREE_SEL_CHANGING(
 EVT_TREE_SEL_CHANGED(ID_EVENT_TREE, GOOrganSettingsEnclosuresTab::OnTreeChanged)
 EVT_TEXT(
   ID_EVENT_MIN_AMP_LEVEL, GOOrganSettingsEnclosuresTab::OnMinAmpLevelChanged)
+EVT_TEXT(
+  ID_EVENT_LOW_SHELF_FREQUENCY,
+  GOOrganSettingsEnclosuresTab::OnLowShelfFrequencyChanged)
+EVT_TEXT(
+  ID_EVENT_LOW_SHELF_ATTENUATION_DB,
+  GOOrganSettingsEnclosuresTab::OnLowShelfAttenuationDbChanged)
+EVT_TEXT(
+  ID_EVENT_HIGH_SHELF_FREQUENCY,
+  GOOrganSettingsEnclosuresTab::OnHighShelfFrequencyChanged)
+EVT_TEXT(
+  ID_EVENT_HIGH_SHELF_ATTENUATION_DB,
+  GOOrganSettingsEnclosuresTab::OnHighShelfAttenuationDbChanged)
 END_EVENT_TABLE()
 
 class GOOrganSettingsEnclosuresTab::ItemData : public wxTreeItemData {
@@ -72,7 +89,7 @@ GOOrganSettingsEnclosuresTab::GOOrganSettingsEnclosuresTab(
     wxDefaultSize,
     wxTR_MULTIPLE | wxTR_HIDE_ROOT);
   mainSizer->Add(
-    m_tree, wxGBPosition(0, 0), wxGBSpan(4, 1), wxEXPAND | wxALL, 5);
+    m_tree, wxGBPosition(0, 0), wxGBSpan(8, 1), wxEXPAND | wxALL, 5);
 
   m_IsOdfDefined = new wxCheckBox(
     this, wxID_ANY, _("This enclosure is ODF defined and may not be altered"));
@@ -110,6 +127,82 @@ GOOrganSettingsEnclosuresTab::GOOrganSettingsEnclosuresTab(
   mainSizer->Add(
     m_MinAmpLevelEdit,
     wxGBPosition(3, 2),
+    wxDefaultSpan,
+    wxEXPAND | wxRIGHT | wxBOTTOM,
+    5);
+
+  mainSizer->Add(
+    new wxStaticText(this, wxID_ANY, _("Low shelf frequency (Hz):")),
+    wxGBPosition(4, 1),
+    wxDefaultSpan,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxLEFT | wxBOTTOM,
+    5);
+  m_LowShelfFrequencyEdit = new wxTextCtrl(
+    this,
+    ID_EVENT_LOW_SHELF_FREQUENCY,
+    wxEmptyString,
+    wxDefaultPosition,
+    EDIT_SIZE);
+  mainSizer->Add(
+    m_LowShelfFrequencyEdit,
+    wxGBPosition(4, 2),
+    wxDefaultSpan,
+    wxEXPAND | wxRIGHT | wxBOTTOM,
+    5);
+
+  mainSizer->Add(
+    new wxStaticText(this, wxID_ANY, _("Low shelf attenuation (dB):")),
+    wxGBPosition(5, 1),
+    wxDefaultSpan,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxLEFT | wxBOTTOM,
+    5);
+  m_LowShelfAttenuationDbEdit = new wxTextCtrl(
+    this,
+    ID_EVENT_LOW_SHELF_ATTENUATION_DB,
+    wxEmptyString,
+    wxDefaultPosition,
+    EDIT_SIZE);
+  mainSizer->Add(
+    m_LowShelfAttenuationDbEdit,
+    wxGBPosition(5, 2),
+    wxDefaultSpan,
+    wxEXPAND | wxRIGHT | wxBOTTOM,
+    5);
+
+  mainSizer->Add(
+    new wxStaticText(this, wxID_ANY, _("High shelf frequency (Hz):")),
+    wxGBPosition(6, 1),
+    wxDefaultSpan,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxLEFT | wxBOTTOM,
+    5);
+  m_HighShelfFrequencyEdit = new wxTextCtrl(
+    this,
+    ID_EVENT_HIGH_SHELF_FREQUENCY,
+    wxEmptyString,
+    wxDefaultPosition,
+    EDIT_SIZE);
+  mainSizer->Add(
+    m_HighShelfFrequencyEdit,
+    wxGBPosition(6, 2),
+    wxDefaultSpan,
+    wxEXPAND | wxRIGHT | wxBOTTOM,
+    5);
+
+  mainSizer->Add(
+    new wxStaticText(this, wxID_ANY, _("High shelf attenuation (dB):")),
+    wxGBPosition(7, 1),
+    wxDefaultSpan,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxLEFT | wxBOTTOM,
+    5);
+  m_HighShelfAttenuationDbEdit = new wxTextCtrl(
+    this,
+    ID_EVENT_HIGH_SHELF_ATTENUATION_DB,
+    wxEmptyString,
+    wxDefaultPosition,
+    EDIT_SIZE);
+  mainSizer->Add(
+    m_HighShelfAttenuationDbEdit,
+    wxGBPosition(7, 2),
     wxDefaultSpan,
     wxEXPAND | wxRIGHT | wxBOTTOM,
     5);
@@ -174,8 +267,24 @@ void GOOrganSettingsEnclosuresTab::LoadValues() {
     m_MinAmpLevelEdit->ChangeValue(
       wxString::Format("%u", pSelectedEnclosure->GetAmpMinimumLevel()));
     m_MinAmpLevelEdit->DiscardEdits();
+    m_LowShelfFrequencyEdit->ChangeValue(wxString::Format(
+      WX_FLOAT_FORMAT, pSelectedEnclosure->GetLowShelfFrequency()));
+    m_LowShelfFrequencyEdit->DiscardEdits();
+    m_LowShelfAttenuationDbEdit->ChangeValue(wxString::Format(
+      WX_FLOAT_FORMAT, pSelectedEnclosure->GetLowShelfAttenuationDb()));
+    m_LowShelfAttenuationDbEdit->DiscardEdits();
+    m_HighShelfFrequencyEdit->ChangeValue(wxString::Format(
+      WX_FLOAT_FORMAT, pSelectedEnclosure->GetHighShelfFrequency()));
+    m_HighShelfFrequencyEdit->DiscardEdits();
+    m_HighShelfAttenuationDbEdit->ChangeValue(wxString::Format(
+      WX_FLOAT_FORMAT, pSelectedEnclosure->GetHighShelfAttenuationDb()));
+    m_HighShelfAttenuationDbEdit->DiscardEdits();
   } else {
     m_MinAmpLevelEdit->Clear();
+    m_LowShelfFrequencyEdit->Clear();
+    m_LowShelfAttenuationDbEdit->Clear();
+    m_HighShelfFrequencyEdit->Clear();
+    m_HighShelfAttenuationDbEdit->Clear();
   }
 
   // check that all selected items are internal enclosures
@@ -204,6 +313,10 @@ void GOOrganSettingsEnclosuresTab::LoadValues() {
   m_IsOdfDefined->SetValue(
     areOnlyEnclosuresSelected && !areInternalEnclosuresSelected);
   m_MinAmpLevelEdit->Enable(areInternalEnclosuresSelected);
+  m_LowShelfFrequencyEdit->Enable(areInternalEnclosuresSelected);
+  m_LowShelfAttenuationDbEdit->Enable(areInternalEnclosuresSelected);
+  m_HighShelfFrequencyEdit->Enable(areInternalEnclosuresSelected);
+  m_HighShelfAttenuationDbEdit->Enable(areInternalEnclosuresSelected);
   m_IsDefaultEnabled = areInternalEnclosuresSelected;
   NotifyModified(false);
 }
@@ -224,6 +337,12 @@ void GOOrganSettingsEnclosuresTab::DoForAllEnclosures(
 void GOOrganSettingsEnclosuresTab::ResetToDefault() {
   DoForAllEnclosures([](GOEnclosure &enclosure) {
     enclosure.SetAmpMinimumLevel(enclosure.GetDefaultAmpMinimumLevel());
+    enclosure.SetLowShelfFrequency(enclosure.GetDefaultLowShelfFrequency());
+    enclosure.SetLowShelfAttenuationDb(
+      enclosure.GetDefaultLowShelfAttenuationDb());
+    enclosure.SetHighShelfFrequency(enclosure.GetDefaultHighShelfFrequency());
+    enclosure.SetHighShelfAttenuationDb(
+      enclosure.GetDefaultHighShelfAttenuationDb());
   });
   LoadValues();
 }
@@ -244,6 +363,69 @@ void GOOrganSettingsEnclosuresTab::ApplyChanges() {
         _("Error"),
         wxOK | wxICON_ERROR,
         this);
-    NotifyModified(false);
   }
+  if (m_LowShelfFrequencyEdit->IsModified()) {
+    double frequency;
+
+    if (
+      m_LowShelfFrequencyEdit->GetValue().ToDouble(&frequency) && frequency > 0)
+      DoForAllEnclosures([frequency](GOEnclosure &enclosure) {
+        enclosure.SetLowShelfFrequency(frequency);
+      });
+    else
+      GOMessageBox(
+        _("Low shelf frequency is invalid"),
+        _("Error"),
+        wxOK | wxICON_ERROR,
+        this);
+  }
+  if (m_LowShelfAttenuationDbEdit->IsModified()) {
+    double attenuationDb;
+
+    if (
+      m_LowShelfAttenuationDbEdit->GetValue().ToDouble(&attenuationDb)
+      && attenuationDb >= 0 && attenuationDb <= 121)
+      DoForAllEnclosures([attenuationDb](GOEnclosure &enclosure) {
+        enclosure.SetLowShelfAttenuationDb(attenuationDb);
+      });
+    else
+      GOMessageBox(
+        _("Low shelf attenuation is invalid"),
+        _("Error"),
+        wxOK | wxICON_ERROR,
+        this);
+  }
+  if (m_HighShelfFrequencyEdit->IsModified()) {
+    double frequency;
+
+    if (
+      m_HighShelfFrequencyEdit->GetValue().ToDouble(&frequency)
+      && frequency > 0)
+      DoForAllEnclosures([frequency](GOEnclosure &enclosure) {
+        enclosure.SetHighShelfFrequency(frequency);
+      });
+    else
+      GOMessageBox(
+        _("High shelf frequency is invalid"),
+        _("Error"),
+        wxOK | wxICON_ERROR,
+        this);
+  }
+  if (m_HighShelfAttenuationDbEdit->IsModified()) {
+    double attenuationDb;
+
+    if (
+      m_HighShelfAttenuationDbEdit->GetValue().ToDouble(&attenuationDb)
+      && attenuationDb >= 0 && attenuationDb <= 121)
+      DoForAllEnclosures([attenuationDb](GOEnclosure &enclosure) {
+        enclosure.SetHighShelfAttenuationDb(attenuationDb);
+      });
+    else
+      GOMessageBox(
+        _("High shelf attenuation is invalid"),
+        _("Error"),
+        wxOK | wxICON_ERROR,
+        this);
+  }
+  NotifyModified(false);
 }
