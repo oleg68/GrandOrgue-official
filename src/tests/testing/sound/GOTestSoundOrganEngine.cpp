@@ -636,16 +636,20 @@ void GOTestSoundOrganEngine::TestChainReflectsWindchestEnclosures() {
   // tests' own AddWindchest() calls may have already added windchests -
   // AddWindchest()'s own return value, not an assumed 1/2, is the only
   // reliable way to know which index each of these two actually landed at.
-  GOWindchest *pEmptyWindchest = new GOWindchest(*controller);
-  GOWindchest *pWindchestWithEnclosures = new GOWindchest(*controller);
-  const unsigned emptyWindchestN = controller->AddWindchest(pEmptyWindchest);
+  std::unique_ptr<GOWindchest> oWindchestWithEnclosures
+    = std::make_unique<GOWindchest>(*controller);
+  GOWindchest *const pWindchestWithEnclosures = oWindchestWithEnclosures.get();
+  const unsigned emptyWindchestN
+    = controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
   const unsigned windchestWithEnclosuresN
-    = controller->AddWindchest(pWindchestWithEnclosures);
+    = controller->AddWindchest(std::move(oWindchestWithEnclosures));
 
   for (unsigned enclosureI = 0; enclosureI < 2; enclosureI++) {
-    GOEnclosure *pEnclosure = new GOEnclosure(*controller);
+    std::unique_ptr<GOEnclosure> oEnclosure
+      = std::make_unique<GOEnclosure>(*controller);
+    GOEnclosure *const pEnclosure = oEnclosure.get();
 
-    controller->AddEnclosure(pEnclosure);
+    controller->AddEnclosure(std::move(oEnclosure));
     pWindchestWithEnclosures->AddEnclosure(pEnclosure);
   }
 
