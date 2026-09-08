@@ -205,4 +205,7 @@ bool GOSoundRecorderTask::DoRun(GOSchedulerThread *pThread) {
   return isDone;
 }
 
-void GOSoundRecorderTask::DiscardContent() { NewRound(); }
+void GOSoundRecorderTask::DiscardContent() {
+  Close();
+  NewRound();
+}

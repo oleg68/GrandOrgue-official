@@ -10,13 +10,29 @@
 #include <vector>
 
 #include "sound/buffer/GOSoundBufferMutableMono.h"
+#include "sound/reverb/GOSoundReverb.h"
 #include "sound/tasks/GOSoundBufferTaskBase.h"
 #include "sound/tasks/GOSoundOutputTask.h"
+
+#include "GOTestScope.h"
 
 const std::string GOTestSoundOutputTask::TEST_NAME = "GOTestSoundOutputTask";
 
 static constexpr unsigned N_CHANNELS = 2;
 static constexpr unsigned N_SAMPLES_PER_BUFFER = 8;
+
+// 10 mono float32 samples, 0.1, 0.2, ..., 1.0, at 44100 Hz - the same
+// fixture GOTestSoundReverb and GOTestSoundReverbProcessor use.
+static const std::string TEST_IR_WAV_PATH
+  = GO_TEST_RESOURCES_DIR "/sound/reverb/test-ir.wav";
+static constexpr unsigned TEST_IR_SAMPLE_RATE = 44100;
+
+// zita-convolver's Convproc::configure() requires quantum (the reverb's
+// nSamplesPerBuffer) to be a power of two >= MINQUANT (16), which
+// N_SAMPLES_PER_BUFFER (8) is not - Setup() would silently fail and clear
+// the engine. Reverb-specific tests use their own buffer size instead,
+// matching GOTestSoundReverbProcessor's TEST_N_FRAMES.
+static constexpr unsigned REVERB_N_SAMPLES_PER_BUFFER = 64;
 
 namespace {
 
@@ -28,6 +44,18 @@ public:
   StubBufferTask()
     : GOSoundBufferTaskBase(
       PRIORITY_AUDIOGROUP, false, N_CHANNELS, N_SAMPLES_PER_BUFFER) {}
+
+  bool DoRun(GOSchedulerThread *) override { return true; }
+  void EnsureBufferReady(bool, GOSchedulerThread * = nullptr) override {}
+};
+
+// Same as StubBufferTask, but sized for the reverb-specific tests (see
+// REVERB_N_SAMPLES_PER_BUFFER above).
+class ReverbStubBufferTask : public GOSoundBufferTaskBase {
+public:
+  ReverbStubBufferTask()
+    : GOSoundBufferTaskBase(
+      PRIORITY_AUDIOGROUP, false, N_CHANNELS, REVERB_N_SAMPLES_PER_BUFFER) {}
 
   bool DoRun(GOSchedulerThread *) override { return true; }
   void EnsureBufferReady(bool, GOSchedulerThread * = nullptr) override {}
@@ -203,10 +231,79 @@ void GOTestSoundOutputTask::TestIdentityMixPreservesPerFrameLayout() {
   }
 }
 
+void GOTestSoundOutputTask::TestDiscardContentResetsReverbTail() {
+  ReverbStubBufferTask input;
+
+  GOSoundOutputTask output(
+    N_CHANNELS, makeIdentityScaleFactors(), REVERB_N_SAMPLES_PER_BUFFER);
+  const GOSoundReverb::ReverbConfig config = {
+    .isEnabled = true,
+    .isDirect = false,
+    .channel = 1,
+    .startOffset = 0,
+    .len = 0,
+    .delay = 0,
+    .gain = 1.0f,
+    .file = TEST_IR_WAV_PATH,
+  };
+
+  output.SetupReverb(config, REVERB_N_SAMPLES_PER_BUFFER, TEST_IR_SAMPLE_RATE);
+  output.SetOutputs({&input});
+
+  // A unit impulse near the end of channel 0's buffer, everything else
+  // silent: the 10-sample IR's tail spills past the buffer boundary into
+  // the next round.
+  constexpr unsigned IMPULSE_FRAME = REVERB_N_SAMPLES_PER_BUFFER - 4;
+
+  fillChannel(input, 0, 0.0f);
+  fillChannel(input, 1, 0.0f);
+  input.GetChannelBuffer(0).GetData()[IMPULSE_FRAME] = 1.0f;
+  output.Run();
+  input.GetChannelBuffer(0).GetData()[IMPULSE_FRAME] = 0.0f;
+
+  bool wasTailObserved = false;
+
+  for (unsigned roundI = 0; roundI < 8 && !wasTailObserved; roundI++) {
+    output.NewRound();
+    output.Run();
+    for (unsigned frameI = 0;
+         frameI < REVERB_N_SAMPLES_PER_BUFFER && !wasTailObserved;
+         frameI++)
+      wasTailObserved = output.GetChannelBuffer(0).GetData()[frameI] != 0.0f;
+  }
+
+  GOAssert(
+    wasTailObserved,
+    "sanity check: the IR tail must bleed into a later round with silent "
+    "input");
+
+  output.DiscardContent();
+
+  bool wasTailObservedAfterDiscard = false;
+
+  for (unsigned roundI = 0; roundI < 8; roundI++) {
+    output.NewRound();
+    output.Run();
+    for (unsigned frameI = 0; frameI < REVERB_N_SAMPLES_PER_BUFFER; frameI++)
+      if (output.GetChannelBuffer(0).GetData()[frameI] != 0.0f)
+        wasTailObservedAfterDiscard = true;
+  }
+
+  GOAssert(
+    !wasTailObservedAfterDiscard,
+    "DiscardContent() must reset the reverb engine so a leftover "
+    "convolution tail does not bleed into rounds run after the task is "
+    "reused without another SetupReverb() call");
+  GOAssert(
+    output.GetMeterInfo()[0] == 0.0f,
+    "DiscardContent() must also reset the meter, as before");
+}
+
 void GOTestSoundOutputTask::run() {
-  TestIdentityMixPassesThroughUnclamped();
-  TestClampsOutOfRangeValuesPerChannel();
-  TestMeterInfoTracksPeakPerChannelAndResets();
-  TestZeroScaleFactorExcludesChannel();
-  TestIdentityMixPreservesPerFrameLayout();
+  GO_RUN_TEST(TestIdentityMixPassesThroughUnclamped())
+  GO_RUN_TEST(TestClampsOutOfRangeValuesPerChannel())
+  GO_RUN_TEST(TestMeterInfoTracksPeakPerChannelAndResets())
+  GO_RUN_TEST(TestZeroScaleFactorExcludesChannel())
+  GO_RUN_TEST(TestIdentityMixPreservesPerFrameLayout())
+  GO_RUN_TEST(TestDiscardContentResetsReverbTail())
 }
