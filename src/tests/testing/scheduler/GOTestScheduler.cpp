@@ -38,20 +38,6 @@ public:
   void DiscardContent() override {}
 };
 
-// Calls Delete() on the wrapped thread from its destructor, so a GOAssert
-// failure thrown out of a soak loop still stops the thread instead of
-// leaking a running std::thread - whose destructor would otherwise call
-// std::terminate() and crash the whole test process instead of reporting
-// the failure.
-class SchedulerThreadGuard {
-private:
-  GOSchedulerThread &r_Thread;
-
-public:
-  explicit SchedulerThreadGuard(GOSchedulerThread &thread) : r_Thread(thread) {}
-  ~SchedulerThreadGuard() { r_Thread.Delete(); }
-};
-
 // A minimal GOSchedulerTask double: IsEmpty() reflects hasContent directly,
 // and DiscardContent() clears it and counts its own calls, which is all
 // GOScheduler's deregistration contract (Clear()/Remove() call
@@ -72,6 +58,20 @@ public:
     hasContent = false;
     nDiscardContentCalls++;
   }
+};
+
+// Calls Delete() on the wrapped thread from its destructor, so a GOAssert
+// failure thrown out of a soak loop still stops the thread instead of
+// leaking a running std::thread - whose destructor would otherwise call
+// std::terminate() and crash the whole test process instead of reporting
+// the failure.
+class SchedulerThreadGuard {
+private:
+  GOSchedulerThread &r_Thread;
+
+public:
+  explicit SchedulerThreadGuard(GOSchedulerThread &thread) : r_Thread(thread) {}
+  ~SchedulerThreadGuard() { r_Thread.Delete(); }
 };
 
 } // namespace
