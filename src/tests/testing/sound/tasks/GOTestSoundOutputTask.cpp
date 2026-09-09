@@ -348,6 +348,41 @@ void GOTestSoundOutputTask::
     "resetting the reverb engine");
 }
 
+void GOTestSoundOutputTask::
+  TestIsEmptyStaysFalseAfterSilentRoundUntilNewRound() {
+  StubBufferTask input;
+
+  GOSoundOutputTask output(
+    N_CHANNELS, makeIdentityScaleFactors(), N_SAMPLES_PER_BUFFER);
+
+  output.SetOutputs({&input});
+
+  GOAssert(
+    output.IsEmpty(),
+    "sanity check: a freshly set-up task must start IsEmpty()");
+
+  // No SetupReverb() call: reverb stays disabled, so this exercises the
+  // meter/reverb checks alongside a plain silent round, with nothing to
+  // mask a missing round-state check.
+  fillChannel(input, 0, 0.0f);
+  fillChannel(input, 1, 0.0f);
+  output.Run();
+
+  GOAssert(
+    !output.IsEmpty(),
+    "a completed round - even one that produced only silence - must make "
+    "IsEmpty() false: the task is done for this round "
+    "(GOSoundTaskBase::IsEmpty() would say so) and not yet reset, so it is "
+    "not safe to Add() back until NewRound() runs");
+
+  output.NewRound();
+
+  GOAssert(
+    output.IsEmpty(),
+    "NewRound() must make IsEmpty() true again for a silent, non-reverb "
+    "task");
+}
+
 void GOTestSoundOutputTask::run() {
   GO_RUN_TEST(TestIdentityMixPassesThroughUnclamped())
   GO_RUN_TEST(TestClampsOutOfRangeValuesPerChannel())
@@ -356,4 +391,5 @@ void GOTestSoundOutputTask::run() {
   GO_RUN_TEST(TestIdentityMixPreservesPerFrameLayout())
   GO_RUN_TEST(TestDiscardContentResetsReverbTail())
   GO_RUN_TEST(TestIsEmptyStaysFalseAfterMeterResetWhileReverbActive())
+  GO_RUN_TEST(TestIsEmptyStaysFalseAfterSilentRoundUntilNewRound())
 }
