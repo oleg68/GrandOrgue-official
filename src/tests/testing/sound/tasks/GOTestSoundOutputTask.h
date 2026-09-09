@@ -47,6 +47,12 @@ private:
    * SetupReverb() call. */
   void TestDiscardContentResetsReverbTail();
 
+  /** ResetMeterInfo() alone (called every period for the GUI meter, not
+   * only on deregistration) must not make IsEmpty() report true while the
+   * reverb engine may still hold an undecayed tail - only DiscardContent()
+   * may clear that. */
+  void TestIsEmptyStaysFalseAfterMeterResetWhileReverbActive();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;
