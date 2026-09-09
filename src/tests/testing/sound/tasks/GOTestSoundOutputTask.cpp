@@ -299,6 +299,55 @@ void GOTestSoundOutputTask::TestDiscardContentResetsReverbTail() {
     "DiscardContent() must also reset the meter, as before");
 }
 
+void GOTestSoundOutputTask::
+  TestIsEmptyStaysFalseAfterMeterResetWhileReverbActive() {
+  ReverbStubBufferTask input;
+
+  GOSoundOutputTask output(
+    N_CHANNELS, makeIdentityScaleFactors(), REVERB_N_SAMPLES_PER_BUFFER);
+  const GOSoundReverb::ReverbConfig config = {
+    .isEnabled = true,
+    .isDirect = false,
+    .channel = 1,
+    .startOffset = 0,
+    .len = 0,
+    .delay = 0,
+    .gain = 1.0f,
+    .file = TEST_IR_WAV_PATH,
+  };
+
+  output.SetupReverb(config, REVERB_N_SAMPLES_PER_BUFFER, TEST_IR_SAMPLE_RATE);
+  output.SetOutputs({&input});
+
+  GOAssert(
+    output.IsEmpty(),
+    "sanity check: a freshly set-up task must start IsEmpty()");
+
+  fillChannel(input, 0, 0.0f);
+  fillChannel(input, 1, 0.0f);
+  input.GetChannelBuffer(0).GetData()[0] = 1.0f;
+  output.Run();
+
+  // ResetMeterInfo() alone stands in for GOSoundOrganEngine::NextPeriod(),
+  // which calls it every period regardless of deregistration - it must not
+  // be enough to make IsEmpty() report true while the reverb engine may
+  // still hold an undecayed tail.
+  output.ResetMeterInfo();
+
+  GOAssert(
+    !output.IsEmpty(),
+    "IsEmpty() must stay false after a mere meter reset while the reverb "
+    "engine has run and may still hold a tail - only DiscardContent() may "
+    "clear that");
+
+  output.DiscardContent();
+
+  GOAssert(
+    output.IsEmpty(),
+    "DiscardContent() must make IsEmpty() true again by actually "
+    "resetting the reverb engine");
+}
+
 void GOTestSoundOutputTask::run() {
   GO_RUN_TEST(TestIdentityMixPassesThroughUnclamped())
   GO_RUN_TEST(TestClampsOutOfRangeValuesPerChannel())
@@ -306,4 +355,5 @@ void GOTestSoundOutputTask::run() {
   GO_RUN_TEST(TestZeroScaleFactorExcludesChannel())
   GO_RUN_TEST(TestIdentityMixPreservesPerFrameLayout())
   GO_RUN_TEST(TestDiscardContentResetsReverbTail())
+  GO_RUN_TEST(TestIsEmptyStaysFalseAfterMeterResetWhileReverbActive())
 }
