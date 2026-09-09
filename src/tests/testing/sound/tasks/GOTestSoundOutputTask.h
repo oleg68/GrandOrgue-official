@@ -53,6 +53,13 @@ private:
    * may clear that. */
   void TestIsEmptyStaysFalseAfterMeterResetWhileReverbActive();
 
+  /** A completed round that produced only silence, with reverb disabled,
+   * must still make IsEmpty() false until NewRound() runs - meter and
+   * reverb are silent, but the task is not GOSoundTaskBase::IsEmpty()
+   * (not RUN_STATE_NOT_STARTED), and a caller must not treat a
+   * done-but-not-reset task as safe to Add() back. */
+  void TestIsEmptyStaysFalseAfterSilentRoundUntilNewRound();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;
