@@ -46,6 +46,13 @@ private:
    * dereferencing it while grouping same-priority tasks. */
   void TestRemoveThenAddSameTaskSucceeds();
 
+  /** Regression test for GOSoundOrganEngine::StartEngine(): an idle
+   * scheduler thread parked by PauseGivingWork()/WaitForIdle() must actually
+   * run newly available work after NewRound()/ResumeGivingWork()/Wakeup() -
+   * the same sequence StopEngine()/StartEngine() perform - rather than
+   * staying parked because nobody signaled it. */
+  void TestResumeThenWakeupRunsIdleThreadsWork();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;
