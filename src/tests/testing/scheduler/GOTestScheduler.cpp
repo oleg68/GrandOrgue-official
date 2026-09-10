@@ -162,12 +162,12 @@ void GOTestScheduler::TestResumeThenWakeupRunsIdleThreadsWork() {
 
   scheduler.Add(&task);
 
-  // Mirrors GOSoundOrganEngine::StopEngine() then the fixed StartEngine():
-  // pause, wait for the thread to park, then make a fresh round available
-  // and explicitly wake it. Regression coverage for the "wake aux workers on
-  // resume" fix: without the final Wakeup(), the thread would stay parked on
-  // its condition variable forever - GetNextTask() returning real work is
-  // not, by itself, enough to bring an idle thread back.
+  /* Mirrors GOSoundOrganEngine::StopEngine() then the fixed StartEngine():
+     pause, wait for the thread to park, then make a fresh round available
+     and explicitly wake it. Regression coverage for the "wake aux workers on
+     resume" fix: without the final Wakeup(), the thread would stay parked on
+     its condition variable forever - GetNextTask() returning real work is
+     not, by itself, enough to bring an idle thread back. */
   scheduler.PauseGivingWork();
   thread.WaitForIdle();
 
