@@ -217,6 +217,23 @@ This pattern flows through: `GOSoundPort` → `GOSound` → `GOSoundEngine`
   - `modification/`: Organ modification tracking
   - `resource/`: Bundled resources
   - `sound/`: Audio engine and sound processing
+    - `dsp-kernels/`: Stateless computational cores (interpolation, filter
+      math). Depend on nothing else in the sound engine.
+    - `processing/`: DSP composition framework (processor/state interfaces,
+      chain lifecycle, parameter mapper interface). Contains no DSP math and
+      must not depend on `model/`.
+    - `playing/`: Sampler-side playback (streams, samplers, faders, audio
+      sections).
+    - `providers/`: Audio sources feeding samplers.
+    - `tasks/`, `buffer/`, `ports/`, `interfaces/`: Scheduler tasks, buffer
+      wrappers, backends, contracts.
+    - `reverb/`: External-library (zita-convolver) integration, a category
+      of its own.
+
+    Placement rule: a new DSP class with no state ownership and no
+    framework ties goes in `dsp-kernels/`; a class that reads the organ
+    model belongs in a model-aware layer above `processing/`, never in
+    `dsp-kernels/` or `processing/` itself.
   - `updater/`: ODF/CMB version updater
   - `yaml/`: YAML serialization utilities
 
