@@ -11,7 +11,7 @@
 #include "model/GOEnclosure.h"
 #include "model/GOOrganModel.h"
 #include "sound/GOSoundDefs.h"
-#include "sound/GOSoundOnePoleFilter.h"
+#include "sound/dsp-kernels/GOSoundOnePoleFilter.h"
 #include "sound/effects/GOSoundShelfFilterProcessor.h"
 #include "sound/mappers/GOSoundEnclosureShelfMapper.h"
 
