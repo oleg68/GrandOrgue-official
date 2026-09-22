@@ -8,7 +8,7 @@
 #ifndef GOSOUNDSHELFFILTERPROCESSOR_H
 #define GOSOUNDSHELFFILTERPROCESSOR_H
 
-#include "sound/GOSoundOnePoleFilter.h"
+#include "sound/dsp-kernels/GOSoundOnePoleFilter.h"
 #include "sound/processing/GOSoundProcessorTyped.h"
 
 #include "GOSoundShelfFilterProcessorState.h"
