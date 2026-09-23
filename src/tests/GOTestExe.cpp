@@ -33,6 +33,7 @@
 #include "testing/sound/buffer/GOTestPerfSoundBufferPlanarMutable.h"
 #include "testing/sound/buffer/GOTestSoundBuffer.h"
 #include "testing/sound/buffer/GOTestSoundBufferManaged.h"
+#include "testing/sound/buffer/GOTestSoundBufferMono.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutable.h"
 #include "testing/sound/buffer/GOTestSoundBufferMutableMono.h"
 #include "testing/sound/buffer/GOTestSoundBufferPlanar.h"
@@ -96,6 +97,7 @@ int main(int argc, char *argv[]) {
   GOTestMidiPlayerContent testMidiPlayerContent;
   GOTestSoundBuffer goTestSoundBuffer;
   GOTestSoundBufferManaged testSoundBufferManaged;
+  GOTestSoundBufferMono testSoundBufferMono;
   GOTestSoundBufferMutable testSoundBufferMutable;
   GOTestSoundBufferMutableMono testSoundBufferMutableMono;
   GOTestSoundBufferPlanar testSoundBufferPlanar;
