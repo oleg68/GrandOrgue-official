@@ -22,6 +22,8 @@
 #ifndef GOSOUNDRESAMPLE_H_
 #define GOSOUNDRESAMPLE_H_
 
+#include <cassert>
+#include <cmath>
 #include <cstdint>
 
 /**
@@ -44,6 +46,16 @@ public:
     GO_LINEAR_INTERPOLATION = 0,
     GO_POLYPHASE_INTERPOLATION = 1,
   };
+
+  /**
+   * Converts a resampling-rate multiplier (source frames per target frame,
+   * e.g. 1.0 = no change, 2^(cents/1200) for a pitch shift) into the
+   * 1/UPSAMPLE_FACTOR-unit increment ResamplingPosition::Inc(unsigned) and
+   * Init() use.
+   */
+  static inline unsigned rateToFractionIncrement(float rate) {
+    return (unsigned)roundf(rate * UPSAMPLE_FACTOR);
+  }
 
   /**
    * A position in the source sample stream for the current position in the
@@ -81,13 +93,25 @@ public:
       const ResamplingPosition *pOld = nullptr);
 
     /**
-     * Advance the position for the next target sample
+     * Advance the position for the next target frame by an explicit
+     * increment, for a time-varying resampling rate (e.g. vibrato). Unlike
+     * Inc(), this does not use m_FractionIncrement, so it does not disturb
+     * AvailableTargetSamples() or GetResamplingFactor() for streams that
+     * also use the constant-rate path.
+     * @param fractionIncrement the source-position advance for this one
+     *   target frame, in 1/UPSAMPLE_FACTOR units.
      */
-    inline void Inc() {
-      m_fraction += m_FractionIncrement;
+    inline void Inc(unsigned fractionIncrement) {
+      m_fraction += fractionIncrement;
       m_index += m_fraction >> UPSAMPLE_BITS;
       m_fraction &= UPSAMPLE_MASK;
     }
+
+    /**
+     * Advance the position for the next target frame using the stream's
+     * constant resampling rate. Equivalent to Inc(m_FractionIncrement).
+     */
+    inline void Inc() { Inc(m_FractionIncrement); }
 
     /**
      * Calculates the target samples length from given source position to the
@@ -188,6 +212,16 @@ public:
       p_CurrPtr += nChannels;
       return res;
     }
+
+    /**
+     * No-op: this vector addresses a flat, non-recycled memory region, so
+     * ResamplingPosition's index never needs correcting. Exists only so
+     * ResampleBlockImpl() can call fV.NormalizePosition(resamplingPos)
+     * unconditionally, resolved statically per FrameVectorT with no
+     * runtime branch - see RingPlanarFrameVector's own override below for
+     * the vector type that actually needs this.
+     */
+    inline void NormalizePosition(ResamplingPosition &) const {}
   };
 
   /**
@@ -223,6 +257,107 @@ public:
     }
   };
 
+  /**
+   * A read-only FloatingFrameVector view over a planar (channel-major) ring
+   * buffer, for a source whose read position can advance at a varying,
+   * non-integer rate and wrap around a bounded window of history — e.g. a
+   * modulated delay line such as pitch vibrato, the motivating use case but
+   * not a dependency of this class. Channel-major like GOSoundBufferPlanar,
+   * but strided by this class's own nPhysicalFrames, not
+   * GOSoundBufferPlanar's nFrames: channel c starts at pRingStart +
+   * c * nPhysicalFrames.
+   *
+   * Read only via ResampleBlock()/ResampleBlockVariableRate(), which call
+   * NormalizePosition() every frame — Seek() only asserts the index is
+   * already below nLogicalFrames, it does not wrap it.
+   */
+  template <class SrcItemT, class ResItemT, uint8_t nChannels>
+  class RingPlanarFrameVector : public FloatingFrameVector<nChannels> {
+  private:
+    const SrcItemT *p_RingStart;
+    const SrcItemT *p_CurrPtr;
+#ifndef NDEBUG
+    const SrcItemT *p_EndPtr;
+#endif
+    unsigned m_NLogicalFrames;
+    unsigned m_NPhysicalFrames;
+
+  public:
+    /**
+     * @param pRingStart pointer to channel 0's physical sub-buffer.
+     * @param nLogicalFrames the ring's logical frame count — the index
+     *   passed to Seek() must already be below this; must be > 0.
+     * @param nPhysicalFrames each channel's actual allocated length in
+     *   frames; must exceed nLogicalFrames by at least the reading
+     *   resampler's VECTOR_LENGTH, to hold the mirrored tail Seek()/
+     *   NextItem() rely on.
+     */
+    inline RingPlanarFrameVector(
+      const SrcItemT *pRingStart,
+      unsigned nLogicalFrames,
+      unsigned nPhysicalFrames)
+      : p_RingStart(pRingStart),
+        m_NLogicalFrames(nLogicalFrames),
+        m_NPhysicalFrames(nPhysicalFrames) {
+      assert(nLogicalFrames > 0);
+      // Only the minimum possible margin is checked here - this class does
+      // not know the reading resampler's VECTOR_LENGTH (nPoints), so it
+      // cannot verify the caller actually left enough room for the mirrored
+      // tail the class comment requires. A too-small margin is instead
+      // caught where it actually matters, by NextItem()'s p_EndPtr assert.
+      assert(nPhysicalFrames > nLogicalFrames);
+    }
+
+    /**
+     * Pins the channel and points to the given index directly - index must
+     * already be below nLogicalFrames (see the class comment).
+     */
+    inline void Seek(unsigned index, uint8_t channel) {
+      assert(channel < nChannels);
+      assert(index < m_NLogicalFrames);
+
+      const SrcItemT *pChannelBase = p_RingStart + channel * m_NPhysicalFrames;
+
+      p_CurrPtr = pChannelBase + index;
+#ifndef NDEBUG
+      p_EndPtr = pChannelBase + m_NPhysicalFrames;
+#endif
+    }
+
+    /**
+     * Returns the seeked channel's next item and advances by one frame.
+     * Relies on the ring owner having mirrored each channel's first
+     * (nPhysicalFrames - nLogicalFrames) frames into that channel's own
+     * tail, so a run of calls that crosses nLogicalFrames still reads valid
+     * data instead of needing a second wrap; asserts against p_EndPtr so an
+     * over-long run (more calls than the mirror covers) fails loudly in
+     * Debug instead of silently reading adjacent heap memory.
+     */
+    inline ResItemT NextItem() {
+      assert(p_CurrPtr < p_EndPtr);
+
+      return (ResItemT) * (p_CurrPtr++);
+    }
+
+    /**
+     * Keeps resamplingPos's index below this ring's own nLogicalFrames,
+     * called once per output frame by ResampleBlockImpl() (see
+     * PtrFrameVector::NormalizePosition() for why this call site is
+     * unconditional and zero-cost for non-ring vectors). A single
+     * conditional subtract suffices as long as one frame's growth stays
+     * below nLogicalFrames, which holds for any physically sane
+     * rate/ring-size pairing; the assert catches a violation instead of
+     * silently under-correcting.
+     */
+    inline void NormalizePosition(ResamplingPosition &pos) const {
+      const unsigned index = pos.GetIndex();
+
+      if (index >= m_NLogicalFrames)
+        pos.SetIndex(index - m_NLogicalFrames);
+      assert(pos.GetIndex() < m_NLogicalFrames);
+    }
+  };
+
   // These cofficients are calculated in the constructor and are not more
   // changed
 
@@ -254,42 +389,139 @@ public:
      */
     static constexpr unsigned VECTOR_LENGTH = nPoints;
 
+  private:
     /**
-     * Do actual resampling of an input sample block to the output block of the
-     *   given number of samples
+     * Shared implementation of ResampleBlock() and
+     * ResampleBlockVariableRate(). PosIncrementSourceT must provide
+     * `unsigned NextIncrement()`, self-advancing and returning the Inc()
+     * argument for the next output frame on each call (exactly one call
+     * per output frame, in order) — the same calling convention as
+     * FloatingFrameVector::NextItem(). Being a template parameter (not a
+     * std::function/virtual call), it is fully inlined, so a
+     * constant-returning source compiles to the same code as today's
+     * unconditional resamplingPos.Inc(). fV.NormalizePosition() is called
+     * the same way, unconditionally - it is a no-op for a flat FrameVectorT
+     * (PtrFrameVector) and the real ring-wrap correction for
+     * RingPlanarFrameVector, resolved statically per FrameVectorT with no
+     * runtime branch here.
      * @param resamplingPos A resampling position in the input stream. It is
      *   advanced during this call
      * @param fV a floating sample vector linked to the input stream
+     * @param posIncrementSource supplies the per-frame Inc() argument
      * @param pOut a pointer to the output sample buffer in interleaving format.
-     *   Must have at least nOutChannels*nOutSamples length
-     * @param nOutSamples a number of output samples of each channel
+     *   Must have at least nOutChannels*nOutFrames length
+     * @param nOutFrames a number of output frames
      */
-    template <class FrameVectorT, uint8_t nOutChannels>
-    inline void ResampleBlock(
+    template <
+      class FrameVectorT,
+      uint8_t nOutChannels,
+      class PosIncrementSourceT>
+    inline void ResampleBlockImpl(
       ResamplingPosition &resamplingPos,
       FrameVectorT &fV,
+      PosIncrementSourceT posIncrementSource,
       float *pOut,
-      unsigned nOutSamples) const {
-      for (unsigned i = 0; i < nOutSamples; i++, resamplingPos.Inc()) {
+      unsigned nOutFrames) const {
+      for (unsigned nFramesLeft = nOutFrames; nFramesLeft > 0; nFramesLeft--) {
         const float(&coefs)[nPoints] = r_coefs[resamplingPos.GetFraction()];
-        float outSample = 0.0f;
+        float outItem = 0.0f;
 
         for (uint8_t ch = 0; ch < nOutChannels; ch++) {
           if (ch < FrameVectorT::m_NChannels) {
             const float *pCoef = coefs;
 
             fV.Seek(resamplingPos.GetIndex(), ch);
-            // calculate the next output sample as a scalar production of the
+            // calculate the next output item as a scalar production of the
             // input sample vector and the vector of coefficients
-            outSample = 0.0f;
+            outItem = 0.0f;
             for (unsigned j = 0; j < nPoints; j++)
-              outSample += fV.NextItem() * *(pCoef++);
+              outItem += fV.NextItem() * *(pCoef++);
           }
-          /* else copy the calculated sample from the previous channel. It is
+          /* else copy the calculated item from the previous channel. It is
            * useful only for resampling a mono stream to a stereo one */
-          *(pOut++) = outSample;
+          *(pOut++) = outItem;
         }
+
+        resamplingPos.Inc(posIncrementSource.NextIncrement());
+        fV.NormalizePosition(resamplingPos);
       }
+    }
+
+  public:
+    /**
+     * A position-increment source returning the same increment every call,
+     * for ResampleBlock()'s constant-rate path.
+     */
+    struct ConstantPosIncrementSource {
+      const unsigned m_Increment;
+
+      inline unsigned NextIncrement() { return m_Increment; }
+    };
+
+    /**
+     * A position-increment source that walks a caller-owned array one entry
+     * per call, for ResampleBlockVariableRate()'s time-varying path. Mirrors
+     * PtrFrameVector: a bare pointer bump, no bounds check, no modulo - the
+     * caller guarantees at least nOutFrames entries.
+     */
+    struct ArrayPosIncrementSource {
+      const unsigned *p_Next;
+
+      inline unsigned NextIncrement() { return *(p_Next++); }
+    };
+
+    /**
+     * Do actual resampling of an input sample block to the output block of the
+     *   given number of frames, at the stream's constant resampling rate
+     * @param resamplingPos A resampling position in the input stream. It is
+     *   advanced during this call
+     * @param fV a floating sample vector linked to the input stream
+     * @param pOut a pointer to the output sample buffer in interleaving format.
+     *   Must have at least nOutChannels*nOutFrames length
+     * @param nOutFrames a number of output frames
+     */
+    template <class FrameVectorT, uint8_t nOutChannels>
+    inline void ResampleBlock(
+      ResamplingPosition &resamplingPos,
+      FrameVectorT &fV,
+      float *pOut,
+      unsigned nOutFrames) const {
+      ResampleBlockImpl<FrameVectorT, nOutChannels>(
+        resamplingPos,
+        fV,
+        ConstantPosIncrementSource{resamplingPos.GetFractionIncrement()},
+        pOut,
+        nOutFrames);
+    }
+
+    /**
+     * Like ResampleBlock(), but the source-position advance is supplied per
+     * output frame instead of being constant, for a time-varying resampling
+     * rate (vibrato). resamplingPos's own m_FractionIncrement is never read.
+     * @param resamplingPos A resampling position in the input stream. It is
+     *   advanced during this call
+     * @param fV a floating sample vector linked to the input stream
+     * @param pFractionIncrements the first of at least nOutFrames increments,
+     *   in 1/UPSAMPLE_FACTOR units (source frames per target frame, scaled
+     *   by UPSAMPLE_FACTOR and rounded — see
+     *   GOSoundResample::rateToFractionIncrement()).
+     * @param pOut a pointer to the output sample buffer in interleaving format.
+     *   Must have at least nOutChannels*nOutFrames length
+     * @param nOutFrames a number of output frames
+     */
+    template <class FrameVectorT, uint8_t nOutChannels>
+    inline void ResampleBlockVariableRate(
+      ResamplingPosition &resamplingPos,
+      FrameVectorT &fV,
+      const unsigned *pFractionIncrements,
+      float *pOut,
+      unsigned nOutFrames) const {
+      ResampleBlockImpl<FrameVectorT, nOutChannels>(
+        resamplingPos,
+        fV,
+        ArrayPosIncrementSource{pFractionIncrements},
+        pOut,
+        nOutFrames);
     }
   };
 

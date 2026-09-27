@@ -44,6 +44,19 @@ private:
    * constant rate 1.0. */
   void TestPerfResampleBlockStereo24Polyphase();
 
+  /** LinearResampler::ResampleBlockVariableRate(), mono, fed a
+   * ConstantPosIncrementSource-equivalent increment array (all entries equal
+   * to the constant-rate case's own increment), so the comparison against
+   * TestPerfResampleBlockLinear() above isolates ArrayPosIncrementSource's
+   * per-frame indirection and NormalizePosition()'s call - this path
+   * measures measurably slower than the constant-rate one (see
+   * BASELINE_VARIABLE_RATE_LINEAR's comment). */
+  void TestPerfResampleBlockVariableRateLinear();
+
+  /** PolyphaseResampler::ResampleBlockVariableRate(), same
+   * constant-increment-array setup as the Linear case above. */
+  void TestPerfResampleBlockVariableRatePolyphase();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;
