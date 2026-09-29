@@ -57,6 +57,19 @@ private:
    * constant-increment-array setup as the Linear case above. */
   void TestPerfResampleBlockVariableRatePolyphase();
 
+  /** LinearResampler::ResampleBlockVariableRatePlanar(), stereo (the only
+   * shape that exercises this path's per-channel position-trajectory
+   * replay - see ResampleBlockImplPlanar()), same constant-increment-array
+   * setup as TestPerfResampleBlockVariableRateLinear() - the planar output
+   * path GOSoundVibratoProcessor::Process() will call, compared against its
+   * interleaved sibling. */
+  void TestPerfResampleBlockVariableRatePlanarLinear();
+
+  /** PolyphaseResampler::ResampleBlockVariableRatePlanar(), stereo, same
+   * constant-increment-array setup as
+   * TestPerfResampleBlockVariableRatePolyphase(). */
+  void TestPerfResampleBlockVariableRatePlanarPolyphase();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;

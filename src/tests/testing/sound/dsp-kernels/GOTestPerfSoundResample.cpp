@@ -90,11 +90,18 @@ static constexpr GOTestPerfSoundBufferBaseline BASELINE_STEREO24_LINEAR[] = {
   {512, 582},
   {2048, 570},
 #else
-  // Debug, worst of 3 runs 296.0/306.8/309.4/308.8, minus 10%
-  {32, 266},
-  {128, 276},
-  {512, 278},
-  {2048, 277},
+  // Debug, worst of 3 runs 296.0/306.8/309.4/308.8, minus 10% - measured
+  // before ComputeOutputItem() was factored out of ResampleBlockImpl() (see
+  // that method's own doc comment) to share the per-item scalar-product
+  // logic with the new planar path. That extra call is inlined away in
+  // Release, but in an unoptimized Debug build it is a genuine per-frame
+  // cost; a single local run afterwards measured 259.6/267.1/267.0/269.1.
+  // Calibration rule: worst observed run, minus 10%, floored to 2
+  // significant digits.
+  {32, 230},
+  {128, 240},
+  {512, 240},
+  {2048, 240},
 #endif
 };
 
@@ -142,11 +149,16 @@ static constexpr GOTestPerfSoundBufferBaseline BASELINE_VARIABLE_RATE_LINEAR[]
     {512, 700},
     {2048, 700},
 #else
-    // Debug, worst of 3 runs 277.0/297.6/300.6/302.1, minus 10%
-    {32, 249},
-    {128, 267},
-    {512, 270},
-    {2048, 271},
+    // Debug, worst of 3 runs 277.0/297.6/300.6/302.1, minus 10% - same
+    // ComputeOutputItem() extraction cost as BASELINE_STEREO24_LINEAR's
+    // Debug table above (this path also goes through
+    // ResampleBlockImpl()/ComputeOutputItem()). A single local run
+    // afterwards measured 211.8/224.6/228.7/229.4. Calibration rule: worst
+    // observed run, minus 10%, floored to 2 significant digits.
+    {32, 190},
+    {128, 200},
+    {512, 200},
+    {2048, 200},
 #endif
 };
 
@@ -171,6 +183,58 @@ static constexpr GOTestPerfSoundBufferBaseline
     {128, 85},
     {512, 90},
     {2048, 90},
+#endif
+};
+
+// ResampleBlockVariableRatePlanar() vs. ResampleBlockVariableRate(): stereo
+// only (reports Mitems/sec - see BASELINE_STEREO24_LINEAR's own comment) -
+// mono would run the channel-outer/frame-inner loop for a single channel,
+// identical total work to the interleaved path, so it would not exercise
+// the one thing this path does differently: replaying the position
+// trajectory once per channel (see ResampleBlockImplPlanar()'s doc
+// comment).
+static constexpr unsigned N_PLANAR_PERF_CHANNELS = 2;
+
+// Calibration rule throughout this file: worst observed run, minus 10%,
+// floored to 2 significant digits.
+static constexpr GOTestPerfSoundBufferBaseline
+  BASELINE_VARIABLE_RATE_PLANAR_LINEAR[]
+  = {
+#ifdef NDEBUG
+    // TODO(#709): this is a single local Debug run's ratio applied to
+    // BASELINE_VARIABLE_RATE_LINEAR's own Release baseline as an estimate -
+    // no Release run of this test has actually been done yet. Recalibrate
+    // from a real Release run before relying on this table.
+    {32, 560},
+    {128, 630},
+    {512, 630},
+    {2048, 630},
+#else
+    // Debug, single local run 217.4/233.3/236.2/235.2.
+    {32, 190},
+    {128, 200},
+    {512, 210},
+    {2048, 210},
+#endif
+};
+
+static constexpr GOTestPerfSoundBufferBaseline
+  BASELINE_VARIABLE_RATE_PLANAR_POLYPHASE[]
+  = {
+#ifdef NDEBUG
+    // TODO(#709): same caveat as BASELINE_VARIABLE_RATE_PLANAR_LINEAR's
+    // Release table above - not yet measured on Release, estimated from
+    // BASELINE_VARIABLE_RATE_POLYPHASE's own Debug-to-Release ratio.
+    {32, 350},
+    {128, 350},
+    {512, 370},
+    {2048, 370},
+#else
+    // Debug, single local run 116.2/121.1/122.1/121.3.
+    {32, 100},
+    {128, 100},
+    {512, 100},
+    {2048, 100},
 #endif
 };
 
@@ -414,6 +478,108 @@ void GOTestPerfSoundResample::TestPerfResampleBlockVariableRatePolyphase() {
   }
 }
 
+void GOTestPerfSoundResample::TestPerfResampleBlockVariableRatePlanarLinear() {
+  std::cout << "\nPerformance test: "
+               "LinearResampler::ResampleBlockVariableRatePlanar (stereo)\n";
+
+  GOSoundResample resampler;
+  GOSoundResample::LinearResampler linearResampler(resampler);
+
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_VARIABLE_RATE_PLANAR_LINEAR) {
+    const unsigned nOutFrames = baseline.m_BufferSize;
+    const unsigned nSrcFrames
+      = nOutFrames + GOSoundResample::LinearResampler::VECTOR_LENGTH;
+    std::vector<float> src(nSrcFrames * N_PLANAR_PERF_CHANNELS);
+    // Planar layout: channel c's frame f is at out[c * nOutFrames + f].
+    std::vector<float> out(nOutFrames * N_PLANAR_PERF_CHANNELS);
+
+    fill_with_ramp(src);
+
+    GOSoundResample::ResamplingPosition resamplingPos;
+
+    resamplingPos.Init(1.0f);
+
+    GOSoundResample::PtrFrameVector<float, float, N_PLANAR_PERF_CHANNELS> fV(
+      src.data());
+    const std::vector<unsigned> increments(
+      nOutFrames, resamplingPos.GetFractionIncrement());
+
+    RunAndEvaluateTest(
+      "ResampleBlockVariableRatePlanarLinear",
+      baseline,
+      [&resamplingPos, &linearResampler, &fV, &increments, &out, nOutFrames]() {
+        resamplingPos.SetIndex(0);
+        linearResampler.ResampleBlockVariableRatePlanar<
+          GOSoundResample::
+            PtrFrameVector<float, float, N_PLANAR_PERF_CHANNELS>>(
+          resamplingPos,
+          fV,
+          increments.data(),
+          nOutFrames,
+          N_PLANAR_PERF_CHANNELS,
+          out.data(),
+          nOutFrames);
+      },
+      N_PLANAR_PERF_CHANNELS,
+      true);
+  }
+}
+
+void GOTestPerfSoundResample::
+  TestPerfResampleBlockVariableRatePlanarPolyphase() {
+  std::cout << "\nPerformance test: "
+               "PolyphaseResampler::ResampleBlockVariableRatePlanar "
+               "(stereo)\n";
+
+  GOSoundResample resampler;
+  GOSoundResample::PolyphaseResampler polyphaseResampler(resampler);
+
+  for (const GOTestPerfSoundBufferBaseline &baseline :
+       BASELINE_VARIABLE_RATE_PLANAR_POLYPHASE) {
+    const unsigned nOutFrames = baseline.m_BufferSize;
+    const unsigned nSrcFrames
+      = nOutFrames + GOSoundResample::PolyphaseResampler::VECTOR_LENGTH;
+    std::vector<float> src(nSrcFrames * N_PLANAR_PERF_CHANNELS);
+    std::vector<float> out(nOutFrames * N_PLANAR_PERF_CHANNELS);
+
+    fill_with_ramp(src);
+
+    GOSoundResample::ResamplingPosition resamplingPos;
+
+    resamplingPos.Init(1.0f);
+
+    GOSoundResample::PtrFrameVector<float, float, N_PLANAR_PERF_CHANNELS> fV(
+      src.data());
+    const std::vector<unsigned> increments(
+      nOutFrames, resamplingPos.GetFractionIncrement());
+
+    RunAndEvaluateTest(
+      "ResampleBlockVariableRatePlanarPolyphase",
+      baseline,
+      [&resamplingPos,
+       &polyphaseResampler,
+       &fV,
+       &increments,
+       &out,
+       nOutFrames]() {
+        resamplingPos.SetIndex(0);
+        polyphaseResampler.ResampleBlockVariableRatePlanar<
+          GOSoundResample::
+            PtrFrameVector<float, float, N_PLANAR_PERF_CHANNELS>>(
+          resamplingPos,
+          fV,
+          increments.data(),
+          nOutFrames,
+          N_PLANAR_PERF_CHANNELS,
+          out.data(),
+          nOutFrames);
+      },
+      N_PLANAR_PERF_CHANNELS,
+      true);
+  }
+}
+
 void GOTestPerfSoundResample::run() {
   m_failedTests.clear();
 
@@ -433,6 +599,8 @@ void GOTestPerfSoundResample::run() {
   TestPerfResampleBlockStereo24Polyphase();
   TestPerfResampleBlockVariableRateLinear();
   TestPerfResampleBlockVariableRatePolyphase();
+  TestPerfResampleBlockVariableRatePlanarLinear();
+  TestPerfResampleBlockVariableRatePlanarPolyphase();
 
   std::cout << "\n========== Performance Tests Completed ==========\n";
 
