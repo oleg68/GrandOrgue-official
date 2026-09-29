@@ -58,6 +58,13 @@ private:
    * mono-only correctness tests above never touch. */
   void TestRingResamplerIntegration();
 
+  /** ResampleBlockVariableRatePlanar(), reading the same seam-crossing ring
+   * as TestRingResamplerIntegration(), must produce exactly the same
+   * values (in planar layout) and the same final ResamplingPosition as
+   * ResampleBlockVariableRate()'s interleaved output over the equivalent
+   * flat source. */
+  void TestPlanarVariableRateEquivalence();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;

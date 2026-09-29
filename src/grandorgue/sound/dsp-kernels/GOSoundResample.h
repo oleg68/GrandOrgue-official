@@ -22,6 +22,7 @@
 #ifndef GOSOUNDRESAMPLE_H_
 #define GOSOUNDRESAMPLE_H_
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -38,6 +39,20 @@ class GOSoundResample {
 public:
   static constexpr unsigned POLYPHASE_POINTS = 8;
   static constexpr unsigned LINEAR_POINTS = 2;
+
+  /**
+   * The largest per-item input-vector length (VECTOR_LENGTH) of any
+   * resampler this class offers. Computed via std::max() from
+   * POLYPHASE_POINTS/LINEAR_POINTS rather than just naming whichever one
+   * happens to be larger today, so this stays correct on its own if a
+   * future resampler type changes which one that is. A caller that needs
+   * one fixed margin regardless of which InterpolationType it ends up
+   * using (e.g. a ring buffer's mirrored-tail length, sized before the
+   * interpolation choice is necessarily fixed) should use this constant.
+   */
+  static constexpr unsigned MAX_POINTS
+    = std::max(POLYPHASE_POINTS, LINEAR_POINTS);
+
   static constexpr unsigned UPSAMPLE_BITS = 13;
   static constexpr unsigned UPSAMPLE_FACTOR = 1 << UPSAMPLE_BITS;
   static constexpr unsigned UPSAMPLE_MASK = UPSAMPLE_FACTOR - 1;
@@ -263,75 +278,94 @@ public:
    * non-integer rate and wrap around a bounded window of history — e.g. a
    * modulated delay line such as pitch vibrato, the motivating use case but
    * not a dependency of this class. Channel-major like GOSoundBufferPlanar,
-   * but strided by this class's own nPhysicalFrames, not
+   * but strided by this class's own (nRingFrames + nTailFrames), not
    * GOSoundBufferPlanar's nFrames: channel c starts at pRingStart +
-   * c * nPhysicalFrames.
+   * c * (nRingFrames + nTailFrames).
    *
    * Read only via ResampleBlock()/ResampleBlockVariableRate(), which call
    * NormalizePosition() every frame — Seek() only asserts the index is
-   * already below nLogicalFrames, it does not wrap it.
+   * already below nRingFrames, it does not wrap it.
    */
-  template <class SrcItemT, class ResItemT, uint8_t nChannels>
-  class RingPlanarFrameVector : public FloatingFrameVector<nChannels> {
+  template <class SrcItemT, class ResItemT> class RingPlanarFrameVector {
   private:
     const SrcItemT *p_RingStart;
     const SrcItemT *p_CurrPtr;
 #ifndef NDEBUG
     const SrcItemT *p_EndPtr;
 #endif
-    unsigned m_NLogicalFrames;
-    unsigned m_NPhysicalFrames;
+    unsigned m_NRingFrames;
+    unsigned m_NTailFrames;
 
   public:
     /**
+     * Number of channels this ring holds, given at construction rather
+     * than as a template parameter, so a caller with a runtime channel
+     * count (e.g. GOSoundVibratoProcessor, whose buffer's channel count is
+     * not known until EnsureSetup()) does not need one
+     * RingPlanarFrameVector instantiation per possible channel count.
+     * Public, matching FloatingFrameVector::m_NChannels's own visibility -
+     * ResampleBlockImpl() reads fV.m_NChannels directly, on whichever
+     * FrameVectorT it is instantiated with.
+     */
+    const unsigned m_NChannels;
+
+    /**
      * @param pRingStart pointer to channel 0's physical sub-buffer.
-     * @param nLogicalFrames the ring's logical frame count — the index
-     *   passed to Seek() must already be below this; must be > 0.
-     * @param nPhysicalFrames each channel's actual allocated length in
-     *   frames; must exceed nLogicalFrames by at least the reading
-     *   resampler's VECTOR_LENGTH, to hold the mirrored tail Seek()/
-     *   NextItem() rely on.
+     * @param nChannels number of channels in the ring; channel c's base is
+     *   pRingStart + c * (nRingFrames + nTailFrames). Runtime value, not
+     *   compile-time - see m_NChannels.
+     * @param nRingFrames the ring's logical frame count — the index passed
+     *   to Seek() must already be below this; must be > 0.
+     * @param nTailFrames length, in frames, of the mirrored tail
+     *   immediately following the ring in each channel's sub-buffer; must
+     *   be at least the reading resampler's VECTOR_LENGTH, since that tail
+     *   is exactly what Seek()/NextItem() rely on to read across the
+     *   ring's seam without special-casing the wraparound.
      */
     inline RingPlanarFrameVector(
       const SrcItemT *pRingStart,
-      unsigned nLogicalFrames,
-      unsigned nPhysicalFrames)
+      unsigned nChannels,
+      unsigned nRingFrames,
+      unsigned nTailFrames)
       : p_RingStart(pRingStart),
-        m_NLogicalFrames(nLogicalFrames),
-        m_NPhysicalFrames(nPhysicalFrames) {
-      assert(nLogicalFrames > 0);
+        m_NRingFrames(nRingFrames),
+        m_NTailFrames(nTailFrames),
+        m_NChannels(nChannels) {
+      assert(nRingFrames > 0);
       // Only the minimum possible margin is checked here - this class does
       // not know the reading resampler's VECTOR_LENGTH (nPoints), so it
       // cannot verify the caller actually left enough room for the mirrored
       // tail the class comment requires. A too-small margin is instead
       // caught where it actually matters, by NextItem()'s p_EndPtr assert.
-      assert(nPhysicalFrames > nLogicalFrames);
+      assert(nTailFrames > 0);
     }
 
     /**
      * Pins the channel and points to the given index directly - index must
-     * already be below nLogicalFrames (see the class comment).
+     * already be below nRingFrames (see the class comment). channel must
+     * be below m_NChannels (see m_NChannels).
      */
     inline void Seek(unsigned index, uint8_t channel) {
-      assert(channel < nChannels);
-      assert(index < m_NLogicalFrames);
+      assert(channel < m_NChannels);
+      assert(index < m_NRingFrames);
 
-      const SrcItemT *pChannelBase = p_RingStart + channel * m_NPhysicalFrames;
+      const SrcItemT *pChannelBase
+        = p_RingStart + channel * (m_NRingFrames + m_NTailFrames);
 
       p_CurrPtr = pChannelBase + index;
 #ifndef NDEBUG
-      p_EndPtr = pChannelBase + m_NPhysicalFrames;
+      p_EndPtr = pChannelBase + m_NRingFrames + m_NTailFrames;
 #endif
     }
 
     /**
      * Returns the seeked channel's next item and advances by one frame.
      * Relies on the ring owner having mirrored each channel's first
-     * (nPhysicalFrames - nLogicalFrames) frames into that channel's own
-     * tail, so a run of calls that crosses nLogicalFrames still reads valid
-     * data instead of needing a second wrap; asserts against p_EndPtr so an
-     * over-long run (more calls than the mirror covers) fails loudly in
-     * Debug instead of silently reading adjacent heap memory.
+     * nTailFrames frames into that channel's own tail, so a run of calls
+     * that crosses nRingFrames still reads valid data instead of needing a
+     * second wrap; asserts against p_EndPtr so an over-long run (more
+     * calls than the mirror covers) fails loudly in Debug instead of
+     * silently reading adjacent heap memory.
      */
     inline ResItemT NextItem() {
       assert(p_CurrPtr < p_EndPtr);
@@ -340,21 +374,21 @@ public:
     }
 
     /**
-     * Keeps resamplingPos's index below this ring's own nLogicalFrames,
+     * Keeps resamplingPos's index below this ring's own nRingFrames,
      * called once per output frame by ResampleBlockImpl() (see
      * PtrFrameVector::NormalizePosition() for why this call site is
      * unconditional and zero-cost for non-ring vectors). A single
      * conditional subtract suffices as long as one frame's growth stays
-     * below nLogicalFrames, which holds for any physically sane
-     * rate/ring-size pairing; the assert catches a violation instead of
-     * silently under-correcting.
+     * below nRingFrames, which holds for any physically sane rate/ring-size
+     * pairing; the assert catches a violation instead of silently
+     * under-correcting.
      */
     inline void NormalizePosition(ResamplingPosition &pos) const {
       const unsigned index = pos.GetIndex();
 
-      if (index >= m_NLogicalFrames)
-        pos.SetIndex(index - m_NLogicalFrames);
-      assert(pos.GetIndex() < m_NLogicalFrames);
+      if (index >= m_NRingFrames)
+        pos.SetIndex(index - m_NRingFrames);
+      assert(pos.GetIndex() < m_NRingFrames);
     }
   };
 
@@ -391,6 +425,35 @@ public:
 
   private:
     /**
+     * Computes one output item: the scalar product of nPoints input
+     * samples (fV, seeked to pos's current index and the given channel)
+     * and the coefficient row for pos's current fraction. Does not advance
+     * pos - shared by ResampleBlockImpl() (interleaved output, called once
+     * per in-range channel with the same shared resamplingPos) and
+     * ResampleBlockImplPlanar() (planar output, called once per channel
+     * against that channel's own local position copy) - the only
+     * difference between those two callers is what they do with the
+     * returned item and how/when they advance the position afterwards, not
+     * how the item itself is computed.
+     * @param pos the position to seek fV to; not advanced by this call
+     * @param fV a floating sample vector linked to the input stream
+     * @param ch channel to seek fV to; must be below fV's own channel count
+     * @return the computed output item
+     */
+    template <class FrameVectorT>
+    inline float ComputeOutputItem(
+      const ResamplingPosition &pos, FrameVectorT &fV, unsigned ch) const {
+      const float(&coefs)[nPoints] = r_coefs[pos.GetFraction()];
+      const float *pCoef = coefs;
+      float outItem = 0.0f;
+
+      fV.Seek(pos.GetIndex(), ch);
+      for (unsigned j = 0; j < nPoints; j++)
+        outItem += fV.NextItem() * *(pCoef++);
+      return outItem;
+    }
+
+    /**
      * Shared implementation of ResampleBlock() and
      * ResampleBlockVariableRate(). PosIncrementSourceT must provide
      * `unsigned NextIncrement()`, self-advancing and returning the Inc()
@@ -423,19 +486,11 @@ public:
       float *pOut,
       unsigned nOutFrames) const {
       for (unsigned nFramesLeft = nOutFrames; nFramesLeft > 0; nFramesLeft--) {
-        const float(&coefs)[nPoints] = r_coefs[resamplingPos.GetFraction()];
         float outItem = 0.0f;
 
         for (uint8_t ch = 0; ch < nOutChannels; ch++) {
-          if (ch < FrameVectorT::m_NChannels) {
-            const float *pCoef = coefs;
-
-            fV.Seek(resamplingPos.GetIndex(), ch);
-            // calculate the next output item as a scalar production of the
-            // input sample vector and the vector of coefficients
-            outItem = 0.0f;
-            for (unsigned j = 0; j < nPoints; j++)
-              outItem += fV.NextItem() * *(pCoef++);
+          if (ch < fV.m_NChannels) {
+            outItem = ComputeOutputItem(resamplingPos, fV, ch);
           }
           /* else copy the calculated item from the previous channel. It is
            * useful only for resampling a mono stream to a stereo one */
@@ -522,6 +577,119 @@ public:
         ArrayPosIncrementSource{pFractionIncrements},
         pOut,
         nOutFrames);
+    }
+
+  private:
+    /**
+     * Shared implementation of ResampleBlockVariableRatePlanar(), for a
+     * caller whose output is planar (channel-major) rather than
+     * interleaved - e.g. a GOSoundBufferPlanarMutable. Loop order is
+     * channel outer, frame inner - the reverse of ResampleBlockImpl()'s
+     * frame-outer/channel-inner order - so each channel is written
+     * contiguously into pFirstItemOfChannel0ToFill and read contiguously
+     * from a planar FrameVectorT (both channel-major). Every channel
+     * follows the identical index/fraction trajectory (only the channel
+     * index passed to ComputeOutputItem() differs), so each channel is
+     * replayed from a local copy of resamplingPos seeded from the shared
+     * starting position, re-walking pFractionIncrements from the start;
+     * only the last channel's replay commits back into resamplingPos,
+     * once, after all channels are done, since a caller must see it
+     * advanced exactly nFramesToFill times, not nChannels*nFramesToFill
+     * times. There is no constant-rate ResampleBlockPlanar()/
+     * ResampleBlockImpl()-style PosIncrementSourceT genericity here:
+     * nothing in this codebase needs a constant-rate planar path yet, and
+     * the per-channel replay needs pFractionIncrements re-readable from
+     * the start for each channel anyway, which a self-advancing source
+     * type cannot do.
+     * @param resamplingPos A resampling position in the input stream. It is
+     *   advanced during this call
+     * @param fV a floating sample vector linked to the input stream
+     * @param pFractionIncrements the first of at least nFramesToFill
+     *   increments, in 1/UPSAMPLE_FACTOR units - see
+     *   ResampleBlockVariableRate()
+     * @param nFramesTotalInBuffer each channel's total length, in items, of
+     *   the buffer pFirstItemOfChannel0ToFill points into (e.g.
+     *   GOSoundBufferPlanar::GetNFrames() - the full buffer, not just the
+     *   range being filled); this is the stride between one channel's
+     *   region and the next, since each channel of a planar buffer holds
+     *   one item per frame
+     * @param nChannels number of channels to resample; must not exceed fV's
+     *   own channel count
+     * @param pFirstItemOfChannel0ToFill pointer to channel 0's item at the
+     *   position this call should start filling - not necessarily the
+     *   buffer's own first item, if the caller is filling a sub-range
+     * @param nFramesToFill how many frames, starting at
+     *   pFirstItemOfChannel0ToFill, this call actually writes - may be less
+     *   than nFramesTotalInBuffer if only filling part of the buffer
+     */
+    template <class FrameVectorT>
+    inline void ResampleBlockImplPlanar(
+      ResamplingPosition &resamplingPos,
+      FrameVectorT &fV,
+      const unsigned *pFractionIncrements,
+      unsigned nFramesTotalInBuffer,
+      unsigned nChannels,
+      float *pFirstItemOfChannel0ToFill,
+      unsigned nFramesToFill) const {
+      for (unsigned ch = 0; ch < nChannels; ch++) {
+        ResamplingPosition pos = resamplingPos;
+        float *pOut = pFirstItemOfChannel0ToFill + ch * nFramesTotalInBuffer;
+
+        for (unsigned frameI = 0; frameI < nFramesToFill; frameI++) {
+          *(pOut++) = ComputeOutputItem(pos, fV, ch);
+          pos.Inc(pFractionIncrements[frameI]);
+          fV.NormalizePosition(pos);
+        }
+        if (ch + 1 == nChannels)
+          resamplingPos = pos;
+      }
+    }
+
+  public:
+    /**
+     * Like ResampleBlockVariableRate(), but writes planar (channel-major)
+     * output instead of interleaved - see ResampleBlockImplPlanar(). This
+     * is the method GOSoundVibratoProcessor::Process() calls to resample
+     * straight into a GOSoundBufferPlanarMutable, with no
+     * interleave/de-interleave step and no per-channel-count dispatch.
+     * There is no constant-rate ResampleBlockPlanar() counterpart: nothing
+     * in this codebase needs one yet, and adding it speculatively would be
+     * unused code.
+     * @param resamplingPos A resampling position in the input stream. It is
+     *   advanced during this call
+     * @param fV a floating sample vector linked to the input stream
+     * @param pFractionIncrements the first of at least nFramesToFill
+     *   increments, in 1/UPSAMPLE_FACTOR units - see
+     *   ResampleBlockVariableRate()
+     * @param nFramesTotalInBuffer each channel's total length, in items, of
+     *   the buffer pFirstItemOfChannel0ToFill points into - the stride
+     *   between one channel's region and the next, since each channel of a
+     *   planar buffer holds one item per frame
+     * @param nChannels number of channels to resample; must not exceed fV's
+     *   own channel count
+     * @param pFirstItemOfChannel0ToFill pointer to channel 0's item at the
+     *   position this call should start filling - not necessarily the
+     *   buffer's own first item, if the caller is filling a sub-range
+     * @param nFramesToFill how many frames, starting at
+     *   pFirstItemOfChannel0ToFill, this call actually writes
+     */
+    template <class FrameVectorT>
+    inline void ResampleBlockVariableRatePlanar(
+      ResamplingPosition &resamplingPos,
+      FrameVectorT &fV,
+      const unsigned *pFractionIncrements,
+      unsigned nFramesTotalInBuffer,
+      unsigned nChannels,
+      float *pFirstItemOfChannel0ToFill,
+      unsigned nFramesToFill) const {
+      ResampleBlockImplPlanar<FrameVectorT>(
+        resamplingPos,
+        fV,
+        pFractionIncrements,
+        nFramesTotalInBuffer,
+        nChannels,
+        pFirstItemOfChannel0ToFill,
+        nFramesToFill);
     }
   };
 

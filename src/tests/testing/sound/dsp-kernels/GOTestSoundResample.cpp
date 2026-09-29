@@ -7,6 +7,8 @@
 
 #include "GOTestSoundResample.h"
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 #include "sound/dsp-kernels/GOSoundResample.h"
@@ -133,22 +135,23 @@ void GOTestSoundResample::TestVaryingRateCorrectness() {
 
 void GOTestSoundResample::TestRingNonWrappingReads() {
   static constexpr uint8_t N_CHANNELS = 2;
-  static constexpr unsigned N_LOGICAL_FRAMES = 10;
-  static constexpr unsigned N_PHYSICAL_FRAMES = N_LOGICAL_FRAMES + 4;
+  static constexpr unsigned N_RING_FRAMES = 10;
+  static constexpr unsigned N_TAIL_FRAMES = 4;
+  static constexpr unsigned N_PHYSICAL_FRAMES = N_RING_FRAMES + N_TAIL_FRAMES;
 
   std::vector<float> planar(N_CHANNELS * N_PHYSICAL_FRAMES, -1.0f);
-  std::vector<float> interleaved(N_CHANNELS * N_LOGICAL_FRAMES);
+  std::vector<float> interleaved(N_CHANNELS * N_RING_FRAMES);
 
   for (uint8_t ch = 0; ch < N_CHANNELS; ch++)
-    for (unsigned frameI = 0; frameI < N_LOGICAL_FRAMES; frameI++) {
+    for (unsigned frameI = 0; frameI < N_RING_FRAMES; frameI++) {
       const float value = ch * 1000.0f + frameI;
 
       planar[ch * N_PHYSICAL_FRAMES + frameI] = value;
       interleaved[frameI * N_CHANNELS + ch] = value;
     }
 
-  GOSoundResample::RingPlanarFrameVector<float, float, N_CHANNELS> ring(
-    planar.data(), N_LOGICAL_FRAMES, N_PHYSICAL_FRAMES);
+  GOSoundResample::RingPlanarFrameVector<float, float> ring(
+    planar.data(), N_CHANNELS, N_RING_FRAMES, N_TAIL_FRAMES);
   GOSoundResample::PtrFrameVector<float, float, N_CHANNELS> ref(
     interleaved.data());
   const unsigned testIndices[] = {0, 1, 5, 6};
@@ -168,43 +171,44 @@ void GOTestSoundResample::TestRingNonWrappingReads() {
 
 void GOTestSoundResample::TestRingMirroredSeamReads() {
   static constexpr uint8_t N_CHANNELS = 2;
-  static constexpr unsigned N_LOGICAL_FRAMES = 12;
+  static constexpr unsigned N_RING_FRAMES = 12;
   static constexpr unsigned N_POINTS = GOSoundResample::POLYPHASE_POINTS;
-  static constexpr unsigned N_PHYSICAL_FRAMES = N_LOGICAL_FRAMES + N_POINTS;
+  static constexpr unsigned N_TAIL_FRAMES = N_POINTS;
+  static constexpr unsigned N_PHYSICAL_FRAMES = N_RING_FRAMES + N_TAIL_FRAMES;
 
   std::vector<float> planar(N_CHANNELS * N_PHYSICAL_FRAMES);
 
   for (uint8_t ch = 0; ch < N_CHANNELS; ch++) {
-    for (unsigned frameI = 0; frameI < N_LOGICAL_FRAMES; frameI++)
+    for (unsigned frameI = 0; frameI < N_RING_FRAMES; frameI++)
       planar[ch * N_PHYSICAL_FRAMES + frameI] = ch * 100.0f + frameI;
     // Mirror the first N_POINTS logical frames (wrapped) into the tail, as
     // the documented contract requires the ring owner to do.
     for (unsigned pointI = 0; pointI < N_POINTS; pointI++)
-      planar[ch * N_PHYSICAL_FRAMES + N_LOGICAL_FRAMES + pointI]
-        = ch * 100.0f + (pointI % N_LOGICAL_FRAMES);
+      planar[ch * N_PHYSICAL_FRAMES + N_RING_FRAMES + pointI]
+        = ch * 100.0f + (pointI % N_RING_FRAMES);
   }
 
-  GOSoundResample::RingPlanarFrameVector<float, float, N_CHANNELS> ring(
-    planar.data(), N_LOGICAL_FRAMES, N_PHYSICAL_FRAMES);
+  GOSoundResample::RingPlanarFrameVector<float, float> ring(
+    planar.data(), N_CHANNELS, N_RING_FRAMES, N_TAIL_FRAMES);
   // Starting indices whose N_POINTS-wide read crosses the seam (the seam
-  // itself is at index == N_LOGICAL_FRAMES; Seek() only accepts indices
-  // below that, so the highest start tested is N_LOGICAL_FRAMES - 1, whose
-  // read runs entirely past the seam except for its first item).
+  // itself is at index == N_RING_FRAMES; Seek() only accepts indices below
+  // that, so the highest start tested is N_RING_FRAMES - 1, whose read runs
+  // entirely past the seam except for its first item).
   const unsigned startIndices[] = {
-    N_LOGICAL_FRAMES - 7,
-    N_LOGICAL_FRAMES - 6,
-    N_LOGICAL_FRAMES - 5,
-    N_LOGICAL_FRAMES - 4,
-    N_LOGICAL_FRAMES - 3,
-    N_LOGICAL_FRAMES - 2,
-    N_LOGICAL_FRAMES - 1};
+    N_RING_FRAMES - 7,
+    N_RING_FRAMES - 6,
+    N_RING_FRAMES - 5,
+    N_RING_FRAMES - 4,
+    N_RING_FRAMES - 3,
+    N_RING_FRAMES - 2,
+    N_RING_FRAMES - 1};
 
   for (uint8_t ch = 0; ch < N_CHANNELS; ch++)
     for (unsigned startIndex : startIndices) {
       ring.Seek(startIndex, ch);
       for (unsigned pointI = 0; pointI < N_POINTS; pointI++) {
         const float expected
-          = ch * 100.0f + ((startIndex + pointI) % N_LOGICAL_FRAMES);
+          = ch * 100.0f + ((startIndex + pointI) % N_RING_FRAMES);
 
         GOAssert(
           ring.NextItem() == expected,
@@ -225,13 +229,14 @@ void GOTestSoundResample::TestRingNormalizePosition() {
   // size + N_POINTS), like every other test's ring, even though nothing
   // here reads into that margin.
   {
-    static constexpr unsigned N_LOGICAL_FRAMES = 5;
-    static constexpr unsigned N_PHYSICAL_FRAMES = N_LOGICAL_FRAMES + N_POINTS;
+    static constexpr unsigned N_RING_FRAMES = 5;
+    static constexpr unsigned N_TAIL_FRAMES = N_POINTS;
+    static constexpr unsigned N_PHYSICAL_FRAMES = N_RING_FRAMES + N_TAIL_FRAMES;
     static constexpr unsigned N_STEPS = 17;
 
     std::vector<float> planar(N_PHYSICAL_FRAMES);
-    GOSoundResample::RingPlanarFrameVector<float, float, 1> ring(
-      planar.data(), N_LOGICAL_FRAMES, N_PHYSICAL_FRAMES);
+    GOSoundResample::RingPlanarFrameVector<float, float> ring(
+      planar.data(), 1, N_RING_FRAMES, N_TAIL_FRAMES);
     GOSoundResample::ResamplingPosition pos;
 
     pos.Init(1.0f);
@@ -239,22 +244,23 @@ void GOTestSoundResample::TestRingNormalizePosition() {
       pos.Inc(UPSAMPLE_FACTOR);
       ring.NormalizePosition(pos);
       GOAssert(
-        pos.GetIndex() == step % N_LOGICAL_FRAMES,
+        pos.GetIndex() == step % N_RING_FRAMES,
         "growth=1 step " + std::to_string(step)
-          + ": index must match (unbounded index) % nLogicalFrames");
+          + ": index must match (unbounded index) % nRingFrames");
     }
   }
 
   // Growth of 2 indices per Inc() call, a different ring size - confirms
   // the single-subtract correction also holds for a larger per-call step.
   {
-    static constexpr unsigned N_LOGICAL_FRAMES = 7;
-    static constexpr unsigned N_PHYSICAL_FRAMES = N_LOGICAL_FRAMES + N_POINTS;
+    static constexpr unsigned N_RING_FRAMES = 7;
+    static constexpr unsigned N_TAIL_FRAMES = N_POINTS;
+    static constexpr unsigned N_PHYSICAL_FRAMES = N_RING_FRAMES + N_TAIL_FRAMES;
     static constexpr unsigned N_STEPS = 20;
 
     std::vector<float> planar(N_PHYSICAL_FRAMES);
-    GOSoundResample::RingPlanarFrameVector<float, float, 1> ring(
-      planar.data(), N_LOGICAL_FRAMES, N_PHYSICAL_FRAMES);
+    GOSoundResample::RingPlanarFrameVector<float, float> ring(
+      planar.data(), 1, N_RING_FRAMES, N_TAIL_FRAMES);
     GOSoundResample::ResamplingPosition pos;
 
     pos.Init(1.0f);
@@ -262,41 +268,42 @@ void GOTestSoundResample::TestRingNormalizePosition() {
       pos.Inc(UPSAMPLE_FACTOR * 2);
       ring.NormalizePosition(pos);
       GOAssert(
-        pos.GetIndex() == (2 * step) % N_LOGICAL_FRAMES,
+        pos.GetIndex() == (2 * step) % N_RING_FRAMES,
         "growth=2 step " + std::to_string(step)
-          + ": index must match (unbounded index) % nLogicalFrames");
+          + ": index must match (unbounded index) % nRingFrames");
     }
   }
 }
 
 void GOTestSoundResample::TestRingResamplerIntegration() {
   static constexpr uint8_t N_CHANNELS = 2;
-  static constexpr unsigned N_LOGICAL_FRAMES = 12;
+  static constexpr unsigned N_RING_FRAMES = 12;
   static constexpr unsigned N_POINTS = GOSoundResample::POLYPHASE_POINTS;
-  static constexpr unsigned N_PHYSICAL_FRAMES = N_LOGICAL_FRAMES + N_POINTS;
+  static constexpr unsigned N_TAIL_FRAMES = N_POINTS;
+  static constexpr unsigned N_PHYSICAL_FRAMES = N_RING_FRAMES + N_TAIL_FRAMES;
   static constexpr unsigned N_OUT_FRAMES = 10;
   static constexpr unsigned N_OUT_ITEMS = N_OUT_FRAMES * N_CHANNELS;
   static constexpr unsigned FLAT_SIZE = 64;
   static constexpr unsigned START_INDEX = 8;
   static constexpr unsigned UPSAMPLE_FACTOR = GOSoundResample::UPSAMPLE_FACTOR;
 
-  // A per-channel signal that repeats every N_LOGICAL_FRAMES frames - the
+  // A per-channel signal that repeats every N_RING_FRAMES frames - the
   // ring's planar (with mirrored tail) and the flat reference's "manually
   // unwrapped" layout are two different representations of the same
   // logical values. The per-channel offset means a channel-stride bug
   // (e.g. reading channel 1 from channel 0's own tail mirror) shows up as
   // a value mismatch, not a coincidentally-equal one.
   auto logicalValue = [](uint8_t ch, unsigned frameI) {
-    return (float)(ch * 100 + frameI % N_LOGICAL_FRAMES);
+    return (float)(ch * 100 + frameI % N_RING_FRAMES);
   };
 
   std::vector<float> planar(N_CHANNELS * N_PHYSICAL_FRAMES);
 
   for (uint8_t ch = 0; ch < N_CHANNELS; ch++) {
-    for (unsigned frameI = 0; frameI < N_LOGICAL_FRAMES; frameI++)
+    for (unsigned frameI = 0; frameI < N_RING_FRAMES; frameI++)
       planar[ch * N_PHYSICAL_FRAMES + frameI] = logicalValue(ch, frameI);
     for (unsigned pointI = 0; pointI < N_POINTS; pointI++)
-      planar[ch * N_PHYSICAL_FRAMES + N_LOGICAL_FRAMES + pointI]
+      planar[ch * N_PHYSICAL_FRAMES + N_RING_FRAMES + pointI]
         = logicalValue(ch, pointI);
   }
 
@@ -321,8 +328,8 @@ void GOTestSoundResample::TestRingResamplerIntegration() {
     UPSAMPLE_FACTOR,
     UPSAMPLE_FACTOR};
 
-  GOSoundResample::RingPlanarFrameVector<float, float, N_CHANNELS> fvRing(
-    planar.data(), N_LOGICAL_FRAMES, N_PHYSICAL_FRAMES);
+  GOSoundResample::RingPlanarFrameVector<float, float> fvRing(
+    planar.data(), N_CHANNELS, N_RING_FRAMES, N_TAIL_FRAMES);
   GOSoundResample::PtrFrameVector<float, float, N_CHANNELS> fvFlat(flat.data());
   GOSoundResample::ResamplingPosition posRing;
   GOSoundResample::ResamplingPosition posFlat;
@@ -336,14 +343,14 @@ void GOTestSoundResample::TestRingResamplerIntegration() {
   std::vector<float> outFlat(N_OUT_ITEMS);
 
   polyphaseResampler.ResampleBlockVariableRate<
-    GOSoundResample::RingPlanarFrameVector<float, float, N_CHANNELS>,
+    GOSoundResample::RingPlanarFrameVector<float, float>,
     N_CHANNELS>(posRing, fvRing, increments, outRing.data(), N_OUT_FRAMES);
   polyphaseResampler.ResampleBlockVariableRate<
     GOSoundResample::PtrFrameVector<float, float, N_CHANNELS>,
     N_CHANNELS>(posFlat, fvFlat, increments, outFlat.data(), N_OUT_FRAMES);
 
   GOAssert(
-    posFlat.GetIndex() >= N_LOGICAL_FRAMES,
+    posFlat.GetIndex() >= N_RING_FRAMES,
     "test setup must actually cross the ring's seam at least once");
   for (unsigned itemI = 0; itemI < N_OUT_ITEMS; itemI++)
     GOAssert(
@@ -352,9 +359,117 @@ void GOTestSoundResample::TestRingResamplerIntegration() {
         + ": RingPlanarFrameVector output must match PtrFrameVector output "
           "over the equivalent unwrapped source");
   GOAssert(
-    posRing.GetIndex() == posFlat.GetIndex() % N_LOGICAL_FRAMES,
-    "final ring index must match the unwrapped index modulo "
-    "nLogicalFrames");
+    posRing.GetIndex() == posFlat.GetIndex() % N_RING_FRAMES,
+    "final ring index must match the unwrapped index modulo nRingFrames");
+}
+
+void GOTestSoundResample::TestPlanarVariableRateEquivalence() {
+  // Same source/increments/geometry as TestRingResamplerIntegration - only
+  // the resampled-into layout differs (planar here, interleaved there) -
+  // reusing that setup lets this test check the planar path against the
+  // exact same known-good interleaved trajectory, over the same
+  // seam-crossing ring.
+  static constexpr uint8_t N_CHANNELS = 2;
+  static constexpr unsigned N_RING_FRAMES = 12;
+  static constexpr unsigned N_POINTS = GOSoundResample::POLYPHASE_POINTS;
+  static constexpr unsigned N_TAIL_FRAMES = N_POINTS;
+  static constexpr unsigned N_PHYSICAL_FRAMES = N_RING_FRAMES + N_TAIL_FRAMES;
+  static constexpr unsigned N_OUT_FRAMES = 10;
+  static constexpr unsigned N_OUT_ITEMS = N_OUT_FRAMES * N_CHANNELS;
+  static constexpr unsigned FLAT_SIZE = 64;
+  static constexpr unsigned START_INDEX = 8;
+  static constexpr unsigned UPSAMPLE_FACTOR = GOSoundResample::UPSAMPLE_FACTOR;
+
+  auto logicalValue = [](uint8_t ch, unsigned frameI) {
+    return (float)(ch * 100 + frameI % N_RING_FRAMES);
+  };
+
+  std::vector<float> planar(N_CHANNELS * N_PHYSICAL_FRAMES);
+
+  for (uint8_t ch = 0; ch < N_CHANNELS; ch++) {
+    for (unsigned frameI = 0; frameI < N_RING_FRAMES; frameI++)
+      planar[ch * N_PHYSICAL_FRAMES + frameI] = logicalValue(ch, frameI);
+    for (unsigned pointI = 0; pointI < N_POINTS; pointI++)
+      planar[ch * N_PHYSICAL_FRAMES + N_RING_FRAMES + pointI]
+        = logicalValue(ch, pointI);
+  }
+
+  std::vector<float> flat(FLAT_SIZE * N_CHANNELS);
+
+  for (unsigned frameI = 0; frameI < FLAT_SIZE; frameI++)
+    for (uint8_t ch = 0; ch < N_CHANNELS; ch++)
+      flat[frameI * N_CHANNELS + ch] = logicalValue(ch, frameI);
+
+  const unsigned increments[N_OUT_FRAMES] = {
+    UPSAMPLE_FACTOR,
+    UPSAMPLE_FACTOR * 3 / 2,
+    UPSAMPLE_FACTOR / 2,
+    UPSAMPLE_FACTOR,
+    UPSAMPLE_FACTOR * 5 / 4,
+    UPSAMPLE_FACTOR,
+    UPSAMPLE_FACTOR * 3 / 4,
+    UPSAMPLE_FACTOR * 3 / 2,
+    UPSAMPLE_FACTOR,
+    UPSAMPLE_FACTOR};
+
+  GOSoundResample::RingPlanarFrameVector<float, float> fvRing(
+    planar.data(), N_CHANNELS, N_RING_FRAMES, N_TAIL_FRAMES);
+  GOSoundResample::PtrFrameVector<float, float, N_CHANNELS> fvFlat(flat.data());
+  GOSoundResample::ResamplingPosition posRing;
+  GOSoundResample::ResamplingPosition posFlat;
+
+  posRing.Init(1.0f, START_INDEX);
+  posFlat.Init(1.0f, START_INDEX);
+
+  GOSoundResample resampler;
+  GOSoundResample::PolyphaseResampler polyphaseResampler(resampler);
+  // Planar layout: channel c's frame f is at outRingPlanar[c * N_OUT_FRAMES
+  // + f], not interleaved like outFlat.
+  std::vector<float> outRingPlanar(N_OUT_ITEMS);
+  std::vector<float> outFlat(N_OUT_ITEMS);
+
+  polyphaseResampler.ResampleBlockVariableRatePlanar<
+    GOSoundResample::RingPlanarFrameVector<float, float>>(
+    posRing,
+    fvRing,
+    increments,
+    N_OUT_FRAMES,
+    N_CHANNELS,
+    outRingPlanar.data(),
+    N_OUT_FRAMES);
+  polyphaseResampler.ResampleBlockVariableRate<
+    GOSoundResample::PtrFrameVector<float, float, N_CHANNELS>,
+    N_CHANNELS>(posFlat, fvFlat, increments, outFlat.data(), N_OUT_FRAMES);
+
+  GOAssert(
+    posFlat.GetIndex() >= N_RING_FRAMES,
+    "test setup must actually cross the ring's seam at least once");
+  // Relative tolerance, not bit-exact ==: ResampleBlockImplPlanar() and
+  // ResampleBlockImpl() both call the same ComputeOutputItem(), but from
+  // different surrounding loop shapes (channel-outer/frame-inner vs.
+  // frame-outer/channel-inner) - under this project's Release build flags
+  // (-ffast-math is on, confirmed via GOTestPerfSoundResample's own build),
+  // the compiler is free to reassociate/contract each call site's
+  // floating-point ops independently, so the two paths can differ by a few
+  // ULPs even though they compute the same mathematical value from the same
+  // inputs. Debug (no -ffast-math) matches bit-exactly.
+  for (unsigned frameI = 0; frameI < N_OUT_FRAMES; frameI++)
+    for (uint8_t ch = 0; ch < N_CHANNELS; ch++) {
+      const float planarValue = outRingPlanar[ch * N_OUT_FRAMES + frameI];
+      const float flatValue = outFlat[frameI * N_CHANNELS + ch];
+      const float tolerance = 1e-4f * std::max(1.0f, std::fabs(flatValue));
+
+      GOAssert(
+        std::fabs(planarValue - flatValue) <= tolerance,
+        "frame " + std::to_string(frameI) + " ch " + std::to_string(ch)
+          + ": ResampleBlockVariableRatePlanar output must match the "
+            "equivalent interleaved ResampleBlockVariableRate output within "
+            "tolerance");
+    }
+  GOAssert(
+    posRing.GetIndex() == posFlat.GetIndex() % N_RING_FRAMES,
+    "final planar-path ring index must match the unwrapped index modulo "
+    "nRingFrames");
 }
 
 void GOTestSoundResample::run() {
@@ -364,4 +479,5 @@ void GOTestSoundResample::run() {
   TestRingMirroredSeamReads();
   TestRingNormalizePosition();
   TestRingResamplerIntegration();
+  TestPlanarVariableRateEquivalence();
 }
