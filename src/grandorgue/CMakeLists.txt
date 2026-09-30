@@ -215,6 +215,8 @@ sound/effects/GOSoundReverbProcessor.cpp
 sound/effects/GOSoundReverbProcessorState.cpp
 sound/effects/GOSoundShelfFilterProcessor.cpp
 sound/effects/GOSoundShelfFilterProcessorState.cpp
+sound/effects/GOSoundVibratoProcessor.cpp
+sound/effects/GOSoundVibratoProcessorState.cpp
 sound/interfaces/GOSoundCallbackConnector.cpp
 sound/mappers/GOSoundEnclosureShelfMapper.cpp
 sound/playing/GOSoundAudioSection.cpp
