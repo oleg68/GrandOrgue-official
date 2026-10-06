@@ -7,6 +7,8 @@
 
 #include "GOSoundTestSignals.h"
 
+#include <cmath>
+
 #include "sound/buffer/GOSoundBufferPlanarMutable.h"
 
 #include "GOInt.h"
@@ -27,4 +29,14 @@ void GOSoundTestSignals::fillWithAlternatingSignal(
 
   for (unsigned itemI = 0, n = outBuffer.GetNItems(); itemI < n; itemI++)
     pData[itemI] = (itemI % 2 == 0) ? 0.5f : -0.5f;
+}
+
+std::vector<float> GOSoundTestSignals::makeSineCents(
+  unsigned nFrames, float amplitudeCents, float periodFrames) {
+  std::vector<float> cents(nFrames);
+
+  for (unsigned frameI = 0; frameI < nFrames; ++frameI)
+    cents[frameI] = amplitudeCents
+      * std::sin(2.0f * (float)M_PI * (float)frameI / periodFrames);
+  return cents;
 }
