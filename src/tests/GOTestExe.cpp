@@ -44,8 +44,10 @@
 #include "testing/sound/dsp-kernels/GOTestPerfSoundResample.h"
 #include "testing/sound/dsp-kernels/GOTestSoundOnePoleFilter.h"
 #include "testing/sound/dsp-kernels/GOTestSoundResample.h"
+#include "testing/sound/effects/GOTestPerfSoundVibratoPitchRateCurve.h"
 #include "testing/sound/effects/GOTestSoundReverbProcessor.h"
 #include "testing/sound/effects/GOTestSoundShelfFilterProcessor.h"
+#include "testing/sound/effects/GOTestSoundVibratoPitchRateCurve.h"
 #include "testing/sound/playing/GOTestPerfSoundPlayingFader.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
 #include "testing/sound/playing/GOTestSoundPlayingFader.h"
@@ -127,6 +129,8 @@ int main(int argc, char *argv[]) {
   GOTestSoundReverb testSoundReverb;
   GOTestSoundReverbProcessor testSoundReverbProcessor;
   GOTestSoundShelfFilterProcessor testSoundShelfFilterProcessor;
+  GOTestSoundVibratoPitchRateCurve testSoundVibratoPitchRateCurve;
+  GOTestPerfSoundVibratoPitchRateCurve testPerfSoundVibratoPitchRateCurve;
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
   GOTestSoundTaskBase testSoundTaskBase;
   GOTestSoundWindchestTask testSoundWindchestTask;
