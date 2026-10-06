@@ -28,8 +28,10 @@ set(go_tests
     sound/dsp-kernels/GOTestSoundOnePoleFilter.cpp
     sound/dsp-kernels/GOTestSoundResample.cpp
     sound/effects/GOTestPerfSoundShelfFilterProcessor.cpp
+    sound/effects/GOTestPerfSoundVibratoPitchRateCurve.cpp
     sound/effects/GOTestSoundReverbProcessor.cpp
     sound/effects/GOTestSoundShelfFilterProcessor.cpp
+    sound/effects/GOTestSoundVibratoPitchRateCurve.cpp
     sound/GOTestSoundCallbackConnector.cpp
     sound/GOTestSoundOrganEngine.cpp
     sound/GOTestSoundOrganEngineBase.cpp
