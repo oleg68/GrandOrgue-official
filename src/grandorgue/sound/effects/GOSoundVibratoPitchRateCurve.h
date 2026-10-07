@@ -100,7 +100,10 @@ public:
      * is inactive).
      */
     const unsigned *pRateUnits;
-    /** The sum of all the rates of the chunk; 0 if there is no curve. */
+    /**
+     * The sum of all the rates of the chunk, i.e. the advance of the
+     * resampler's position over the whole chunk; 0 if there is no curve.
+     */
     unsigned nTotalUnits;
 
     /**
@@ -186,6 +189,8 @@ public:
 private:
   friend class GOTestSoundVibratoPitchRateCurve;     // the unit tests
   friend class GOTestPerfSoundVibratoPitchRateCurve; // the perf tests
+  friend class GOTestSoundVibratoProcessor; // the end-to-end tests call
+                                            // BuildInternal()
 
   /**
    * Process-unique id from the last Build(); NO_CURVE_ID while not built /
