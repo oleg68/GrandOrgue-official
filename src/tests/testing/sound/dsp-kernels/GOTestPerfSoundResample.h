@@ -44,6 +44,19 @@ private:
    * constant rate 1.0. */
   void TestPerfResampleBlockStereo24Polyphase();
 
+  /** LinearResampler::ResampleBlockVariableRatePlanar(), stereo (the only
+   * shape that exercises this path's per-channel position-trajectory
+   * replay), fed a constant-value increment array (all entries equal to
+   * the constant-rate case's own increment) - the planar output path
+   * GOSoundVibratoProcessor::Process() calls, compared against
+   * TestPerfResampleBlockStereo24Linear() above to isolate the
+   * per-channel trajectory replay's cost. */
+  void TestPerfResampleBlockVariableRatePlanarLinear();
+
+  /** PolyphaseResampler::ResampleBlockVariableRatePlanar(), stereo, same
+   * constant-increment-array setup as the Linear case above. */
+  void TestPerfResampleBlockVariableRatePlanarPolyphase();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;
