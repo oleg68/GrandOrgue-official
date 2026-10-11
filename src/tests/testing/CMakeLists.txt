@@ -42,7 +42,9 @@ set(go_tests
     sound/GOTestSoundWindchestGroupTaskGrid.cpp
     sound/mappers/GOTestPerfSoundEnclosureShelfMapper.cpp
     sound/mappers/GOTestSoundEnclosureShelfMapper.cpp
+    sound/playing/GOTestPerfSoundPlayingFader.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
+    sound/playing/GOTestSoundPlayingFader.cpp
     sound/playing/GOTestSoundStream.cpp
     sound/playing/GOTestSoundToneBalanceFilter.cpp
     sound/processing/GOSoundProcessingTestImpls.cpp
