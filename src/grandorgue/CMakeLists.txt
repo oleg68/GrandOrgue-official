@@ -219,7 +219,7 @@ sound/effects/GOSoundVibratoPitchRateCurve.cpp
 sound/interfaces/GOSoundCallbackConnector.cpp
 sound/mappers/GOSoundEnclosureShelfMapper.cpp
 sound/playing/GOSoundAudioSection.cpp
-sound/playing/GOSoundFader.cpp
+sound/playing/GOSoundPlayingFader.cpp
 sound/playing/GOSoundReleaseAlignTable.cpp
 sound/playing/GOSoundSamplerPlayer.cpp
 sound/playing/GOSoundSamplerPool.cpp
