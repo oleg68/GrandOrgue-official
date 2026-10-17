@@ -24,6 +24,12 @@ class GOTestPerfSoundShelfFilterProcessor : public GOTestPerfSoundBufferBase {
 private:
   static const std::string TEST_NAME;
 
+  /** Fewer frames than the default (a tenth of the former 1000000 iterations
+   * per buffer size): the throughput does not depend on the number of
+   * frames, and the default made this suite one of the slowest in
+   * GOTestExe. */
+  unsigned GetNFrames() const override { return 64000000; }
+
   /** Both bands not isActive: Process() leaves the buffer untouched. */
   void TestPerfProcessBothBandsNoop();
 
