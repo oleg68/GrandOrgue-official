@@ -347,23 +347,25 @@ void GOTestSoundStream::TestCompressedLoopWrapMatchesUncompressed() {
 void GOTestSoundStream::run() {
   for (unsigned nChannels : {1u, 2u}) {
     for (bool isCompressed : {false, true}) {
-      {
-        GOTestScope scope(
-          GOTestScope::TEST,
-          std::format(
-            "TestReadBlock(LINEAR, compressed={}, nChannels={})",
-            isCompressed,
-            nChannels));
+      // The name has no '(' because GOTestScope cuts the test name at it
+      const std::string linearName = std::format(
+        "TestReadBlock[LINEAR, compressed={}, nChannels={}]",
+        isCompressed,
+        nChannels);
+      const std::string polyphaseName = std::format(
+        "TestReadBlock[POLYPHASE, compressed={}, nChannels={}]",
+        isCompressed,
+        nChannels);
+
+      if (GOTestScope::shouldRun(linearName)) {
+        GOTestScope scope(GOTestScope::TEST, linearName);
+
         TestReadBlock(
           GOSoundResample::GO_LINEAR_INTERPOLATION, isCompressed, nChannels);
       }
-      {
-        GOTestScope scope(
-          GOTestScope::TEST,
-          std::format(
-            "TestReadBlock(POLYPHASE, compressed={}, nChannels={})",
-            isCompressed,
-            nChannels));
+      if (GOTestScope::shouldRun(polyphaseName)) {
+        GOTestScope scope(GOTestScope::TEST, polyphaseName);
+
         TestReadBlock(
           GOSoundResample::GO_POLYPHASE_INTERPOLATION, isCompressed, nChannels);
       }
