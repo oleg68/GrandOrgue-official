@@ -79,6 +79,9 @@
 #include "testing/sound/tasks/GOTestSoundOutputTask.h"
 #include "testing/sound/tasks/GOTestSoundRecorderTask.h"
 #include "testing/sound/tasks/GOTestSoundTaskBase.h"
+#include "testing/sound/tasks/GOTestSoundTremulantTask.h"
+#include "testing/sound/tasks/GOTestSoundTremulantTaskPitch.h"
+#include "testing/sound/tasks/GOTestSoundTremulantWaveForm.h"
 #include "testing/sound/tasks/GOTestSoundWindchestGroupTask.h"
 #include "testing/sound/tasks/GOTestSoundWindchestTask.h"
 
@@ -300,6 +303,9 @@ int main(int argc, char *argv[]) {
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
   GOTestSoundTaskBase testSoundTaskBase;
   GOTestSoundWindchestTask testSoundWindchestTask;
+  GOTestSoundTremulantWaveForm testSoundTremulantWaveForm;
+  GOTestSoundTremulantTask testSoundTremulantTask;
+  GOTestSoundTremulantTaskPitch testSoundTremulantTaskPitch;
   GOTestSoundOutputTask testSoundOutputTask;
   GOTestSoundRecorderTask testSoundRecorderTask;
   GOTestSoundWindchestGroupTask testSoundWindchestGroupTask;
