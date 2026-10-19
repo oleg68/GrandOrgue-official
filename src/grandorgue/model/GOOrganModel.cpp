@@ -148,8 +148,8 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
 
     oTremulant->SetContext(&MIDI_CONTEXT_TREMULANTS);
     set_name_for_context(oTremulant.get(), num);
-    oTremulant->Load(cfg, wxString::Format(wxT("Tremulant%03u"), num), num);
-    m_tremulants.push_back(std::move(oTremulant));
+    oTremulant->Load(cfg, wxString::Format(wxT("Tremulant%03u"), num));
+    AddTremulant(std::move(oTremulant));
   }
 
   for (unsigned i = 0; i < NumberOfWindchestGroups; i++)
@@ -374,6 +374,21 @@ void GOOrganModel::RemoveEnclosure(GOEnclosure *pEnclosure) {
   assert(isLast);
   if (isLast)
     m_enclosures.pop_back();
+}
+
+unsigned GOOrganModel::AddTremulant(std::unique_ptr<GOTremulant> &&oTremulant) {
+  m_tremulants.push_back(std::move(oTremulant));
+  return m_tremulants.size() - 1;
+}
+
+void GOOrganModel::RemoveTremulant(GOTremulant *pTremulant) {
+  const unsigned nTremulants = m_tremulants.size();
+  const bool isLast
+    = nTremulants && m_tremulants[nTremulants - 1] == pTremulant;
+
+  assert(isLast);
+  if (isLast)
+    m_tremulants.pop_back();
 }
 
 int GOOrganModel::FindSwitchByName(const wxString &name) const {
