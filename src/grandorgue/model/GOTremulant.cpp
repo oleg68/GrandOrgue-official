@@ -7,11 +7,17 @@
 
 #include "GOTremulant.h"
 
+#include <cassert>
+#include <cmath>
+#include <numbers>
 #include <wx/intl.h>
 
 #include "config/GOConfigReader.h"
+#include "config/GOConfigWriter.h"
 #include "model/GOOrganModel.h"
+#include "sound/effects/GOSoundVibratoPitchRateCurve.h"
 #include "sound/providers/GOSoundProviderSynthedTrem.h"
+#include "sound/providers/GOSoundTremulantProviderSynth.h"
 
 #define DELETE_AND_NULL(x)                                                     \
   do {                                                                         \
@@ -26,14 +32,46 @@ static const GOConfigEnum TREMULANT_TYPES({
   {wxT("Wave"), GOWavTrem},
 });
 
+static const wxString WX_PERIOD_MS = wxT("PeriodMs");
+static const wxString WX_START_TIME_MS = wxT("StartTimeMs");
+static const wxString WX_STOP_TIME_MS = wxT("StopTimeMs");
+static const wxString WX_AMP_MOD_DEPTH_PCNT = wxT("AmpModDepthPcnt");
+static const wxString WX_PITCH_MOD_DEPTH_CENTS = wxT("PitchModDepthCents");
+static const wxString WX_PITCH_MOD_PHASE_DEGREES = wxT("PitchModPhaseDegrees");
+
+// The parameters of a tremulant that is not defined in the ODF
+static constexpr int PERIOD_MS_DEFAULT = 200;
+static constexpr int START_TIME_MS_DEFAULT = 300;
+static constexpr int STOP_TIME_MS_DEFAULT = 300;
+static constexpr int AMP_MOD_DEPTH_PCNT_DEFAULT = 50;
+static constexpr float PITCH_MOD_DEPTH_CENTS_DEFAULT = 0.0f;
+static constexpr int PITCH_MOD_PHASE_DEGREES_DEFAULT = 0;
+
+/**
+ * Converts a time to a number of frames, rounded to the nearest. Unlike
+ * GOSoundVibratoProcessor.cpp (rounds up) and GOSoundSamplerPlayer::MsToSamples
+ * (truncates) this is deliberate: the loop of a tremulant should be as close
+ * as possible to the requested period. It takes a double because the period
+ * can be fractional (the natural period of an LFO) and a float loses frames
+ * at 441 s.
+ */
+static unsigned ms_to_frames(double ms, unsigned sampleRate) {
+  return (unsigned)std::llround(ms * sampleRate / 1000.0);
+}
+
 GOTremulant::GOTremulant(GOOrganModel &organModel)
   : GODrawstop(organModel, OBJECT_TYPE_TREMULANT),
     r_sound(organModel),
+    m_IsOdfDefined(false),
     m_TremulantType(GOSynthTrem),
-    m_Period(0),
+    m_PeriodMs(0),
     m_StartRate(0),
     m_StopRate(0),
-    m_AmpModDepth(0),
+    m_StartTimeMs(0),
+    m_StopTimeMs(0),
+    m_AmpModDepthPcnt(0),
+    m_PitchModDepthCents(0.0f),
+    m_PitchModPhaseDegrees(0),
     m_TremProvider(NULL),
     m_PlaybackHandle(0),
     m_LastStop(0),
@@ -57,8 +95,60 @@ bool GOTremulant::LoadCache(GOMemoryPool &pool, GOCache &cache) {
   return true;
 }
 
+void GOTremulant::LoadFromCmb(GOConfigReader &cfg) {
+  const wxString &group = GODrawstop::m_group;
+
+  m_PeriodMs = cfg.ReadInteger(
+    CMBSetting, group, WX_PERIOD_MS, 32, 441000, false, PERIOD_MS_DEFAULT);
+  m_StartTimeMs = cfg.ReadInteger(
+    CMBSetting,
+    group,
+    WX_START_TIME_MS,
+    0,
+    10000,
+    false,
+    START_TIME_MS_DEFAULT);
+  m_StopTimeMs = cfg.ReadInteger(
+    CMBSetting, group, WX_STOP_TIME_MS, 0, 10000, false, STOP_TIME_MS_DEFAULT);
+  m_AmpModDepthPcnt = cfg.ReadInteger(
+    CMBSetting,
+    group,
+    WX_AMP_MOD_DEPTH_PCNT,
+    0,
+    100,
+    false,
+    AMP_MOD_DEPTH_PCNT_DEFAULT);
+  m_PitchModDepthCents = cfg.ReadFloat(
+    CMBSetting,
+    group,
+    WX_PITCH_MOD_DEPTH_CENTS,
+    0.0,
+    GOSoundVibratoPitchRateCurve::MAX_PITCH_DEVIATION_CENTS,
+    false,
+    PITCH_MOD_DEPTH_CENTS_DEFAULT);
+  m_PitchModPhaseDegrees = cfg.ReadInteger(
+    CMBSetting,
+    group,
+    WX_PITCH_MOD_PHASE_DEGREES,
+    -180,
+    359,
+    false,
+    PITCH_MOD_PHASE_DEGREES_DEFAULT);
+}
+
+void GOTremulant::Init(
+  GOConfigReader &cfg, const wxString &group, const wxString &name) {
+  m_IsOdfDefined = false;
+  GODrawstop::Init(cfg, group, name);
+  m_TremulantType = GOSynthTrem;
+  o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
+  LoadFromCmb(cfg);
+  r_OrganModel.RegisterCacheObject(this);
+}
+
 void GOTremulant::Load(
   GOConfigReader &cfg, const wxString &group, unsigned tremulantN) {
+  m_IsOdfDefined = true;
   SetGroupAndPrefix(group, wxEmptyString);
   m_TremulantType = (GOTremulantType)cfg.ReadEnum(
     ODFSetting,
@@ -69,10 +159,13 @@ void GOTremulant::Load(
     GOSynthTrem);
   if (m_TremulantType == GOSynthTrem) {
     m_TremProvider = new GOSoundProviderSynthedTrem();
-    m_Period = cfg.ReadLong(ODFSetting, group, wxT("Period"), 32, 441000);
+    o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
+    m_PeriodMs = cfg.ReadLong(ODFSetting, group, wxT("Period"), 32, 441000);
     m_StartRate = cfg.ReadInteger(ODFSetting, group, wxT("StartRate"), 1, 100);
     m_StopRate = cfg.ReadInteger(ODFSetting, group, wxT("StopRate"), 1, 100);
-    m_AmpModDepth
+    m_StartTimeMs = (int)std::lround(1000.0 / m_StartRate);
+    m_StopTimeMs = (int)std::lround(1000.0 / m_StopRate);
+    m_AmpModDepthPcnt
       = cfg.ReadInteger(ODFSetting, group, wxT("AmpModDepth"), 1, 100);
     m_TremulantN = tremulantN;
     m_PlaybackHandle = 0;
@@ -89,7 +182,7 @@ void GOTremulant::SetupIsToStoreInCmb() {
 void GOTremulant::InitSoundProvider(GOMemoryPool &pool) {
   if (m_TremulantType == GOSynthTrem) {
     ((GOSoundProviderSynthedTrem *)m_TremProvider)
-      ->Create(pool, m_Period, m_StartRate, m_StopRate, m_AmpModDepth);
+      ->Create(pool, m_PeriodMs, m_StartRate, m_StopRate, m_AmpModDepthPcnt);
     assert(!m_TremProvider->IsOneshot());
   }
 }
@@ -127,3 +220,43 @@ void GOTremulant::StartPlayback() {
 }
 
 GOTremulantType GOTremulant::GetTremulantType() { return m_TremulantType; }
+
+void GOTremulant::SetOrganModified() {
+  r_OrganModel.SetOrganModelModified(true);
+}
+
+void GOTremulant::Save(GOConfigWriter &cfg) {
+  GODrawstop::Save(cfg);
+  // An ODF tremulant takes its parameters only from the ODF
+  if (!m_IsOdfDefined) {
+    const wxString &group = GODrawstop::m_group;
+
+    cfg.WriteInteger(group, WX_PERIOD_MS, m_PeriodMs);
+    cfg.WriteInteger(group, WX_START_TIME_MS, m_StartTimeMs);
+    cfg.WriteInteger(group, WX_STOP_TIME_MS, m_StopTimeMs);
+    cfg.WriteInteger(group, WX_AMP_MOD_DEPTH_PCNT, m_AmpModDepthPcnt);
+    cfg.WriteFloat(group, WX_PITCH_MOD_DEPTH_CENTS, m_PitchModDepthCents);
+    cfg.WriteInteger(group, WX_PITCH_MOD_PHASE_DEGREES, m_PitchModPhaseDegrees);
+  }
+}
+
+void GOTremulant::Render(unsigned sampleRate, Description &outDesc) const {
+  assert(o_provider);
+
+  // The phase may be any integer (the ODF allows -180 .. 359): reduce it to
+  // 0 .. 359 degrees; the second modulo makes a negative remainder positive
+  const unsigned phaseDegrees = ((m_PitchModPhaseDegrees % 360) + 360) % 360;
+  // The provider takes radians
+  const float phaseRads = (float)(phaseDegrees * std::numbers::pi / 180.0);
+  const GOSoundTremulantProvider::Scales scales{
+    m_AmpModDepthPcnt / 100.0f, m_PitchModDepthCents, phaseRads};
+  const double periodMs
+    = m_PeriodMs ? m_PeriodMs : o_provider->GetNaturalPeriodMs();
+  const unsigned nLoopFrames
+    = ms_to_frames(o_provider->GetNPeriodsInLoop() * periodMs, sampleRate);
+
+  assert(nLoopFrames > 0);
+  o_provider->RenderLoop(scales, nLoopFrames, outDesc.amp, outDesc.pitchCents);
+  outDesc.nStartFrames = ms_to_frames(m_StartTimeMs, sampleRate);
+  outDesc.nStopFrames = ms_to_frames(m_StopTimeMs, sampleRate);
+}
