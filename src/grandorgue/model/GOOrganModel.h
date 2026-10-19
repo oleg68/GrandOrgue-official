@@ -192,6 +192,8 @@ public:
 
   unsigned GetTremulantCount() const { return m_tremulants.size(); }
   GOTremulant *GetTremulant(unsigned index) { return m_tremulants[index]; }
+  // Takes the ownership. Returns the tremulant index starting with 0
+  unsigned AddTremulant(GOTremulant *tremulant);
   /**
    * Find a tremulant by it's name
    * @param name - the name of tremulant to find
