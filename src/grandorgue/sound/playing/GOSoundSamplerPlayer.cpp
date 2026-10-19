@@ -31,7 +31,7 @@ GOSoundSamplerPlayer::GOSoundSamplerPlayer(
   std::vector<std::unique_ptr<GOSoundWindchestTask>> &windchestTasks,
   std::unique_ptr<GOSoundReleaseTask> &pReleaseTask)
   : r_WindchestGroupTaskGrid(windchestGroupTaskGrid),
-    r_WindchestTasks(windchestTasks),
+    ro_WindchestTasks(windchestTasks),
     rp_ReleaseTask(pReleaseTask),
     m_IsScaledReleases(true),
     m_IsReleaseAlignmentEnabled(true),
@@ -61,7 +61,7 @@ void GOSoundSamplerPlayer::SetHardPolyphony(unsigned polyphony) {
 
 void GOSoundSamplerPlayer::Build(unsigned sampleRate) {
   assert(rp_ReleaseTask);
-  assert(!r_WindchestTasks.empty());
+  assert(!ro_WindchestTasks.empty());
   m_SampleRate = sampleRate;
 }
 
@@ -107,19 +107,14 @@ float GOSoundSamplerPlayer::GetRandomFactor() const {
 void GOSoundSamplerPlayer::PassSampler(GOSoundSampler *sampler) {
   r_WindchestGroupTaskGrid
     .GetWindchestGroupTask(
-      windchestTaskToIndex(sampler->m_MixWindchestTaskId),
-      sampler->m_AudioGroupId)
+      sampler->m_MixWindchestTaskId, sampler->m_AudioGroupId)
     .Add(sampler);
 }
 
 void GOSoundSamplerPlayer::StartSampler(GOSoundSampler *sampler) {
-  int taskId = sampler->m_SamplerTaskId;
-
   sampler->stop = 0;
   sampler->new_attack = 0;
-  sampler->p_WindchestTask = isWindchestTask(taskId)
-    ? r_WindchestTasks[windchestTaskToIndex(taskId)].get()
-    : nullptr;
+  sampler->p_WindchestTask = ro_WindchestTasks[sampler->m_SamplerTaskId].get();
   PassSampler(sampler);
 }
 
@@ -187,7 +182,7 @@ void GOSoundSamplerPlayer::ReturnSampler(GOSoundSampler *sampler) {
 
 GOSoundSampler *GOSoundSamplerPlayer::CreateTaskSample(
   const GOSoundProvider *pSoundProvider,
-  int samplerTaskId,
+  unsigned samplerTaskId,
   unsigned audioGroup,
   unsigned velocity,
   unsigned delay,
@@ -303,10 +298,8 @@ void GOSoundSamplerPlayer::CreateReleaseSampler(GOSoundSampler *handle) {
   handle->fader.StartDecreasingVolume(crossFadeSamples);
   handle->is_release = true;
 
-  int taskId = handle->m_SamplerTaskId;
-  float vol = isWindchestTask(taskId)
-    ? r_WindchestTasks[windchestTaskToIndex(taskId)]->GetWindchestAmplitude()
-    : 1.0f;
+  const float vol
+    = ro_WindchestTasks[handle->m_SamplerTaskId]->GetWindchestAmplitude();
 
   // FIXME: this is wrong... the intention is to not create a release for a
   // sample being played back with zero amplitude but this is a comparison
@@ -322,67 +315,63 @@ void GOSoundSamplerPlayer::CreateReleaseSampler(GOSoundSampler *handle) {
 
       unsigned gain_decay_length = 0;
       float gain_target = this_pipe->GetGain() * release_section->GetNormGain();
-      const bool not_a_tremulant = isWindchestTask(handle->m_SamplerTaskId);
 
-      if (not_a_tremulant) {
-        /* Because this sampler is about to be moved to a detached
-         * windchest, we must apply the gain of the existing windchest
-         * to the gain target for this fader - otherwise the playback
-         * volume on the detached chest will not match the volume on
-         * the existing chest. */
-        gain_target *= vol;
-        if (m_IsScaledReleases) {
-          /* Note: "time" is in milliseconds. */
-          int time = ((m_CurrentTime - handle->time) * 1000) / m_SampleRate;
-          /* TODO: below code should be replaced by a more accurate model of the
-           * attack to get a better estimate of the amplitude when playing very
-           * short notes; estimating attack duration from pipe MIDI pitch */
-          unsigned midikey_frequency = this_pipe->GetMidiKeyNumber();
-          /* if MidiKeyNumber is not within the range of organ pipes (64 feet
-           * to 1 foot), we assume average pipe (MIDI = 60) */
-          if (midikey_frequency > 133 || midikey_frequency == 0)
-            midikey_frequency = 60;
-          /* attack duration is assumed 50 ms above MIDI 96, 800 ms below MIDI
-           * 24 and linear in between */
-          float attack_duration = 50.0f;
-          if (midikey_frequency < 96) {
-            if (midikey_frequency < 24)
-              attack_duration = 500.0f;
-            else
-              attack_duration
-                = 500.0f + ((24.0f - (float)midikey_frequency) * 6.25f);
-          }
-          /* calculate gain (gain_target) to apply to tail amplitude as a
-           * function of when the note is released during the attack */
-          if (time < (int)attack_duration) {
-            float attack_index = (float)time / attack_duration;
-            float gain_delta
-              = (0.2f + (0.8f * (2.0f * attack_index - (attack_index * attack_index))));
-            gain_target *= gain_delta;
-          }
-          /* calculate the volume decay to be applied to the release to take
-           * into account the fact that reverb is not completely formed during
-           * staccato. Time to full reverb is estimated as a function of release
-           * length: for an organ with a release length of 5 seconds or more,
-           * time_to_full_reverb is around 350 ms; for an organ with a release
-           * length of 1 second or less, time_to_full_reverb is around 100 ms;
-           * time_to_full_reverb is linear in between */
-          int time_to_full_reverb = ((60 * release_section->GetLength())
-                                     / release_section->GetSampleRate())
-            + 40;
-          if (time_to_full_reverb > 350)
-            time_to_full_reverb = 350;
-          if (time_to_full_reverb < 100)
-            time_to_full_reverb = 100;
-          if (time < time_to_full_reverb) {
-            /* as a function of note duration, fading happens between:
-             * 200 ms and 6 s for release with little reverberation e.g. short
-             * release
-             * 700 ms and 6 s for release with large reverberation e.g. long
-             * release */
-            gain_decay_length
-              = time_to_full_reverb + 6000 * time / time_to_full_reverb;
-          }
+      /* Because this sampler is about to be moved to a detached windchest, we
+       * must apply the gain of the existing windchest to the gain target for
+       * this fader - otherwise the playback volume on the detached chest will
+       * not match the volume on the existing chest. */
+      gain_target *= vol;
+      if (m_IsScaledReleases) {
+        /* Note: "time" is in milliseconds. */
+        int time = ((m_CurrentTime - handle->time) * 1000) / m_SampleRate;
+        /* TODO: below code should be replaced by a more accurate model of the
+         * attack to get a better estimate of the amplitude when playing very
+         * short notes; estimating attack duration from pipe MIDI pitch */
+        unsigned midikey_frequency = this_pipe->GetMidiKeyNumber();
+        /* if MidiKeyNumber is not within the range of organ pipes (64 feet
+         * to 1 foot), we assume average pipe (MIDI = 60) */
+        if (midikey_frequency > 133 || midikey_frequency == 0)
+          midikey_frequency = 60;
+        /* attack duration is assumed 50 ms above MIDI 96, 800 ms below MIDI
+         * 24 and linear in between */
+        float attack_duration = 50.0f;
+        if (midikey_frequency < 96) {
+          if (midikey_frequency < 24)
+            attack_duration = 500.0f;
+          else
+            attack_duration
+              = 500.0f + ((24.0f - (float)midikey_frequency) * 6.25f);
+        }
+        /* calculate gain (gain_target) to apply to tail amplitude as a
+         * function of when the note is released during the attack */
+        if (time < (int)attack_duration) {
+          float attack_index = (float)time / attack_duration;
+          float gain_delta
+            = (0.2f + (0.8f * (2.0f * attack_index - (attack_index * attack_index))));
+          gain_target *= gain_delta;
+        }
+        /* calculate the volume decay to be applied to the release to take
+         * into account the fact that reverb is not completely formed during
+         * staccato. Time to full reverb is estimated as a function of release
+         * length: for an organ with a release length of 5 seconds or more,
+         * time_to_full_reverb is around 350 ms; for an organ with a release
+         * length of 1 second or less, time_to_full_reverb is around 100 ms;
+         * time_to_full_reverb is linear in between */
+        int time_to_full_reverb = ((60 * release_section->GetLength())
+                                   / release_section->GetSampleRate())
+          + 40;
+        if (time_to_full_reverb > 350)
+          time_to_full_reverb = 350;
+        if (time_to_full_reverb < 100)
+          time_to_full_reverb = 100;
+        if (time < time_to_full_reverb) {
+          /* as a function of note duration, fading happens between:
+           * 200 ms and 6 s for release with little reverberation e.g. short
+           * release
+           * 700 ms and 6 s for release with large reverberation e.g. long
+           * release */
+          gain_decay_length
+            = time_to_full_reverb + 6000 * time / time_to_full_reverb;
         }
       }
 
@@ -414,14 +403,8 @@ void GOSoundSamplerPlayer::CreateReleaseSampler(GOSoundSampler *handle) {
       }
       new_sampler->is_release = true;
 
-      new_sampler->m_SamplerTaskId = not_a_tremulant
-        ? /* detached releases are enabled and the pipe was on a regular
-           * windchest. Play the release on the detached windchest */
-        DETACHED_RELEASE_TASK_ID
-        /* detached releases are disabled (or this isn't really a pipe)
-         * so put the release on the same windchest as the pipe (which
-         * means it will still be affected by tremulants - yuck). */
-        : handle->m_SamplerTaskId;
+      // Play the release on the detached windchest
+      new_sampler->m_SamplerTaskId = DETACHED_RELEASE_TASK_ID;
       /* Unlike m_SamplerTaskId above, the mixing target always stays the
        * true originating windchest, detached or not: a detached tail's
        * fader volume is baked in via GetWindchestAmplitude() above (a

@@ -214,7 +214,7 @@ private:
     ~OutputState();
   };
 
-  static constexpr int DETACHED_RELEASE_TASK_ID = 0;
+  static constexpr unsigned DETACHED_RELEASE_TASK_ID = 0;
 
   /*
    * Constructor constants: objects that live for the entire instance lifetime
