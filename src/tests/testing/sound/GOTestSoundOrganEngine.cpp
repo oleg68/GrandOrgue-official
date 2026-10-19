@@ -29,7 +29,6 @@
 #include "sound/playing/GOSoundAudioSection.h"
 #include "sound/processing/GOSoundProcessingChain.h"
 #include "sound/providers/GOSoundProvider.h"
-#include "sound/providers/GOSoundProviderSynthedTrem.h"
 #include "sound/tasks/GOSoundTremulantTask.h"
 #include "sound/tasks/GOSoundTremulantWaveForm.h"
 
@@ -940,7 +939,7 @@ void GOTestSoundOrganEngine::TestChainReflectsWindchestEnclosures() {
 
 /** A provider whose gain can be changed from a test, like the voicing
  * controls change it during playback */
-class GOTestLiveChangeProvider : public GOSoundProviderSynthedTrem {
+class GOTestLiveChangeProvider : public GOSoundSineProviderTestImpl {
 public:
   void SetGainForTest(float gain) { m_Gain = gain; }
 };
@@ -967,7 +966,7 @@ std::vector<float> GOTestSoundOrganEngine::RunLiveChangeScenario(
 
   GOTestLiveChangeProvider provider;
 
-  provider.Create(controller->GetMemoryPool(), 100, 100, 100, 50);
+  provider.Create(controller->GetMemoryPool(), 50);
 
   GOSoundSampler *pSampler
     = engine.GetSamplerPlayer().StartPipeSample(&provider, 1, 0, 80, 0, 0);
@@ -1016,7 +1015,7 @@ void GOTestSoundOrganEngine::TestPlayingSamplerFollowsProviderChanges() {
   // A period index that is never reached: the provider is never touched
   static constexpr unsigned NEVER_I = 100000;
 
-  // the original gain of GOSoundProviderSynthedTrem is 1.0 and the original
+  // the original gain of GOSoundSineProviderTestImpl is 1.0 and the original
   // tuning is 0 cents
   const std::vector<float> untouched
     = RunLiveChangeScenario(NEVER_I, 1.0f, 0.0f);
