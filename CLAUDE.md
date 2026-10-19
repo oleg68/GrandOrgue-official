@@ -155,7 +155,6 @@ This pattern flows through: `GOSoundPort` → `GOSound` → `GOSoundEngine`
 **Provider Pattern:**
 - `GOSoundProvider`: Abstract base for audio sources
 - `GOSoundProviderWave`: Loads wave files (attack/release segments)
-- `GOSoundProviderSynthedTrem`: Synthesized tremulant oscillations
 
 **Task-Based Scheduling:**
 - `GOSoundScheduler`: Lock-free multi-threaded task dispatch
