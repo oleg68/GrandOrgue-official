@@ -139,8 +139,7 @@ public:
   void Init(
     GOConfigReader &cfg, const wxString &group, const wxString &name) override;
 
-  using GODrawstop::Load; // Avoiding a compilation warning
-  void Load(GOConfigReader &cfg, const wxString &group, unsigned tremulantN);
+  void Load(GOConfigReader &cfg, const wxString &group) override;
   GOTremulantType GetTremulantType();
 
   /**

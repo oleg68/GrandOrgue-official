@@ -20,7 +20,7 @@ class GOSoundWindchestTask;
 struct GOSoundSampler {
   GOSoundSampler *next;
   const GOSoundProvider *p_SoundProvider;
-  int m_SamplerTaskId;
+  unsigned m_SamplerTaskId;
   /** Selects the GOSoundWindchestGroupTask grid cell this sampler mixes
    * into, together with m_AudioGroupId - see GOSoundSamplerPlayer::
    * PassSampler(). Equal to m_SamplerTaskId for every sampler except a
@@ -28,7 +28,7 @@ struct GOSoundSampler {
    * true originating windchest (so the tail still runs through that
    * windchest's chain) while m_SamplerTaskId becomes
    * DETACHED_RELEASE_TASK_ID (the volume source for the tail's fader). */
-  int m_MixWindchestTaskId;
+  unsigned m_MixWindchestTaskId;
   GOSoundWindchestTask *p_WindchestTask;
   unsigned m_AudioGroupId;
   GOSoundStream stream;
