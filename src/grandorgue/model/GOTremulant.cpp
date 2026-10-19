@@ -16,16 +16,7 @@
 #include "config/GOConfigWriter.h"
 #include "model/GOOrganModel.h"
 #include "sound/effects/GOSoundVibratoPitchRateCurve.h"
-#include "sound/providers/GOSoundProviderSynthedTrem.h"
 #include "sound/providers/GOSoundTremulantProviderSynth.h"
-
-#define DELETE_AND_NULL(x)                                                     \
-  do {                                                                         \
-    if (x) {                                                                   \
-      delete x;                                                                \
-      x = NULL;                                                                \
-    }                                                                          \
-  } while (0)
 
 static const GOConfigEnum TREMULANT_TYPES({
   {wxT("Synth"), GOSynthTrem},
@@ -61,39 +52,30 @@ static unsigned ms_to_frames(double ms, unsigned sampleRate) {
 
 GOTremulant::GOTremulant(GOOrganModel &organModel)
   : GODrawstop(organModel, OBJECT_TYPE_TREMULANT),
-    r_sound(organModel),
     m_IsOdfDefined(false),
     m_TremulantType(GOSynthTrem),
     m_PeriodMs(0),
-    m_StartRate(0),
-    m_StopRate(0),
     m_StartTimeMs(0.0f),
     m_StopTimeMs(0.0f),
     m_AmpModDepthPcnt(0),
     m_PitchModDepthCents(0.0f),
-    m_PitchModPhaseDegrees(0),
-    m_TremProvider(NULL),
-    m_PlaybackHandle(0),
-    m_LastStop(0),
-    m_TremulantN(0) {
+    m_PitchModPhaseDegrees(0) {
   r_OrganModel.RegisterCacheObject(this);
 }
 
-GOTremulant::~GOTremulant() {
-  r_OrganModel.UnRegisterCacheObject(this);
-  DELETE_AND_NULL(m_TremProvider);
-}
+// Defined here because GOSoundTremulantProvider is incomplete in the header
+GOTremulant::~GOTremulant() { r_OrganModel.UnRegisterCacheObject(this); }
 
 void GOTremulant::Initialize() {}
 
-void GOTremulant::LoadData(const GOFileStore &fileStore, GOMemoryPool &pool) {
-  InitSoundProvider(pool);
-}
+/*
+ * Nothing to load for Synth: the wave form is rendered by the sound engine
+ * because it depends on the sample rate. Lfo (PR 12) loads and caches its wav
+ * here.
+ */
+void GOTremulant::LoadData(const GOFileStore &fileStore, GOMemoryPool &pool) {}
 
-bool GOTremulant::LoadCache(GOMemoryPool &pool, GOCache &cache) {
-  InitSoundProvider(pool);
-  return true;
-}
+bool GOTremulant::LoadCache(GOMemoryPool &pool, GOCache &cache) { return true; }
 
 void GOTremulant::LoadFromCmb(GOConfigReader &cfg) {
   const wxString &group = GODrawstop::m_group;
@@ -149,7 +131,6 @@ void GOTremulant::Init(
   m_TremulantType = GOSynthTrem;
   o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
   LoadFromCmb(cfg);
-  r_OrganModel.RegisterCacheObject(this);
 }
 
 void GOTremulant::Load(
@@ -164,17 +145,17 @@ void GOTremulant::Load(
     false,
     GOSynthTrem);
   if (m_TremulantType == GOSynthTrem) {
-    m_TremProvider = new GOSoundProviderSynthedTrem();
+    const int startRate
+      = cfg.ReadInteger(ODFSetting, group, wxT("StartRate"), 1, 100);
+    const int stopRate
+      = cfg.ReadInteger(ODFSetting, group, wxT("StopRate"), 1, 100);
+
     o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
     m_PeriodMs = cfg.ReadLong(ODFSetting, group, wxT("Period"), 32, 441000);
-    m_StartRate = cfg.ReadInteger(ODFSetting, group, wxT("StartRate"), 1, 100);
-    m_StopRate = cfg.ReadInteger(ODFSetting, group, wxT("StopRate"), 1, 100);
-    m_StartTimeMs = 1000.0f / m_StartRate;
-    m_StopTimeMs = 1000.0f / m_StopRate;
+    m_StartTimeMs = 1000.0f / startRate;
+    m_StopTimeMs = 1000.0f / stopRate;
     m_AmpModDepthPcnt
       = cfg.ReadInteger(ODFSetting, group, wxT("AmpModDepth"), 1, 100);
-    m_TremulantN = tremulantN;
-    m_PlaybackHandle = 0;
   }
   GODrawstop::Load(cfg, group);
 }
@@ -185,42 +166,14 @@ void GOTremulant::SetupIsToStoreInCmb() {
     = m_IsToStoreInDivisional && r_OrganModel.DivisionalsStoreTremulants();
 }
 
-void GOTremulant::InitSoundProvider(GOMemoryPool &pool) {
-  if (m_TremulantType == GOSynthTrem) {
-    ((GOSoundProviderSynthedTrem *)m_TremProvider)
-      ->Create(pool, m_PeriodMs, m_StartRate, m_StopRate, m_AmpModDepthPcnt);
-    assert(!m_TremProvider->IsOneshot());
-  }
-}
-
 void GOTremulant::OnDrawstopStateChanged(bool on) {
-  if (m_TremulantType == GOSynthTrem) {
-    if (on) {
-      assert(m_TremulantN > 0);
-      m_PlaybackHandle = r_OrganModel.StartTremulantSample(
-        m_TremProvider, m_TremulantN, m_LastStop);
-    } else if (m_PlaybackHandle) {
-      m_LastStop = r_OrganModel.StopSample(m_TremProvider, m_PlaybackHandle);
-      m_PlaybackHandle = NULL;
-    }
-  }
   if (m_TremulantType == GOWavTrem)
     r_OrganModel.UpdateTremulant(this);
-}
-
-void GOTremulant::AbortPlayback() {
-  m_PlaybackHandle = NULL;
-  m_LastStop = 0;
-  GOButtonControl::AbortPlayback();
 }
 
 void GOTremulant::StartPlayback() {
   GODrawstop::StartPlayback();
 
-  if (IsEngaged() && m_TremulantType == GOSynthTrem) {
-    assert(m_TremulantN > 0);
-    r_sound.StartTremulantSample(m_TremProvider, m_TremulantN, 0);
-  }
   if (m_TremulantType == GOWavTrem)
     r_OrganModel.UpdateTremulant(this);
 }
