@@ -236,7 +236,6 @@ sound/ports/GOSoundRtPort.cpp
 sound/processing/GOSoundProcessingChain.cpp
 sound/processing/GOSoundProcessingChainState.cpp
 sound/providers/GOSoundProvider.cpp
-sound/providers/GOSoundProviderSynthedTrem.cpp
 sound/providers/GOSoundProviderWave.cpp
 sound/providers/GOSoundTremulantProviderSynth.cpp
 sound/reverb/GOSoundReverb.cpp
