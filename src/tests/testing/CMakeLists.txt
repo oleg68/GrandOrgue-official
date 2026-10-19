@@ -11,6 +11,8 @@ set(go_tests
     model/GOTestPipeConfigTreeNode.cpp
     model/GOTestSoundingPipe.cpp
     model/GOTestSwitch.cpp
+    model/GOTestTremulant.cpp
+    model/GOTestTremulantFixture.cpp
     model/GOTestWindchest.cpp
     scheduler/GOTestScheduler.cpp
     sound/buffer/GOTestPerfSoundBufferBase.cpp
