@@ -142,7 +142,7 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
 
     pTremulant->SetContext(&MIDI_CONTEXT_TREMULANTS);
     set_name_for_context(pTremulant, num);
-    pTremulant->Load(cfg, wxString::Format(wxT("Tremulant%03u"), num), num);
+    pTremulant->Load(cfg, wxString::Format(wxT("Tremulant%03u"), num));
     AddTremulant(pTremulant);
   }
 

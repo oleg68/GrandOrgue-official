@@ -132,8 +132,7 @@ void GOTremulant::Init(
   r_OrganModel.RegisterCacheObject(this);
 }
 
-void GOTremulant::Load(
-  GOConfigReader &cfg, const wxString &group, unsigned tremulantN) {
+void GOTremulant::Load(GOConfigReader &cfg, const wxString &group) {
   m_IsOdfDefined = true;
   SetGroupAndPrefix(group, wxEmptyString);
   m_TremulantType = (GOTremulantType)cfg.ReadEnum(

@@ -222,8 +222,7 @@ public:
   /**
    * Scans every sounding pipe of every rank and collects the distinct
    * (windchestN, audioGroupId) pairs actually used - the pairs the sound
-   * engine needs a GOSoundWindchestGroupTask for. Tremulant-only samplers
-   * are not pipes, so they are not part of this scan.
+   * engine needs a GOSoundWindchestGroupTask for.
    * @return the distinct (windchestN, audioGroupId) pairs used by the
    *   organ's pipes
    */
