@@ -37,7 +37,7 @@ private:
    */
 
   GOSoundWindchestGroupTaskGrid &r_WindchestGroupTaskGrid;
-  std::vector<std::unique_ptr<GOSoundWindchestTask>> &r_WindchestTasks;
+  std::vector<std::unique_ptr<GOSoundWindchestTask>> &ro_WindchestTasks;
   /** nullptr when player is constructed; populated in the body of
    * GOSoundOrganEngine constructor. Used only during playback (after Build). */
   std::unique_ptr<GOSoundReleaseTask> &rp_ReleaseTask;
@@ -79,13 +79,7 @@ private:
 
   unsigned SamplesDiffToMs(uint64_t fromSamples, uint64_t toSamples) const;
 
-  static constexpr int DETACHED_RELEASE_TASK_ID = 0;
-
-  static bool isWindchestTask(int taskId) { return taskId >= 0; }
-
-  static unsigned windchestTaskToIndex(int taskId) { return (unsigned)taskId; }
-
-  static unsigned tremulantTaskToIndex(int taskId) { return -taskId - 1; }
+  static constexpr unsigned DETACHED_RELEASE_TASK_ID = 0;
 
   float GetRandomFactor() const;
 
@@ -95,8 +89,7 @@ private:
    * @brief Creates and starts a new sampler.
    *
    * @param pSoundProvider     Audio data source.
-   * @param samplerTaskId      Windchest task index (>=0) or negated tremulant
-   *                           index (<0).
+   * @param samplerTaskId      Windchest task index.
    * @param audioGroup         Audio group index.
    * @param velocity           MIDI velocity (0–127).
    * @param delay              Start delay in milliseconds.
@@ -108,7 +101,7 @@ private:
    */
   GOSoundSampler *CreateTaskSample(
     const GOSoundProvider *pSoundProvider,
-    int samplerTaskId,
+    unsigned samplerTaskId,
     unsigned audioGroup,
     unsigned velocity,
     unsigned delay,
@@ -260,7 +253,7 @@ public:
    * @brief Processes one period of audio for a single sampler.
    *
    * @param sampler    The sampler to process.
-   * @param amplitude  Windchest/tremulant amplitude factor.
+   * @param amplitude  Windchest amplitude factor.
    * @param outBuffer  Interleaved stereo buffer to mix into.
    * @return true if the sampler should be kept alive for the next period.
    */
@@ -278,7 +271,7 @@ public:
   void ProcessRelease(GOSoundSampler *sampler);
 
   /**
-   * @brief Queues a sampler into the appropriate group or tremulant task.
+   * @brief Queues a sampler into the appropriate group task.
    * @param sampler  The sampler to pass to its task.
    */
   void PassSampler(GOSoundSampler *sampler);
