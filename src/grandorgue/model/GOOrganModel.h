@@ -228,6 +228,18 @@ public:
   unsigned GetTremulantCount() const { return m_tremulants.size(); }
   GOTremulant *GetTremulant(unsigned index) { return m_tremulants[index]; }
   /**
+   * Takes the ownership of the tremulant and registers it in the model.
+   * @return the zero-based index of the tremulant
+   */
+  unsigned AddTremulant(std::unique_ptr<GOTremulant> &&oTremulant);
+  /**
+   * Deletes the tremulant added by AddTremulant(). The mirror of
+   * AddTremulant(): the tremulant must be the last added one (an assertion
+   * failure in Debug; ignored in Release if it is not the last one).
+   * @param pTremulant the tremulant to remove
+   */
+  void RemoveTremulant(GOTremulant *pTremulant);
+  /**
    * Find a tremulant by it's name
    * @param name - the name of tremulant to find
    * @return the tremulant index or -1 if the tremulant is not found
