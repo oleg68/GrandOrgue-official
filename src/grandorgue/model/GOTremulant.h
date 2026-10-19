@@ -8,7 +8,6 @@
 #ifndef GOTREMULANT_H
 #define GOTREMULANT_H
 
-#include <cstdint>
 #include <memory>
 #include <vector>
 #include <wx/string.h>
@@ -19,10 +18,7 @@
 class GOConfigReader;
 class GOConfigWriter;
 class GOMemoryPool;
-class GOSoundSamplerPlayerInterface;
-class GOSoundProvider;
 class GOSoundTremulantProvider;
-struct GOSoundSampler;
 
 typedef enum { GOSynthTrem, GOWavTrem } GOTremulantType;
 
@@ -45,8 +41,6 @@ public:
   };
 
 private:
-  GOSoundSamplerPlayerInterface &r_sound;
-
   /**
    * Whether the tremulant is defined in the ODF. Its parameters then come only
    * from the ODF and are never saved to the .cmb. Otherwise it is an internal
@@ -57,8 +51,6 @@ private:
   GOTremulantType m_TremulantType;
   // The period of the modulation, in ms
   int m_PeriodMs;
-  int m_StartRate;
-  int m_StopRate;
   // The lengths of the depth ramps on engaging / disengaging, in ms; 0 means an
   // instant ramp
   int m_StartTimeMs;
@@ -75,10 +67,6 @@ private:
   int m_PitchModPhaseDegrees;
   // Renders the loop of a Synth tremulant; nullptr for a Wave tremulant
   std::unique_ptr<GOSoundTremulantProvider> o_provider;
-  GOSoundProvider *m_TremProvider;
-  GOSoundSampler *m_PlaybackHandle;
-  uint64_t m_LastStop;
-  unsigned m_TremulantN;
 
   // Marks the organ model as modified. Defined in the .cpp so that this header
   // does not include GOOrganModel.h
@@ -103,7 +91,6 @@ private:
    */
   void LoadFromCmb(GOConfigReader &cfg);
 
-  void InitSoundProvider(GOMemoryPool &pool);
   void OnDrawstopStateChanged(bool on) override;
   void SetupIsToStoreInCmb() override;
 
@@ -114,7 +101,6 @@ private:
   void UpdateHash(GOHash &hash) const override {}
   const wxString &GetLoadTitle() const override { return GetName(); };
 
-  void AbortPlayback() override;
   void StartPlayback() override;
   void Save(GOConfigWriter &cfg) override;
 
