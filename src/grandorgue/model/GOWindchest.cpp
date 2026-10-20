@@ -91,10 +91,6 @@ void GOWindchest::UpdateVolume() {
   m_amplitude = f;
 }
 
-unsigned GOWindchest::GetTremulantCount() { return m_tremulant.size(); }
-
-unsigned GOWindchest::GetTremulantId(unsigned no) { return m_tremulant[no]; }
-
 unsigned GOWindchest::GetRankCount() { return m_ranks.size(); }
 
 GORank *GOWindchest::GetRank(unsigned index) {
@@ -117,6 +113,14 @@ void GOWindchest::RemoveEnclosure(GOEnclosure *pEnclosure) {
   assert(isLast);
   if (isLast)
     m_enclosure.pop_back();
+}
+
+void GOWindchest::RemoveTremulant(unsigned id) {
+  const bool isLast = !m_tremulant.empty() && m_tremulant.back() == id;
+
+  assert(isLast);
+  if (isLast)
+    m_tremulant.pop_back();
 }
 
 const wxString &GOWindchest::GetName() { return m_Name; }
