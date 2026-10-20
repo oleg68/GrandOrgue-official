@@ -227,7 +227,9 @@ This pattern flows through: `GOSoundPort` → `GOSound` → `GOSoundEngine`
     - `effects/`: Concrete processors built on `processing/` and
       `dsp-kernels/`.
     - `mappers/`: Model-aware parameter mappers; the only place in this
-      stack allowed to see `model/`.
+      stack allowed to see `model/`. A mapper may also read a scheduler task
+      of `tasks/` (the tremulant vibrato mapper passes the tremulant task's
+      pitch rate chunk to its processor).
     - `playing/`: Sampler-side playback (streams, samplers, faders, audio
       sections).
     - `providers/`: Audio sources feeding samplers, and tremulant wave form
@@ -240,7 +242,8 @@ This pattern flows through: `GOSoundPort` → `GOSound` → `GOSoundEngine`
 
     Placement rule: a new DSP class with no state ownership and no
     framework ties goes in `dsp-kernels/`; a chainable stateful unit goes
-    in `effects/`; anything reading the organ model goes in `mappers/`.
+    in `effects/`; anything reading the organ model or a scheduler task goes
+    in `mappers/`.
   - `updater/`: ODF/CMB version updater
   - `yaml/`: YAML serialization utilities
 
