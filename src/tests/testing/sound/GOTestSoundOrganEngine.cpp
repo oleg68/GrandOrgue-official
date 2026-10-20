@@ -25,6 +25,7 @@
 #include "sound/GOSoundOrganEngine.h"
 #include "sound/buffer/GOSoundBufferPlanarMutable.h"
 #include "sound/effects/GOSoundShelfFilterProcessor.h"
+#include "sound/effects/GOSoundVibratoProcessor.h"
 #include "sound/playing/GOSoundAudioSection.h"
 #include "sound/processing/GOSoundProcessingChain.h"
 #include "sound/providers/GOSoundProvider.h"
@@ -936,6 +937,60 @@ void GOTestSoundOrganEngine::TestChainReflectsWindchestEnclosures() {
   StopAndDestroyEngine();
 }
 
+void GOTestSoundOrganEngine::TestChainHoldsVibratoPerTremulant() {
+  // The indices are taken from the return values: the controller is shared
+  // across the tests of this suite, so earlier tests may have added items
+  std::unique_ptr<GOWindchest> oWindchest
+    = std::make_unique<GOWindchest>(*controller);
+  GOWindchest *const pWindchest = oWindchest.get();
+  const unsigned windchestN = controller->AddWindchest(std::move(oWindchest));
+  const unsigned synthI = controller->AddTremulant(
+    load_tremulant(*controller, "Synth", 100, 4, 4, 20));
+  const unsigned waveI = controller->AddTremulant(
+    load_tremulant(*controller, "Wave", 100, 4, 4, 20));
+  const unsigned secondSynthI = controller->AddTremulant(
+    load_tremulant(*controller, "Synth", 100, 4, 4, 20));
+  std::unique_ptr<GOEnclosure> oEnclosure
+    = std::make_unique<GOEnclosure>(*controller);
+  GOEnclosure *const pEnclosure = oEnclosure.get();
+
+  controller->AddEnclosure(std::move(oEnclosure));
+  pWindchest->AddTremulant(synthI);
+  pWindchest->AddTremulant(waveI);
+  pWindchest->AddTremulant(secondSynthI);
+  pWindchest->AddEnclosure(pEnclosure);
+
+  GOSoundOrganEngine &engine = BuildAndStartEngine(
+    /* nAudioGroups */ 1, /* nAuxThreads */ 0, /* nOutputs */ 1);
+  const GOSoundProcessingChain &chain = engine.GetWindchestChainAt(windchestN);
+  unsigned nVibratoProcessors = 0;
+  unsigned nShelfProcessors = 0;
+  unsigned lastVibratoI = 0;
+  unsigned firstShelfI = chain.GetNProcessors();
+
+  for (unsigned n = chain.GetNProcessors(), processorI = 0; processorI < n;
+       processorI++) {
+    const GOSoundProcessor &processor = chain.GetProcessor(processorI);
+
+    if (dynamic_cast<const GOSoundVibratoProcessor *>(&processor)) {
+      nVibratoProcessors++;
+      lastVibratoI = processorI;
+    } else if (dynamic_cast<const GOSoundShelfFilterProcessor *>(&processor)) {
+      nShelfProcessors++;
+      firstShelfI = std::min(firstShelfI, processorI);
+    }
+  }
+  GOAssert(
+    nVibratoProcessors == 2,
+    "one vibrato per non-Wave tremulant, none for a Wave one");
+  GOAssert(nShelfProcessors == 1, "the shelf filter must stay");
+  GOAssert(
+    lastVibratoI < firstShelfI,
+    "all the vibratos must precede the shelf filters");
+
+  StopAndDestroyEngine();
+}
+
 void GOTestSoundOrganEngine::run() {
   GO_RUN_TEST(TestSingleOutputLifecycle())
   GO_RUN_TEST(TestTwoOutputsLifecycle())
@@ -954,4 +1009,5 @@ void GOTestSoundOrganEngine::run() {
   GO_RUN_TEST(TestTremulantKeepsPhaseAcrossCommit())
   GO_RUN_TEST(TestSamplerAudioReachesPlanarOutput())
   GO_RUN_TEST(TestChainReflectsWindchestEnclosures())
+  GO_RUN_TEST(TestChainHoldsVibratoPerTremulant())
 }

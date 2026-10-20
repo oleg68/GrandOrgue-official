@@ -166,6 +166,12 @@ public:
     m_IsRandomizeSpeaking = isEnabled;
   }
 
+  /**
+   * @return the resampler shared by the samplers and the vibrato processors of
+   *   the windchest chains; lives as long as this object
+   */
+  const GOSoundResample &GetResample() const { return m_resample; }
+
   GOSoundResample::InterpolationType GetInterpolationType() const {
     return m_InterpolationType;
   }
