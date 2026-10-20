@@ -13,10 +13,14 @@
 #include "buffer/GOSoundBufferPlanarMutable.h"
 #include "config/GOConfig.h"
 #include "effects/GOSoundShelfFilterProcessor.h"
+#include "effects/GOSoundVibratoProcessor.h"
 #include "mappers/GOSoundEnclosureShelfMapper.h"
+#include "mappers/GOSoundTremulantVibratoMapper.h"
 #include "model/GOEnclosure.h"
 #include "model/GOOrganModel.h"
+#include "model/GOTremulant.h"
 #include "model/GOWindchest.h"
+#include "playing/GOSoundSamplerPlayer.h"
 #include "processing/GOSoundProcessingChain.h"
 #include "scheduler/GOSchedulerThread.h"
 #include "tasks/GOSoundGroupTask.h"
@@ -193,8 +197,17 @@ const GOSoundProcessingChain &GOSoundOrganEngine::GetWindchestChainAt(
  */
 
 /** Builds and EnsureSetup()s pWindchest's processing chain, for
- * GOSoundWindchestTask's constructor: one GOSoundShelfFilterProcessor +
- * GOSoundEnclosureShelfMapper pair per enclosure attached to pWindchest,
+ * GOSoundWindchestTask's constructor. The chain holds, in this order:
+ * - one GOSoundVibratoProcessor + GOSoundTremulantVibratoMapper pair per
+ *   non-Wave tremulant of pWindchest (a Wave tremulant switches samples and
+ *   has no wave form to modulate; it is recognized by the model type, not by
+ *   an empty wave form). Several tremulants add up their delays. The pairs
+ *   go first: a pipe modulates its pitch, then the swell box filters it. The
+ *   processor is built even if the tremulant has no pitch modulation now, as
+ *   its depth may become non-zero on Apply without an engine rebuild; a
+ *   bypassed processor costs nothing;
+ * - one GOSoundShelfFilterProcessor + GOSoundEnclosureShelfMapper pair per
+ *   enclosure attached to pWindchest,
  * chained in series. Always builds the full chain, regardless of configured
  * attenuation or current position - an enclosure with no shelf configured
  * (or currently fully open) still gets a processor/mapper pair, so a swell
@@ -210,15 +223,43 @@ const GOSoundProcessingChain &GOSoundOrganEngine::GetWindchestChainAt(
  * step - each chain is owned by the GOSoundWindchestTask it is passed into,
  * so DestroyEngine()'s mo_WindchestTasks.clear() destroys every chain (and,
  * in turn, every processor/mapper it owns) at exactly the same [B2] step
- * that built them.
+ * that built them. The vibrato mappers reference the tremulant tasks [B1],
+ * which are destroyed after mo_WindchestTasks [B2], and the processors
+ * reference the resampler of the sampler player, which is declared before both.
  * @param pWindchest the windchest to build the chain for, or nullptr for
  *   the synthetic detached-release owner (always an empty chain)
+ * @param organModel the model that owns the tremulants of pWindchest
+ * @param tremulantTasks the tasks of all the tremulants of organModel [B1],
+ *   indexed as the tremulants
+ * @param samplerPlayer the source of the resampler and the interpolation type
+ *   of the vibrato processors
  */
 static std::unique_ptr<GOSoundProcessingChain> build_windchest_chain(
-  GOWindchest *pWindchest, unsigned nSamplesPerBuffer, unsigned sampleRate) {
+  const GOWindchest *pWindchest,
+  const GOOrganModel &organModel,
+  const std::vector<std::unique_ptr<GOSoundTremulantTask>> &tremulantTasks,
+  const GOSoundSamplerPlayer &samplerPlayer,
+  unsigned nSamplesPerBuffer,
+  unsigned sampleRate) {
   auto oChain = std::make_unique<GOSoundProcessingChain>();
 
-  if (pWindchest)
+  if (pWindchest) {
+    for (unsigned nTremulants = pWindchest->GetTremulantCount(), tremulantI = 0;
+         tremulantI < nTremulants;
+         tremulantI++) {
+      const unsigned tremulantId = pWindchest->GetTremulantId(tremulantI);
+
+      if (
+        organModel.GetTremulant(tremulantId)->GetTremulantType() != GOWavTrem) {
+        auto oProcessor = std::make_unique<GOSoundVibratoProcessor>(
+          samplerPlayer.GetResample(), samplerPlayer.GetInterpolationType());
+        GOSoundVibratoProcessor &processor = *oProcessor;
+
+        oChain->AddProcessor(std::move(oProcessor));
+        oChain->AddMapper(std::make_unique<GOSoundTremulantVibratoMapper>(
+          *tremulantTasks[tremulantId], processor));
+      }
+    }
     for (GOEnclosure *pEnclosure : pWindchest->GetEnclosures()) {
       auto oProcessor = std::make_unique<GOSoundShelfFilterProcessor>();
       GOSoundShelfFilterProcessor &processor = *oProcessor;
@@ -227,6 +268,7 @@ static std::unique_ptr<GOSoundProcessingChain> build_windchest_chain(
       oChain->AddMapper(
         std::make_unique<GOSoundEnclosureShelfMapper>(*pEnclosure, processor));
     }
+  }
   oChain->EnsureSetup(MAX_OUTPUT_CHANNELS, nSamplesPerBuffer, sampleRate);
 
   return oChain;
@@ -269,14 +311,26 @@ void GOSoundOrganEngine::BuildEngine(
   mo_WindchestTasks.push_back(std::make_unique<GOSoundWindchestTask>(
     *this,
     nullptr,
-    build_windchest_chain(nullptr, m_NSamplesPerBuffer, sampleRate)));
+    build_windchest_chain(
+      nullptr,
+      r_OrganModel,
+      mo_TremulantTasks,
+      m_SamplerPlayer,
+      m_NSamplesPerBuffer,
+      sampleRate)));
   for (unsigned n = r_OrganModel.GetWindchestCount(), wcI = 0; wcI < n; wcI++) {
     GOWindchest *const pWindchest = r_OrganModel.GetWindchest(wcI);
 
     mo_WindchestTasks.push_back(std::make_unique<GOSoundWindchestTask>(
       *this,
       pWindchest,
-      build_windchest_chain(pWindchest, m_NSamplesPerBuffer, sampleRate)));
+      build_windchest_chain(
+        pWindchest,
+        r_OrganModel,
+        mo_TremulantTasks,
+        m_SamplerPlayer,
+        m_NSamplesPerBuffer,
+        sampleRate)));
   }
 
   // [B3] Initialize windchests with tremulant tasks
@@ -485,7 +539,8 @@ void GOSoundOrganEngine::DestroyEngine() {
   // [B3] Init() — nothing to explicitly undo; its connections drop with the
   // windchest tasks at [B2] below
 
-  // [B2] Destroy windchest tasks
+  // [B2] Destroy windchest tasks. This destroys the vibrato mappers of their
+  // chains, which reference the tasks of [B1], so [B1] must stay after [B2]
   mo_WindchestTasks.clear();
 
   // [B1] Destroy tremulant tasks

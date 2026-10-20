@@ -49,6 +49,7 @@ set(go_tests
     sound/GOTestSoundWindchestGroupTaskGrid.cpp
     sound/mappers/GOTestPerfSoundEnclosureShelfMapper.cpp
     sound/mappers/GOTestSoundEnclosureShelfMapper.cpp
+    sound/mappers/GOTestSoundTremulantVibratoMapper.cpp
     sound/playing/GOTestPerfSoundPlayingFader.cpp
     sound/playing/GOTestReleaseAlignTable.cpp
     sound/playing/GOTestSoundPlayingFader.cpp
