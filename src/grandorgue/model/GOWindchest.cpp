@@ -99,6 +99,14 @@ void GOWindchest::RemoveEnclosure(GOEnclosure *pEnclosure) {
     m_enclosure.pop_back();
 }
 
+void GOWindchest::RemoveTremulant(unsigned id) {
+  const bool isLast = !m_tremulant.empty() && m_tremulant.back() == id;
+
+  assert(isLast);
+  if (isLast)
+    m_tremulant.pop_back();
+}
+
 void GOWindchest::UpdateTremulant(GOTremulant *tremulant) {
   for (unsigned i = 0; i < m_tremulant.size(); i++)
     if (tremulant == r_OrganModel.GetTremulant(m_tremulant[i])) {
