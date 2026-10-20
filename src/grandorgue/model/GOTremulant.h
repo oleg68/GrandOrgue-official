@@ -119,7 +119,7 @@ public:
     GOConfigReader &cfg, const wxString &group, const wxString &name) override;
 
   void Load(GOConfigReader &cfg, const wxString &group) override;
-  GOTremulantType GetTremulantType();
+  GOTremulantType GetTremulantType() const;
 
   /**
    * Renders the loop and the ramp lengths for a sample rate. Called only from

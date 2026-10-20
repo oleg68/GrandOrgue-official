@@ -51,8 +51,16 @@ public:
   void UpdateTremulant(GOTremulant *tremulant);
   void UpdateVolume();
   float GetAmplitude() const { return m_amplitude; }
-  unsigned GetTremulantCount();
-  unsigned GetTremulantId(unsigned index);
+  unsigned GetTremulantCount() const { return m_tremulant.size(); }
+  unsigned GetTremulantId(unsigned index) const { return m_tremulant[index]; }
+  /**
+   * Attaches an already added tremulant to this windchest. Load() does the same
+   * from the ODF; this method is for the code that builds an organ without an
+   * ODF (the tests).
+   *
+   * @param id the index of the tremulant in GOOrganModel
+   */
+  void AddTremulant(unsigned id) { m_tremulant.push_back(id); }
   unsigned GetRankCount();
   GORank *GetRank(unsigned index);
   void AddRank(GORank *rank);

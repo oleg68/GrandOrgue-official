@@ -87,10 +87,6 @@ void GOWindchest::UpdateVolume() {
   m_amplitude = f;
 }
 
-unsigned GOWindchest::GetTremulantCount() { return m_tremulant.size(); }
-
-unsigned GOWindchest::GetTremulantId(unsigned no) { return m_tremulant[no]; }
-
 unsigned GOWindchest::GetRankCount() { return m_ranks.size(); }
 
 GORank *GOWindchest::GetRank(unsigned index) {
