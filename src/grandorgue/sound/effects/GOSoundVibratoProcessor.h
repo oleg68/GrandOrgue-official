@@ -21,6 +21,7 @@
 #include "GOSoundVibratoProcessorState.h"
 
 class GOTestPerfSoundVibratoProcessor;
+class GOTestSoundTremulantVibratoMapper;
 class GOTestSoundVibratoProcessor;
 
 /**
@@ -97,6 +98,7 @@ public:
 private:
   friend class GOTestSoundVibratoProcessor;     // direct access for unit tests
   friend class GOTestPerfSoundVibratoProcessor; // the same for the perf tests
+  friend class GOTestSoundTremulantVibratoMapper; // reads the pitch rate chunk
 
   /** The resampling kernel this processor reads from; not owned. */
   const GOSoundResample &r_resample;
