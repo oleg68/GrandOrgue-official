@@ -149,6 +149,15 @@ private:
    */
   void TestChainReflectsWindchestEnclosures();
 
+  /**
+   * BuildEngine() puts one GOSoundVibratoProcessor/
+   * GOSoundTremulantVibratoMapper pair per non-Wave tremulant of a windchest
+   * into its chain, before the shelf filters of its enclosures; a Wave
+   * tremulant gets none, so a windchest with two Synth tremulants and a Wave
+   * one gets two vibrato processors in a row (issue #709).
+   */
+  void TestChainHoldsVibratoPerTremulant();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;
