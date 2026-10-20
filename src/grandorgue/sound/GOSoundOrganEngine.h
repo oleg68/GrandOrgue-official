@@ -283,7 +283,9 @@ private:
 
   // [B1] mo_TremulantTasks: one per tremulant in r_OrganModel, each with its
   // wave form
-  //   — referenced by mo_WindchestTasks after [B3] Init()
+  //   — referenced by the vibrato mappers of the chains of mo_WindchestTasks
+  //     [B2] (from their construction) and by mo_WindchestTasks after [B3]
+  //     Init()
   std::vector<std::unique_ptr<GOSoundTremulantTask>> mo_TremulantTasks;
   // [B2] mo_WindchestTasks: one special + one per windchest in r_OrganModel
   //   — initialized in [B3] with mo_TremulantTasks [B1]
