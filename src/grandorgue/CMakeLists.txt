@@ -220,6 +220,7 @@ sound/effects/GOSoundVibratoProcessor.cpp
 sound/effects/GOSoundVibratoProcessorState.cpp
 sound/interfaces/GOSoundCallbackConnector.cpp
 sound/mappers/GOSoundEnclosureShelfMapper.cpp
+sound/mappers/GOSoundTremulantVibratoMapper.cpp
 sound/playing/GOSoundAudioSection.cpp
 sound/playing/GOSoundPlayingFader.cpp
 sound/playing/GOSoundReleaseAlignTable.cpp

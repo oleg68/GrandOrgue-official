@@ -29,8 +29,8 @@ private:
   /** This windchest's processing chain, shared by every
    * GOSoundWindchestGroupTask (audio group) of this windchest. Received
    * already built and EnsureSetup() at construction (see the constructor's
-   * pChain parameter); never null. */
-  std::unique_ptr<GOSoundProcessingChain> mp_chain;
+   * oChain parameter); never null. */
+  std::unique_ptr<GOSoundProcessingChain> o_chain;
 
   bool DoRun(GOSchedulerThread *pThread) override;
 
@@ -39,7 +39,7 @@ public:
    * @param soundEngine the owning engine, used for its overall amplitude
    * @param pWindchest the model windchest this task tracks, or nullptr for
    *   the synthetic detached-release windchest
-   * @param pChain this windchest's processing chain, taken over by this
+   * @param oChain this windchest's processing chain, taken over by this
    *   task; never null (an unregistered windchest still gets a valid,
    *   empty chain, built by the caller), and already EnsureSetup() by the
    *   caller
@@ -47,7 +47,7 @@ public:
   GOSoundWindchestTask(
     GOSoundOrganEngine &soundEngine,
     GOWindchest *pWindchest,
-    std::unique_ptr<GOSoundProcessingChain> pChain);
+    std::unique_ptr<GOSoundProcessingChain> oChain);
   ~GOSoundWindchestTask();
 
   void CompleteRound() override {}
@@ -66,7 +66,7 @@ public:
 
   /** @return this windchest's processing chain; never null (an unregistered
    * windchest still gets a valid, empty chain). */
-  const GOSoundProcessingChain &GetChain() const { return *mp_chain; }
+  const GOSoundProcessingChain &GetChain() const { return *o_chain; }
 };
 
 #endif
