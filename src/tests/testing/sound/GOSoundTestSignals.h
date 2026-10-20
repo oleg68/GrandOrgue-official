@@ -113,6 +113,30 @@ public:
     unsigned sampleRate,
     const std::vector<double> &rates,
     unsigned &outNPeriods);
+
+  /**
+   * Measures the range of the pitch of a signal. For every full period between
+   * two neighbour rising zero crossings it converts the measured frequency to
+   * cents against carrierHz.
+   *
+   * @param signal the mono signal
+   * @param beginFrame the first frame to measure (the earlier ones are skipped,
+   *   e.g. a crossfade or a build-up)
+   * @param sampleRate the sample rate, in Hz
+   * @param carrierHz the frequency of the unmodulated signal
+   * @param outMinCents the lowest pitch among the periods, in cents; 0 if there
+   *   are no periods
+   * @param outMaxCents the highest pitch among the periods, in cents; 0 if
+   *   there are no periods
+   * @return the number of the measured periods
+   */
+  static unsigned measurePitchRangeCents(
+    const std::vector<float> &signal,
+    unsigned beginFrame,
+    unsigned sampleRate,
+    double carrierHz,
+    double &outMinCents,
+    double &outMaxCents);
 };
 
 #endif /* GOSOUNDTESTSIGNALS_H */
