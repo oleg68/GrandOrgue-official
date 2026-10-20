@@ -15,12 +15,12 @@
 GOSoundWindchestTask::GOSoundWindchestTask(
   GOSoundOrganEngine &soundEngine,
   GOWindchest *pWindchest,
-  std::unique_ptr<GOSoundProcessingChain> pChain)
+  std::unique_ptr<GOSoundProcessingChain> oChain)
   : GOSoundTaskBase(PRIORITY_WINDCHEST, false),
     r_engine(soundEngine),
     m_amplitude(0),
     p_windchest(pWindchest),
-    mp_chain(std::move(pChain)) {}
+    o_chain(std::move(oChain)) {}
 
 // The destructor body is empty (= default), but it must be defined here
 // (not in the header) so that std::unique_ptr can call the complete
@@ -43,13 +43,18 @@ bool GOSoundWindchestTask::DoRun(GOSchedulerThread *pThread) {
   if (p_windchest) {
     amplitude *= p_windchest->GetAmplitude();
     for (GOSoundTremulantTask *pTremulantTask : m_pTremulantTasks) {
-      // The getter does not run the task: the round order is guaranteed here
+      /* The getters do not run the task: the round order is guaranteed here.
+       * EnsureDone() must precede o_chain->EnsureParametersUpToDate() below,
+       * because the vibrato mappers read GetPitchRateChunk() there; the chunk
+       * stays valid until the next DoRun() of the task, i.e. for the group
+       * tasks' Process() that follow. A Wave tremulant task runs idle and is
+       * not read by any mapper. */
       pTremulantTask->EnsureDone();
       amplitude *= pTremulantTask->GetAmplitude();
     }
   }
   m_amplitude = amplitude;
-  mp_chain->EnsureParametersUpToDate();
+  o_chain->EnsureParametersUpToDate();
 
   return true;
 }

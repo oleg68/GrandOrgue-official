@@ -104,3 +104,27 @@ double GOSoundTestSignals::maxPitchErrorCents(
   }
   return maxErrorCents;
 }
+
+unsigned GOSoundTestSignals::measurePitchRangeCents(
+  const std::vector<float> &signal,
+  unsigned beginFrame,
+  unsigned sampleRate,
+  double carrierHz,
+  double &outMinCents,
+  double &outMaxCents) {
+  const std::vector<double> crossings
+    = findRisingZeroCrossings(signal, beginFrame, signal.size());
+  const unsigned nPeriods = crossings.size() > 0 ? crossings.size() - 1 : 0;
+
+  outMinCents = 0.0;
+  outMaxCents = 0.0;
+  for (unsigned periodI = 0; periodI < nPeriods; ++periodI) {
+    const double measuredHz
+      = sampleRate / (crossings[periodI + 1] - crossings[periodI]);
+    const double cents = 1200.0 * std::log2(measuredHz / carrierHz);
+
+    outMinCents = std::min(outMinCents, cents);
+    outMaxCents = std::max(outMaxCents, cents);
+  }
+  return nPeriods;
+}
