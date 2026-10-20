@@ -69,6 +69,7 @@
 #include "testing/sound/effects/GOTestSoundVibratoProcessor.h"
 #include "testing/sound/mappers/GOTestPerfSoundEnclosureShelfMapper.h"
 #include "testing/sound/mappers/GOTestSoundEnclosureShelfMapper.h"
+#include "testing/sound/mappers/GOTestSoundTremulantVibratoMapper.h"
 #include "testing/sound/playing/GOTestPerfSoundPlayingFader.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
 #include "testing/sound/playing/GOTestSoundPlayingFader.h"
@@ -306,6 +307,7 @@ int main(int argc, char *argv[]) {
   GOTestPerfSoundVibratoProcessor testPerfSoundVibratoProcessor;
   GOTestSoundEnclosureShelfMapper testSoundEnclosureShelfMapper;
   GOTestPerfSoundEnclosureShelfMapper testPerfSoundEnclosureShelfMapper;
+  GOTestSoundTremulantVibratoMapper testSoundTremulantVibratoMapper;
   GOTestSoundWindchestGroupTaskGrid testSoundWindchestGroupTaskGrid;
   GOTestSoundTaskBase testSoundTaskBase;
   GOTestSoundWindchestTask testSoundWindchestTask;
