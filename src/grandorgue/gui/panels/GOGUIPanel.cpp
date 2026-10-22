@@ -96,11 +96,12 @@ void GOGUIPanel::Init(
   GOGUIDisplayMetrics *metrics,
   wxString name,
   wxString group,
-  wxString group_name) {
+  wxString group_name,
+  GOGUILayoutEngine *oLayoutEngine) {
   BasicLoad(cfg, group, false);
   p_OrganController->RegisterSaveableObject(this);
   o_metrics = metrics;
-  o_layout = new GOGUILayoutEngine(*o_metrics);
+  o_layout = oLayoutEngine ? oLayoutEngine : new GOGUILayoutEngine(*o_metrics);
   m_Name = name;
   m_GroupName = group_name;
   m_controls.resize(0);

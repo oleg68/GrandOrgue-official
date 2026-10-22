@@ -89,12 +89,24 @@ public:
     GOGuiImageCache &imageCache,
     GOGUIMouseState &mouseState);
   virtual ~GOGUIPanel();
+  /**
+   * Initialises a panel that is not defined in the ODF. Takes the ownership of
+   * metrics and of oLayoutEngine.
+   * @param cfg the config reader
+   * @param metrics the display metrics of the panel
+   * @param name the name of the panel
+   * @param group the .cmb group of the panel
+   * @param group_name the name of the group of the panel
+   * @param oLayoutEngine the layout engine of the panel, built on metrics, or
+   *   nullptr for the standard GOGUILayoutEngine
+   */
   void Init(
     GOConfigReader &cfg,
     GOGUIDisplayMetrics *metrics,
     wxString name,
     wxString group,
-    wxString group_name = wxT(""));
+    wxString group_name = wxT(""),
+    GOGUILayoutEngine *oLayoutEngine = nullptr);
   void Load(GOConfigReader &cfg, const wxString &group) override;
   void Layout();
 
