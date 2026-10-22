@@ -43,7 +43,7 @@ private:
 public:
   GOWindchest(GOOrganModel &organModel);
 
-  const wxString &GetHardName() { return m_HardName; }
+  const wxString &GetHardName() const { return m_HardName; }
   void SetHardName(const wxString &name) { m_HardName = name; }
 
   void Init(GOConfigReader &cfg, wxString group, wxString name);
@@ -61,16 +61,20 @@ public:
    * @param id the index of the tremulant in GOOrganModel
    */
   void AddTremulant(unsigned id) { m_tremulant.push_back(id); }
-  unsigned GetRankCount();
-  GORank *GetRank(unsigned index);
-  void AddRank(GORank *rank);
-  void AddPipe(GOPipeWindchestCallback *pipe);
-  void AddEnclosure(GOEnclosure *enclosure);
+  unsigned GetRankCount() const { return m_ranks.size(); }
+  GORank *GetRank(unsigned index) const {
+    return index < m_ranks.size() ? m_ranks[index] : nullptr;
+  }
+  void AddRank(GORank *rank) { m_ranks.push_back(rank); }
+  void AddPipe(GOPipeWindchestCallback *pipe) { m_pipes.push_back(pipe); }
+  void AddEnclosure(GOEnclosure *enclosure) {
+    m_enclosure.push_back(enclosure);
+  }
   const std::vector<GOEnclosure *> &GetEnclosures() const {
     return m_enclosure;
   }
-  const wxString &GetName();
-  GOPipeConfigNode &GetPipeConfig();
+  const wxString &GetName() const { return m_Name; }
+  GOPipeConfigNode &GetPipeConfig() { return m_PipeConfig; }
 };
 
 #endif /* GOWINDCHEST_H_ */
