@@ -52,6 +52,7 @@ class GOSoundRecorderTask;
 class GOSoundSystem;
 class GOTemperament;
 class GOTimer;
+class GOTremulant;
 typedef struct _GOHashType GOHashType;
 
 class GOOrganController : public GOEventDistributor,
@@ -113,6 +114,14 @@ private:
    * RemoveWindchest(). nullptr while it is not added.
    */
   GOWindchest *p_MetronomeWindchest = nullptr;
+  /**
+   * The per-windchest internal (not ODF) tremulants, in the windchest order:
+   * the item with the index windchestI belongs to GetWindchest(windchestI).
+   * Not ODF objects; their parameters and state are saved to the .cmb groups
+   * InternalTremulant%03d. Non-owning - the organ model owns them; removed by
+   * ClearInternalTremulants(). Empty while the organ core data is not loaded.
+   */
+  std::vector<GOTremulant *> mp_InternalTremulants;
 
   ptr_vector<GOElementCreator> m_elementcreators;
   /**
@@ -168,6 +177,29 @@ private:
    * before the windchests are removed.
    */
   void ClearInternalEnclosures();
+  /**
+   * Creates the internal (not ODF) tremulants: one synthesized tremulant per
+   * windchest, reading its state and parameters from the .cmb. Adds each of
+   * them to the model after all the ODF tremulants (so the ODF tremulant
+   * indices do not change) and to its windchest, and assigns the MIDI
+   * context tremulants-internal, the hard name of the windchest and the
+   * recorder element id ST<windchestI>. Fills mp_InternalTremulants.
+   *
+   * Call order: once per load, after every windchest exists (the ODF ones
+   * and the metronome's) and after InitInternalEnclosures(), and before
+   * LoadCmbButtons(), which builds the general combination template (the
+   * generals store the internal tremulants). It does not touch the GUI.
+   * @param cfg the config reader of the organ being loaded
+   */
+  void InitInternalTremulants(GOConfigReader &cfg);
+  /**
+   * The mirror of InitInternalTremulants(): removes the internal tremulants
+   * from the windchests and from the model in the reverse order of adding and
+   * resets mp_InternalTremulants. Idempotent. Must be called before
+   * ClearInternalEnclosures() and after the objects that refer to the
+   * tremulants are deleted.
+   */
+  void ClearInternalTremulants();
   /** Loads pipe/sample data from the cache or, failing that, from the
    * sample files in parallel worker threads. Sets m_IsObjectsLoaded. */
   void LoadObjects(GOProgressMonitor &monitor);
@@ -243,6 +275,24 @@ public:
    * @return the volume enclosure of that windchest. Owned by the model.
    */
   GOEnclosure *GetInternalEnclosure(unsigned windchestI) const;
+
+  /**
+   * The name of the internal tremulant of a windchest: the .cmb group of the
+   * tremulant object and of its GUI control. The single place that builds it.
+   * @param windchestN the windchest number (from 1)
+   * @return InternalTremulant<windchestN as 3 digits>, e.g.
+   * InternalTremulant001
+   */
+  static wxString getInternalTremulantName(unsigned windchestN);
+
+  /**
+   * @param windchestI the windchest index (from 0), less than
+   *   GetWindchestCount(). The organ core data must be loaded.
+   * @return the internal tremulant of the windchest
+   */
+  GOTremulant *GetInternalTremulant(unsigned windchestI) const {
+    return mp_InternalTremulants[windchestI];
+  }
 
   // Returns organ modification flag
   bool IsOrganModified() const { return m_OrganModified; }
