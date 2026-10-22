@@ -40,6 +40,12 @@ protected:
   /** @return the width of the area of the enclosures */
   virtual unsigned GetEnclosureAreaWidth();
 
+  /**
+   * @return the height that Update() reserves for the area of the enclosures.
+   *   A derived engine returns more if it places other rows in this area
+   */
+  virtual unsigned GetEnclosureAreaHeight();
+
 public:
   GOGUILayoutEngine(GOGUIDisplayMetrics &metrics);
   virtual ~GOGUILayoutEngine();

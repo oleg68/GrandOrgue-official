@@ -96,6 +96,10 @@ unsigned GOGUILayoutEngine::GetEnclosureAreaWidth() {
   return r_metrics.GetEnclosureWidth() * m_Enclosures.size();
 }
 
+unsigned GOGUILayoutEngine::GetEnclosureAreaHeight() {
+  return r_metrics.GetEnclosureHeight();
+}
+
 int GOGUILayoutEngine::GetEnclosureY() { return m_EnclosureY; }
 
 int GOGUILayoutEngine::GetEnclosureX(const GOGUIEnclosure *enclosure) {
@@ -250,13 +254,13 @@ void GOGUILayoutEngine::Update() {
       m_ManualRenderInfo[0].piston_y = m_CenterY;
       m_CenterWidth = std::max(m_CenterWidth, (int)GetEnclosureAreaWidth());
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
-      m_CenterY -= r_metrics.GetEnclosureHeight();
+      m_CenterY -= GetEnclosureAreaHeight();
       m_EnclosureY = m_CenterY;
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
     }
     if (!i && !m_Manuals[i] && m_Enclosures.size()) {
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
-      m_CenterY -= r_metrics.GetEnclosureHeight();
+      m_CenterY -= GetEnclosureAreaHeight();
       m_EnclosureY = m_CenterY;
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
     }
