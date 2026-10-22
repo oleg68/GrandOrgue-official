@@ -110,6 +110,21 @@ private:
    * ClearOrganCoreData() leaves the controller as new.
    */
   void TestLoadAfterLateFailedLoad();
+
+  /*
+   * Checks the internal tremulants in the combinations: the generals store
+   * and restore them according to the setter mode, the divisionals do not
+   * contain them. Loads and clears the organ core data itself. It changes the
+   * states of the internal tremulants.
+   */
+  void TestInternalTremulantsInCombinations();
+
+  /*
+   * Checks that the sound engine built from the loaded organ has a tremulant
+   * task for every tremulant of the model, the internal ones included. Loads
+   * and clears the organ core data itself.
+   */
+  void TestEngineTremulantTasks();
 };
 
 #endif /* GOTESTORGANCONTROLLER_H */
