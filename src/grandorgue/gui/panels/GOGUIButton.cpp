@@ -45,7 +45,8 @@ void GOGUIButton::Init(
   wxString group,
   unsigned x_pos,
   unsigned y_pos,
-  unsigned image) {
+  unsigned image,
+  const wxString &dispLabelText) {
   GOGUIControl::Init(cfg, group);
 
   m_DispCol = x_pos;
@@ -54,7 +55,8 @@ void GOGUIButton::Init(
   m_TextColor = wxColour(0x80, 0x00, 0x00);
   m_FontSize = 9;
   m_FontName = wxT("");
-  m_DispLabelText = p_ButtonControl->GetName();
+  m_DispLabelText
+    = dispLabelText.IsEmpty() ? p_ButtonControl->GetName() : dispLabelText;
 
   int x, y, w, h;
 

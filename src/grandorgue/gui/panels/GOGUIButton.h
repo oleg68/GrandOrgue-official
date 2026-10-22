@@ -42,12 +42,24 @@ public:
   GOGUIButton(
     GOGUIPanel *panel, GOButtonControl *control, bool is_piston = false);
 
+  /**
+   * Initialises a button that is not defined in the ODF.
+   * @param cfg the config reader
+   * @param group the .cmb group of the button
+   * @param x_pos the column of the button in the layout of the panel
+   * @param y_pos the row of the button in the layout of the panel
+   * @param image the number of the image, 0 for the default one
+   * @param dispLabelText the label drawn on the button; if empty, the name of
+   *   the button control is used. (Load() reads it from the ODF
+   *   DispLabelText)
+   */
   void Init(
     GOConfigReader &cfg,
     wxString group,
     unsigned x_pos,
     unsigned y_pos,
-    unsigned image = 0);
+    unsigned image = 0,
+    const wxString &dispLabelText = wxEmptyString);
   void Load(GOConfigReader &cfg, wxString group);
   void Layout();
 
