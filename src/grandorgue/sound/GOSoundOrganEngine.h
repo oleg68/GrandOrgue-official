@@ -64,6 +64,7 @@ class GOWindchest;
  *      legal from BUILT (i.e. after StopEngine()). BUILT → IDLE.
  */
 class GOSoundOrganEngine {
+  friend class GOTestOrganController;  // checks the tasks of a loaded organ
   friend class GOTestSoundOrganEngine; // the engine tests read the tasks
 
 public:

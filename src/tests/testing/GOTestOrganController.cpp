@@ -11,6 +11,9 @@
 #include <vector>
 
 #include "combinations/GOSetter.h"
+#include "combinations/model/GOCombinationDefinition.h"
+#include "combinations/model/GOGeneralCombination.h"
+#include "combinations/model/GOSetterState.h"
 #include "config/GOConfig.h"
 #include "config/GOConfigFileWriter.h"
 #include "config/GOConfigWriter.h"
@@ -18,6 +21,8 @@
 #include "loader/GOOrganReader.h"
 #include "loader/GOProgressMonitor.h"
 #include "model/GOEnclosure.h"
+#include "model/GOManual.h"
+#include "model/GOTremulant.h"
 #include "model/GOWindchest.h"
 #include "model/pipe-config/GOPipeConfig.h"
 #include "model/pipe-config/GOPipeConfigNode.h"
@@ -64,6 +69,8 @@ void GOTestOrganController::run() {
     GO_RUN_TEST(TestOrganCoreData())
     GO_RUN_TEST(TestLoadAfterFailedLoad())
     GO_RUN_TEST(TestLoadAfterLateFailedLoad())
+    GO_RUN_TEST(TestInternalTremulantsInCombinations())
+    GO_RUN_TEST(TestEngineTremulantTasks())
   } catch (const wxString &e) {
     throw GOTestException(
       std::string("Unexpected wxString exception: ") + e.ToStdString());
@@ -254,6 +261,53 @@ void GOTestOrganController::CheckLoadedCoreData() {
     "The metronome windchest should have an internal enclosure with its hard "
     "name");
 
+  // The internal tremulants: one per windchest, after the ODF ones.
+  GOAssert(
+    controller->GetODFTremulantCount() == 0,
+    "The internal tremulants should not be counted as ODF tremulants, got: "
+      + std::to_string(controller->GetODFTremulantCount()));
+  GOAssert(
+    controller->GetTremulantCount()
+      == controller->GetODFTremulantCount() + nWindchests,
+    "InitInternalTremulants() should create one tremulant per windchest, got: "
+      + std::to_string(controller->GetTremulantCount()));
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    GOTremulant *pTremulant = controller->GetInternalTremulant(windchestI);
+    GOWindchest *pWindchest = controller->GetWindchest(windchestI);
+    const std::string suffix
+      = ", windchest index: " + std::to_string(windchestI);
+
+    GOAssert(
+      pTremulant
+        == controller->GetTremulant(
+          controller->GetODFTremulantCount() + windchestI),
+      "Internal tremulants should follow the ODF ones in the windchest order"
+        + suffix);
+    GOAssert(
+      pWindchest->GetTremulantCount() == 1
+        && pWindchest->GetTremulantId(0)
+          == controller->GetODFTremulantCount() + windchestI,
+      "A windchest should have its own internal tremulant" + suffix);
+    GOAssert(
+      pTremulant->GetTremulantType() == GOSynthTrem
+        && !pTremulant->IsOdfDefined(),
+      "An internal tremulant should be a not-ODF synth one" + suffix);
+    GOAssert(
+      pTremulant->GetContext()
+        && pTremulant->GetContext()->GetName() == wxT("tremulants-internal"),
+      "An internal tremulant should be in the tremulants-internal context"
+        + suffix);
+    GOAssert(
+      pTremulant->GetHardName()
+        == controller->GetInternalEnclosure(windchestI)->GetHardName(),
+      "An internal tremulant should have the hard name of its windchest"
+        + suffix);
+  }
+  GOAssert(
+    GOOrganController::getInternalTremulantName(2)
+      == wxT("InternalTremulant002"),
+    "getInternalTremulantName() should give a 3-digit group name");
+
   // Regression test: GOOrganModel::Load() must register every ODF windchest
   // in m_WindchestNByPipeConfig (via AddWindchest()), not just push it onto
   // m_windchests directly. GOCommonControllerTest-based fixtures always
@@ -310,6 +364,16 @@ void GOTestOrganController::TestOrganCoreData() {
 
   const RegistrySets setsAfterLoad = GetRegistrySets();
   const std::string cmbText = SaveCoreData();
+
+  for (const char *pGroup :
+       {"[SetterMasterVolume]",
+        "[SetterMaster001]",
+        "[SetterMaster002]",
+        "[InternalTremulant001]",
+        "[InternalTremulant002]"})
+    GOAssert(
+      cmbText.find(pGroup) != std::string::npos,
+      std::string("The saved .cmb should contain ") + pGroup);
 
   // ClearOrganCoreData() idempotency: calling it multiple times must not
   // crash, and a second call must be a safe no-op (this is exactly what
@@ -396,5 +460,181 @@ void GOTestOrganController::TestLoadAfterLateFailedLoad() {
 
   LoadCoreData(MINIMAL_ODF_PATH);
   CheckLoadedCoreData();
+  controller->ClearOrganCoreData();
+}
+
+void GOTestOrganController::TestInternalTremulantsInCombinations() {
+  LoadCoreData(MINIMAL_ODF_PATH);
+
+  const unsigned nWindchests = controller->GetWindchestCount();
+  const unsigned nOdfTremulants = controller->GetODFTremulantCount();
+  const GOCombinationDefinition &generalTemplate
+    = controller->GetGeneralTemplate();
+  GOGeneralCombination general(*controller, false);
+  std::vector<int> elementNs;
+
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    const int elementN = generalTemplate.FindElement(
+      GOCombinationDefinition::COMBINATION_TREMULANT,
+      -1,
+      nOdfTremulants + windchestI + 1);
+    const std::string suffix
+      = ", windchest index: " + std::to_string(windchestI);
+
+    GOAssert(
+      elementN >= 0,
+      "The general template should contain the internal tremulant" + suffix);
+    GOAssert(
+      generalTemplate.GetElements()[elementN].control
+          == controller->GetInternalTremulant(windchestI)
+        && generalTemplate.GetElements()[elementN].store_unconditional,
+      "The template element should be the internal tremulant stored "
+      "unconditionally"
+        + suffix);
+    elementNs.push_back(elementN);
+  }
+
+  GOSetterState regularStore;
+  GOSetterState scopeStore;
+  GOSetterState scopedStore;
+  const GOSetterState restore;
+
+  regularStore.isSetActive = true;
+  scopeStore.isSetActive = true;
+  scopeStore.m_SetterType = GOSetterState::SETTER_SCOPE;
+  scopedStore.isSetActive = true;
+  scopedStore.m_SetterType = GOSetterState::SETTER_SCOPED;
+
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++)
+    controller->GetInternalTremulant(windchestI)
+      ->SetCombinationState(true, wxEmptyString);
+
+  // A regular general stores the engaged tremulants and engages them back
+  general.Push(regularStore);
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    GOAssert(
+      general.GetElementState(elementNs[windchestI]) == BOOL3_TRUE,
+      "A regular general should store an engaged internal tremulant, "
+      "windchest index: "
+        + std::to_string(windchestI));
+    controller->GetInternalTremulant(windchestI)
+      ->SetCombinationState(false, wxEmptyString);
+  }
+  general.Push(restore);
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    GOAssert(
+      controller->GetInternalTremulant(windchestI)->IsEngaged(),
+      "A general should engage the stored internal tremulant back, windchest "
+      "index: "
+        + std::to_string(windchestI));
+  }
+
+  // A regular general stores a disengaged tremulant as disengaged
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++)
+    controller->GetInternalTremulant(windchestI)
+      ->SetCombinationState(false, wxEmptyString);
+  general.Push(regularStore);
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    GOAssert(
+      general.GetElementState(elementNs[windchestI]) == BOOL3_FALSE,
+      "A regular general should store a disengaged internal tremulant as "
+      "disengaged, windchest index: "
+        + std::to_string(windchestI));
+    controller->GetInternalTremulant(windchestI)
+      ->SetCombinationState(true, wxEmptyString);
+  }
+  general.Push(restore);
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    GOAssert(
+      !controller->GetInternalTremulant(windchestI)->IsEngaged(),
+      "A general should disengage the stored internal tremulant, windchest "
+      "index: "
+        + std::to_string(windchestI));
+  }
+
+  // A scope general takes only the engaged tremulants into the scope
+  controller->GetInternalTremulant(0)->SetCombinationState(true, wxEmptyString);
+  for (unsigned windchestI = 1; windchestI < nWindchests; windchestI++)
+    controller->GetInternalTremulant(windchestI)
+      ->SetCombinationState(false, wxEmptyString);
+  general.Push(scopeStore);
+  GOAssert(
+    general.GetElementState(elementNs[0]) == BOOL3_TRUE,
+    "A scope general should take an engaged internal tremulant into the "
+    "scope");
+  for (unsigned windchestI = 1; windchestI < nWindchests; windchestI++)
+    GOAssert(
+      general.GetElementState(elementNs[windchestI]) == BOOL3_DEFAULT,
+      "A scope general should leave a disengaged internal tremulant out of "
+      "the scope, windchest index: "
+        + std::to_string(windchestI));
+
+  // A scoped general does not touch a tremulant that is out of its scope
+  controller->GetInternalTremulant(0)->SetCombinationState(
+    false, wxEmptyString);
+  for (unsigned windchestI = 1; windchestI < nWindchests; windchestI++)
+    controller->GetInternalTremulant(windchestI)
+      ->SetCombinationState(true, wxEmptyString);
+  general.Push(scopedStore);
+  GOAssert(
+    general.GetElementState(elementNs[0]) == BOOL3_FALSE,
+    "A scoped general should refresh an internal tremulant that is in its "
+    "scope");
+  for (unsigned windchestI = 1; windchestI < nWindchests; windchestI++)
+    GOAssert(
+      general.GetElementState(elementNs[windchestI]) == BOOL3_DEFAULT,
+      "A scoped general should not take an internal tremulant that is out of "
+      "its scope, windchest index: "
+        + std::to_string(windchestI));
+  general.Push(restore);
+  for (unsigned windchestI = 1; windchestI < nWindchests; windchestI++)
+    GOAssert(
+      controller->GetInternalTremulant(windchestI)->IsEngaged(),
+      "A general should not touch an internal tremulant that is out of its "
+      "scope, windchest index: "
+        + std::to_string(windchestI));
+
+  // The divisionals never contain the internal tremulants
+  for (unsigned manualN = controller->GetFirstManualIndex();
+       manualN <= controller->GetManualAndPedalCount();
+       manualN++) {
+    GOManual *pManual = controller->GetManual(manualN);
+
+    for (unsigned tremulantI = 0; tremulantI < pManual->GetTremulantCount();
+         tremulantI++)
+      for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++)
+        GOAssert(
+          pManual->GetTremulant(tremulantI)
+            != controller->GetInternalTremulant(windchestI),
+          "A manual should not contain an internal tremulant, manual: "
+            + std::to_string(manualN));
+  }
+
+  controller->ClearOrganCoreData();
+}
+
+void GOTestOrganController::TestEngineTremulantTasks() {
+  LoadCoreData(MINIMAL_ODF_PATH);
+
+  const unsigned nTremulants = controller->GetTremulantCount();
+
+  GOAssert(
+    nTremulants > controller->GetODFTremulantCount(),
+    "The organ should have internal tremulants");
+
+  GOSoundOrganEngine &engine = controller->GetSoundEngine();
+  const unsigned nAudioGroups = 1;
+
+  engine.SetNAudioGroups(nAudioGroups);
+  engine.SetNAuxThreads(0);
+  engine.BuildEngine(
+    GOSoundOrganEngine::createDefaultOutputConfigs(nAudioGroups), 128, 96000);
+  GOAssert(
+    engine.mo_TremulantTasks.size() == nTremulants,
+    "The engine should have a tremulant task for every tremulant, the "
+    "internal ones included: "
+      + std::to_string(nTremulants)
+      + ", got: " + std::to_string(engine.mo_TremulantTasks.size()));
+  engine.DestroyEngine();
   controller->ClearOrganCoreData();
 }
