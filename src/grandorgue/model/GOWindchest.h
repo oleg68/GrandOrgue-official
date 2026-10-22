@@ -67,7 +67,7 @@ public:
   /**
    * Attaches an already added tremulant to this windchest. Load() does the same
    * from the ODF; this method is for the code that builds an organ without an
-   * ODF (the tests).
+   * ODF (the internal tremulants and the tests).
    *
    * @param id the index of the tremulant in GOOrganModel
    */

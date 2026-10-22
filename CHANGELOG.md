@@ -5,6 +5,7 @@
 - Fixed loop transitions, loop crossfade bounds and release alignment for pipe samples
 - Fixed crashing or hanging when importing settings or resetting an organ to defaults while it is playing https://github.com/GrandOrgue/grandorgue/issues/2687
 - Fixed leak of the organ objects when loading an organ fails
+- Added a built-in tremulant for every windchest, switched by a button under the windchest's enclosure in the "Coupler manuals and volume" panel https://github.com/GrandOrgue/grandorgue/issues/709
 - Added a swell-box shelf equalizer: enclosures can now cut low or high frequencies as they close, in addition to overall volume attenuation https://github.com/GrandOrgue/grandorgue/issues/717
 - Fixed crash on receiving or playing a malformed Rodgers stop change SysEx MIDI message shorter than 9 bytes
 - Fixed MIDI player Play/Stop crashing when triggered by incoming MIDI https://github.com/GrandOrgue/grandorgue/issues/2636
