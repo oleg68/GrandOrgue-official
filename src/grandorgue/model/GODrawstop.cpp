@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -81,7 +81,9 @@ void GODrawstop::SetFunctionType(GOFunctionType newFunctionType) {
 void GODrawstop::Init(
   GOConfigReader &cfg, const wxString &group, const wxString &name) {
   m_Type = FUNCTION_INPUT;
-  m_Engaged = cfg.ReadBoolean(CMBSetting, group, wxT("DefaultToEngaged"));
+  // A drawstop that is not defined in the ODF has no saved state in a new .cmb
+  m_Engaged
+    = cfg.ReadBoolean(CMBSetting, group, wxT("DefaultToEngaged"), false, false);
   m_GCState = 0;
   m_IsToStoreInDivisional = true;
   m_IsToStoreInGeneral = true;
