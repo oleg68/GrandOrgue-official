@@ -57,7 +57,8 @@ GOOrganModel::GOOrganModel(GOConfig &config)
     m_FirstManual(0),
     m_ODFManualCount(0),
     m_ODFRankCount(0),
-    m_ODFEnclosureCount(0) {
+    m_ODFEnclosureCount(0),
+    m_ODFTremulantCount(0) {
   RegisterCombinationButtonSet(this);
 }
 
@@ -139,9 +140,9 @@ void GOOrganModel::Load(GOConfigReader &cfg) {
     m_switches.push_back(std::move(oSwitch));
   }
 
-  unsigned NumberOfTremulants
+  m_ODFTremulantCount
     = cfg.ReadInteger(ODFSetting, WX_ORGAN, wxT("NumberOfTremulants"), 0, 999);
-  for (unsigned i = 0; i < NumberOfTremulants; i++) {
+  for (unsigned i = 0; i < m_ODFTremulantCount; i++) {
     std::unique_ptr<GOTremulant> oTremulant
       = std::make_unique<GOTremulant>(*this);
     unsigned num = i + 1;
@@ -376,7 +377,8 @@ void GOOrganModel::RemoveEnclosure(GOEnclosure *pEnclosure) {
     m_enclosures.pop_back();
 }
 
-unsigned GOOrganModel::AddTremulant(std::unique_ptr<GOTremulant> &&oTremulant) {
+unsigned GOOrganModel::AddTremulant(
+  std::unique_ptr<GOTremulant> &&oTremulant) {
   m_tremulants.push_back(std::move(oTremulant));
   return m_tremulants.size() - 1;
 }
