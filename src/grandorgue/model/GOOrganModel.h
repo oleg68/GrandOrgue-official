@@ -91,6 +91,7 @@ protected:
   unsigned m_ODFManualCount;
   unsigned m_ODFRankCount;
   unsigned m_ODFEnclosureCount;
+  unsigned m_ODFTremulantCount;
 
   /**
    * Undoes LoadCmbButtons(): deletes the generals and clears the general
@@ -226,6 +227,11 @@ public:
   int FindSwitchByName(const wxString &name) const;
 
   unsigned GetTremulantCount() const { return m_tremulants.size(); }
+
+  /** @return the number of tremulants declared in the ODF only; excludes the
+   * internal tremulants added later via AddTremulant(). Use it for validating
+   * tremulant references that come from the ODF */
+  unsigned GetODFTremulantCount() const { return m_ODFTremulantCount; }
   GOTremulant *GetTremulant(unsigned index) { return m_tremulants[index]; }
   const GOTremulant *GetTremulant(unsigned index) const {
     return m_tremulants[index];
