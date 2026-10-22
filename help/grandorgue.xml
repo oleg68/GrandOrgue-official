@@ -6632,6 +6632,17 @@ The embedded metronome is managed using its own separate windchest.
         <para>These enclosure settings are NOT replicated anywhere in the user interface.</para>
         <para>These enclosure settings are saved in the current settings file only when the <link linkend="save">File &gt; Save</link> menu item is used.</para>
       </sect2>
+      <sect2>
+        <title>Built-in tremulants</title>
+        <para>
+Under the expression shoe of each windchest there is a <emphasis>Tremulant</emphasis>
+button. It switches the built-in tremulant of this windchest, which is
+independent of the tremulants defined in the Organ Definition File. The button
+can be configured to send and receive MIDI messages, and its state is stored in
+the general combinations.
+        </para>
+        <para>The built-in tremulant settings are saved in the current settings file only when the <link linkend="save">File &gt; Save</link> menu item is used.</para>
+      </sect2>
     </sect1>
     <sect1 id="metronome">
       <title>Metronome</title>

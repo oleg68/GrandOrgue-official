@@ -1,3 +1,4 @@
+- Added a built-in tremulant for every windchest, switched by a button under the windchest's enclosure in the "Coupler manuals and volume" panel https://github.com/GrandOrgue/grandorgue/issues/709
 - Added a swell-box shelf equalizer: enclosures can now cut low or high frequencies as they close, in addition to overall volume attenuation https://github.com/GrandOrgue/grandorgue/issues/717
 - Fixed MIDI player Play/Stop crashing when triggered by incoming MIDI https://github.com/GrandOrgue/grandorgue/issues/2636
 - Fixed hanging on Panic, on loading another organ, on exit and on removing an audio device in Settings https://github.com/GrandOrgue/grandorgue/issues/2606

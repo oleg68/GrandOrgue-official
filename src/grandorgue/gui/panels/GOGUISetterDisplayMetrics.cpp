@@ -64,15 +64,21 @@ GOGUISetterDisplayMetrics::GOGUISetterDisplayMetrics(
           * organController->GetManual(organController->GetODFManualCount())
               ->GetLogicalKeyCount()
         + 40,
-      GetEnclosureWidth()
+      // keep in sync with LayoutEngine::GetColumnWidth() of
+      // GOGUICouplerManualsAndVolumePanel
+      std::max(GetEnclosureWidth(), GetDrawstopWidth())
           * (
-            // one enclosure per windchest + master volume
+            // one enclosure column per windchest + master volume
             organController->GetWindchestCount() + 1)
         + 6);
     y_size = (organController->GetManualAndPedalCount()
               - organController->GetODFManualCount() + 1)
         * 60
-      + 160;
+      + 160
+      // the row of the embedded tremulant buttons and the gap above it: keep
+      // in sync with the rows of LayoutEngine of
+      // GOGUICouplerManualsAndVolumePanel
+      + ROW_GAP + GetDrawstopHeight();
     drawstop_rows = 0;
     drawstop_cols = 0;
     button_cols = 10;

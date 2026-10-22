@@ -67,6 +67,20 @@
 
 static const GOMidiObjectContext MIDI_CONTEXT_VOLUMES(
   wxT("volumes"), _("volumes"));
+static const GOMidiObjectContext MIDI_CONTEXT_INTERNAL_TREMULANTS(
+  wxT("tremulants-internal"), _("internal tremulants"));
+
+/**
+ * @return the hard name of the MIDI objects that belong to a windchest: its
+ *   own hard name if it is set, otherwise Windchest<windchestN>
+ */
+static wxString get_windchest_midi_name(
+  const GOWindchest &windchest, unsigned windchestN) {
+  const wxString &hardName = windchest.GetHardName();
+
+  return hardName.IsEmpty() ? wxString::Format(wxT("Windchest%03u"), windchestN)
+                            : hardName;
+}
 
 static const wxString WX_ORGAN = wxT("Organ");
 static const wxString WX_GRANDORGUE_VERSION = wxT("GrandOrgueVersion");
@@ -141,6 +155,10 @@ GOEnclosure *GOOrganController::GetInternalEnclosure(
   return mp_InternalEnclosures[windchestI];
 }
 
+wxString GOOrganController::getInternalTremulantName(unsigned windchestN) {
+  return wxString::Format(wxT("InternalTremulant%03u"), windchestN);
+}
+
 void GOOrganController::ClearObjects() {
   if (m_IsObjectsLoaded) {
     m_Cacheable = false;
@@ -151,7 +169,9 @@ void GOOrganController::ClearObjects() {
 void GOOrganController::ClearOrganCoreData() {
   if (m_IsOrganCoreDataLoaded) {
     p_OnStateButton = nullptr;
-    // They refer to the enclosures that GOOrganModel::Cleanup() frees
+    // They refer to the tremulants and enclosures that GOOrganModel::Cleanup()
+    // frees
+    mp_InternalTremulants.clear();
     p_MasterEnclosure = nullptr;
     mp_InternalEnclosures.clear();
 
@@ -249,15 +269,11 @@ void GOOrganController::InitInternalEnclosures(GOConfigReader &cfg) {
   mp_InternalEnclosures.reserve(nWindchests);
   for (unsigned windchestI = 0; windchestI < nWindchests; ++windchestI) {
     GOWindchest *pWindchest = GetWindchest(windchestI);
-    const wxString &hardName = pWindchest->GetHardName();
     GOEnclosure *pEnc = new GOEnclosure(*this);
 
     pWindchest->AddEnclosure(pMaster);
     pEnc->SetContext(&MIDI_CONTEXT_VOLUMES);
-    pEnc->SetHardName(
-      hardName.IsEmpty()
-        ? wxString::Format(wxT("Windchest%03u"), windchestI + 1)
-        : hardName);
+    pEnc->SetHardName(get_windchest_midi_name(*pWindchest, windchestI + 1));
     pEnc->Init(
       cfg,
       wxString::Format(wxT("SetterMaster%03d"), windchestI + 1),
@@ -268,6 +284,30 @@ void GOOrganController::InitInternalEnclosures(GOConfigReader &cfg) {
       GetRecorderElementID(wxString::Format(wxT("SM%d"), windchestI)));
     pWindchest->AddEnclosure(pEnc);
     mp_InternalEnclosures.push_back(pEnc);
+  }
+}
+
+void GOOrganController::InitInternalTremulants(GOConfigReader &cfg) {
+  assert(mp_InternalTremulants.empty());
+
+  const unsigned nWindchests = GetWindchestCount();
+
+  mp_InternalTremulants.reserve(nWindchests);
+  for (unsigned windchestI = 0; windchestI < nWindchests; ++windchestI) {
+    const unsigned windchestN = windchestI + 1;
+    GOWindchest *pWindchest = GetWindchest(windchestI);
+    GOTremulant *pTremulant = new GOTremulant(*this);
+
+    pTremulant->SetContext(&MIDI_CONTEXT_INTERNAL_TREMULANTS);
+    pTremulant->SetHardName(get_windchest_midi_name(*pWindchest, windchestN));
+    pTremulant->Init(
+      cfg,
+      getInternalTremulantName(windchestN),
+      wxString::Format(_("%s tremulant"), pWindchest->GetName()));
+    pWindchest->AddTremulant(AddTremulant(pTremulant));
+    pTremulant->SetElementId(
+      GetRecorderElementID(wxString::Format(wxT("ST%u"), windchestI)));
+    mp_InternalTremulants.push_back(pTremulant);
   }
 }
 
@@ -327,12 +367,14 @@ void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
 
   GOOrganModel::Load(cfg);
 
-  // The metronome's windchest and the internal enclosures must exist before
-  // LoadCmbButtons(); the GOMetronome itself is created below
+  // The metronome's windchest, the internal enclosures and the internal
+  // tremulants must exist before LoadCmbButtons(); the GOMetronome itself is
+  // created below
   const unsigned metronomeWindchestN
     = AddWindchest(GOMetronome::createWindchest(cfg, *this).release());
 
   InitInternalEnclosures(cfg);
+  InitInternalTremulants(cfg);
 
   m_VirtualCouplers.Load(*this, cfg);
 

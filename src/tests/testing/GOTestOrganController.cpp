@@ -16,6 +16,7 @@
 #include "loader/GOOrganReader.h"
 #include "loader/GOProgressMonitor.h"
 #include "model/GOEnclosure.h"
+#include "model/GOTremulant.h"
 #include "model/GOWindchest.h"
 
 #include "GOBuffer.h"
@@ -130,6 +131,53 @@ void GOTestOrganController::TestOrganCoreData() {
     "The metronome windchest should have an internal enclosure with its hard "
     "name");
 
+  // The internal tremulants: one per windchest, after the ODF ones.
+  GOAssert(
+    controller->GetODFTremulantCount() == 0,
+    "The internal tremulants should not be counted as ODF tremulants, got: "
+      + std::to_string(controller->GetODFTremulantCount()));
+  GOAssert(
+    controller->GetTremulantCount()
+      == controller->GetODFTremulantCount() + nWindchests,
+    "InitInternalTremulants() should create one tremulant per windchest, got: "
+      + std::to_string(controller->GetTremulantCount()));
+  for (unsigned windchestI = 0; windchestI < nWindchests; windchestI++) {
+    GOTremulant *pTremulant = controller->GetInternalTremulant(windchestI);
+    GOWindchest *pWindchest = controller->GetWindchest(windchestI);
+    const std::string suffix
+      = ", windchest index: " + std::to_string(windchestI);
+
+    GOAssert(
+      pTremulant
+        == controller->GetTremulant(
+          controller->GetODFTremulantCount() + windchestI),
+      "Internal tremulants should follow the ODF ones in the windchest order"
+        + suffix);
+    GOAssert(
+      pWindchest->GetTremulantCount() == 1
+        && pWindchest->GetTremulantId(0)
+          == controller->GetODFTremulantCount() + windchestI,
+      "A windchest should have its own internal tremulant" + suffix);
+    GOAssert(
+      pTremulant->GetTremulantType() == GOSynthTrem
+        && !pTremulant->IsOdfDefined(),
+      "An internal tremulant should be a not-ODF synth one" + suffix);
+    GOAssert(
+      pTremulant->GetContext()
+        && pTremulant->GetContext()->GetName() == wxT("tremulants-internal"),
+      "An internal tremulant should be in the tremulants-internal context"
+        + suffix);
+    GOAssert(
+      pTremulant->GetHardName()
+        == controller->GetInternalEnclosure(windchestI)->GetHardName(),
+      "An internal tremulant should have the hard name of its windchest"
+        + suffix);
+  }
+  GOAssert(
+    GOOrganController::getInternalTremulantName(2)
+      == wxT("InternalTremulant002"),
+    "getInternalTremulantName() should give a 3-digit group name");
+
   // Regression test: GOOrganModel::Load() must register every ODF windchest
   // in m_WindchestNByPipeConfig (via AddWindchest()), not just push it onto
   // m_windchests directly. GOCommonControllerTest-based fixtures always
@@ -174,7 +222,11 @@ void GOTestOrganController::TestOrganCoreData() {
     const std::string cmbText((const char *)cmbBuf.get(), cmbBuf.GetSize());
 
     for (const char *pGroup :
-         {"[SetterMasterVolume]", "[SetterMaster001]", "[SetterMaster002]"})
+         {"[SetterMasterVolume]",
+          "[SetterMaster001]",
+          "[SetterMaster002]",
+          "[InternalTremulant001]",
+          "[InternalTremulant002]"})
       GOAssert(
         cmbText.find(pGroup) != std::string::npos,
         std::string("The saved .cmb should contain ") + pGroup);
