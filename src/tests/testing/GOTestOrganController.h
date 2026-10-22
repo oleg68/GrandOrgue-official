@@ -27,6 +27,15 @@ private:
    * Loading, saving and clearing of the organ core data.
    */
   void TestOrganCoreData();
+
+  /*
+   * Checks the internal tremulants in the combinations: the generals store
+   * and restore them according to the setter mode, the divisionals do not
+   * contain them. Called by TestOrganCoreData() while the organ core data is
+   * loaded (a controller cannot be loaded again after it has been cleared).
+   * It changes the states of the internal tremulants.
+   */
+  void CheckInternalTremulantsInCombinations();
 };
 
 #endif /* GOTESTORGANCONTROLLER_H */
