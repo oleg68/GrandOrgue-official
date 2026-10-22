@@ -333,7 +333,7 @@ void GOGUIPanel::Load(GOConfigReader &cfg, const wxString &group) {
       panel_group,
       wxT("NumberOfTremulants"),
       0,
-      p_OrganController->GetTremulantCount());
+      p_OrganController->GetODFTremulantCount());
     for (unsigned i = 0; i < NumberOfTremulants; i++) {
       wxString buffer = wxString::Format(wxT("Tremulant%03d"), i + 1);
       unsigned tremulant_nb = cfg.ReadInteger(
@@ -341,7 +341,7 @@ void GOGUIPanel::Load(GOConfigReader &cfg, const wxString &group) {
         panel_group,
         buffer,
         1,
-        p_OrganController->GetTremulantCount());
+        p_OrganController->GetODFTremulantCount());
       buffer = wxString::Format(wxT("Tremulant%03d"), tremulant_nb);
       LoadControl(
         new GOGUIButton(
@@ -618,7 +618,7 @@ void GOGUIPanel::Load(GOConfigReader &cfg, const wxString &group) {
         buffer,
         wxT("Tremulant"),
         1,
-        p_OrganController->GetTremulantCount());
+        p_OrganController->GetODFTremulantCount());
       LoadControl(
         new GOGUIButton(
           this, p_OrganController->GetTremulant(tremulant_nb - 1)),
