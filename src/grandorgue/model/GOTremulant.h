@@ -135,6 +135,10 @@ public:
   /**
    * Initialises an internal (not defined in the ODF) tremulant: a Synth one
    * with the default parameters, which the .cmb may override.
+   *
+   * It is never displayed by the ODF panels: GODrawstop::Init() calls
+   * GOButtonControl::Init(), which resets the displayed flag; the GUI creates
+   * its control explicitly.
    */
   void Init(
     GOConfigReader &cfg, const wxString &group, const wxString &name) override;
