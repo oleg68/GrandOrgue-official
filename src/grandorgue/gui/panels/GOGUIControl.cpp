@@ -12,20 +12,20 @@
 #include "config/GOConfigReader.h"
 
 GOGUIControl::GOGUIControl(GOGUIPanel *panel, GOControl *pControl)
-  : m_panel(panel),
+  : p_panel(panel),
     p_control(pControl),
     m_BoundingRect(0, 0, 0, 0),
     m_DrawPending(false) {
-  m_metrics = panel->GetDisplayMetrics();
-  m_layout = panel->GetLayoutEngine();
-  m_panel->GetOrganFile()->RegisterControlChangedHandler(this);
-  m_panel->GetOrganFile()->RegisterSaveableObject(this);
+  p_metrics = panel->GetDisplayMetrics();
+  p_layout = panel->GetLayoutEngine();
+  p_panel->GetOrganFile()->RegisterControlChangedHandler(this);
+  p_panel->GetOrganFile()->RegisterSaveableObject(this);
 }
 
 GOGUIControl::~GOGUIControl() {
   // in the reverse order of the constructor
-  m_panel->GetOrganFile()->UnregisterSaveableObject(this);
-  m_panel->GetOrganFile()->UnRegisterControlChangedHandler(this);
+  p_panel->GetOrganFile()->UnregisterSaveableObject(this);
+  p_panel->GetOrganFile()->UnRegisterControlChangedHandler(this);
 }
 
 void GOGUIControl::Init(GOConfigReader &cfg, wxString group) {
@@ -44,7 +44,7 @@ void GOGUIControl::ControlChanged(GOControl *control) {
   if (control == p_control)
     if (!m_DrawPending) {
       m_DrawPending = true;
-      m_panel->AddEvent(this);
+      p_panel->AddEvent(this);
     }
 }
 
