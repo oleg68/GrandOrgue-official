@@ -54,7 +54,7 @@ public:
   /** Unregisters the lifecycle listener registered by the constructor. */
   ~GOWindchest();
 
-  const wxString &GetHardName() { return m_HardName; }
+  const wxString &GetHardName() const { return m_HardName; }
   void SetHardName(const wxString &name) { m_HardName = name; }
 
   void Init(GOConfigReader &cfg, wxString group, wxString name);
@@ -80,8 +80,10 @@ public:
    * @param id the index of the tremulant in GOOrganModel
    */
   void RemoveTremulant(unsigned id);
-  unsigned GetRankCount();
-  GORank *GetRank(unsigned index);
+  unsigned GetRankCount() const { return m_ranks.size(); }
+  GORank *GetRank(unsigned index) const {
+    return index < m_ranks.size() ? m_ranks[index] : nullptr;
+  }
   /**
    * Adds the back reference from the windchest to its rank (called by the
    * rank). It is intentionally not mirrored by a Remove: the windchest is
@@ -93,15 +95,17 @@ public:
    * not touch it. A Remove for every rank would make closing an organ O(n^2).
    * @param rank the non-owning pointer to the rank
    */
-  void AddRank(GORank *rank);
+  void AddRank(GORank *rank) { m_ranks.push_back(rank); }
   /**
    * Adds the back reference from the windchest to its pipe (called by the
    * pipe). It is intentionally not mirrored by a Remove, for the same reasons
    * as AddRank().
    * @param pipe the non-owning pointer to the pipe
    */
-  void AddPipe(GOPipeWindchestCallback *pipe);
-  void AddEnclosure(GOEnclosure *enclosure);
+  void AddPipe(GOPipeWindchestCallback *pipe) { m_pipes.push_back(pipe); }
+  void AddEnclosure(GOEnclosure *enclosure) {
+    m_enclosure.push_back(enclosure);
+  }
   /**
    * Removes the enclosure added by AddEnclosure(); does not delete it. The
    * mirror of AddEnclosure(): the enclosure must be the last added one (an
@@ -112,8 +116,8 @@ public:
   const std::vector<GOEnclosure *> &GetEnclosures() const {
     return m_enclosure;
   }
-  const wxString &GetName();
-  GOPipeConfigNode &GetPipeConfig();
+  const wxString &GetName() const { return m_Name; }
+  GOPipeConfigNode &GetPipeConfig() { return m_PipeConfig; }
 };
 
 #endif /* GOWINDCHEST_H_ */
