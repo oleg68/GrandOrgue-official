@@ -68,6 +68,20 @@
 
 static const GOMidiObjectContext MIDI_CONTEXT_VOLUMES(
   wxT("volumes"), _("volumes"));
+static const GOMidiObjectContext MIDI_CONTEXT_INTERNAL_TREMULANTS(
+  wxT("tremulants-internal"), _("internal tremulants"));
+
+/**
+ * @return the hard name of the MIDI objects that belong to a windchest: its
+ *   own hard name if it is set, otherwise Windchest<windchestN>
+ */
+static wxString get_windchest_midi_name(
+  const GOWindchest &windchest, unsigned windchestN) {
+  const wxString &hardName = windchest.GetHardName();
+
+  return hardName.IsEmpty() ? wxString::Format(wxT("Windchest%03u"), windchestN)
+                            : hardName;
+}
 
 // The value of m_CurrentPitch that forces updating the pitch label the next
 // time
@@ -153,6 +167,10 @@ GOEnclosure *GOOrganController::GetInternalEnclosure(
   return mp_InternalEnclosures[windchestI];
 }
 
+wxString GOOrganController::getInternalTremulantName(unsigned windchestN) {
+  return wxString::Format(wxT("InternalTremulant%03u"), windchestN);
+}
+
 void GOOrganController::ClearObjects() {
   if (m_IsObjectsLoaded) {
     m_Cacheable = false;
@@ -177,6 +195,7 @@ void GOOrganController::ClearOrganCoreData() {
 
     GOOrganModel::CleanupCmbButtons();
     m_VirtualCouplers.Cleanup();
+    ClearInternalTremulants();
     ClearInternalEnclosures();
     if (p_MetronomeWindchest) {
       RemoveWindchest(p_MetronomeWindchest);
@@ -266,15 +285,11 @@ void GOOrganController::InitInternalEnclosures(GOConfigReader &cfg) {
   mp_InternalEnclosures.reserve(nWindchests);
   for (unsigned windchestI = 0; windchestI < nWindchests; ++windchestI) {
     GOWindchest *pWindchest = GetWindchest(windchestI);
-    const wxString &hardName = pWindchest->GetHardName();
     std::unique_ptr<GOEnclosure> oEnc = std::make_unique<GOEnclosure>(*this);
     GOEnclosure *const pEnc = oEnc.get();
 
     oEnc->SetContext(&MIDI_CONTEXT_VOLUMES);
-    oEnc->SetHardName(
-      hardName.IsEmpty()
-        ? wxString::Format(wxT("Windchest%03u"), windchestI + 1)
-        : hardName);
+    oEnc->SetHardName(get_windchest_midi_name(*pWindchest, windchestI + 1));
     oEnc->Init(
       cfg,
       wxString::Format(wxT("SetterMaster%03d"), windchestI + 1),
@@ -315,6 +330,59 @@ void GOOrganController::ClearInternalEnclosures() {
     RemoveEnclosure(p_MasterEnclosure);
     p_MasterEnclosure = nullptr;
   }
+}
+
+void GOOrganController::InitInternalTremulants(GOConfigReader &cfg) {
+  assert(mp_InternalTremulants.empty());
+
+  const unsigned nWindchests = GetWindchestCount();
+
+  mp_InternalTremulants.reserve(nWindchests);
+  for (unsigned windchestI = 0; windchestI < nWindchests; ++windchestI) {
+    const unsigned windchestN = windchestI + 1;
+    GOWindchest *pWindchest = GetWindchest(windchestI);
+    std::unique_ptr<GOTremulant> oTremulant
+      = std::make_unique<GOTremulant>(*this);
+    GOTremulant *const pTremulant = oTremulant.get();
+
+    oTremulant->SetContext(&MIDI_CONTEXT_INTERNAL_TREMULANTS);
+    oTremulant->SetHardName(get_windchest_midi_name(*pWindchest, windchestN));
+    oTremulant->Init(
+      cfg,
+      getInternalTremulantName(windchestN),
+      wxString::Format(_("%s tremulant"), pWindchest->GetName()));
+    /* The tremulant is initialized before it touches the model or the
+       windchest, so a failed Init() leaves nothing to undo. Then it is added
+       to the model and remembered at once, before it is attached to the
+       windchest, so that ClearInternalTremulants() knows about it even if the
+       next step throws */
+    const unsigned tremulantI = AddTremulant(std::move(oTremulant));
+
+    mp_InternalTremulants.push_back(pTremulant);
+    pWindchest->AddTremulant(tremulantI);
+    pTremulant->SetElementId(
+      GetRecorderElementID(wxString::Format(wxT("ST%u"), windchestI)));
+  }
+}
+
+void GOOrganController::ClearInternalTremulants() {
+  /* the tremulants that are added to the model, from the last one. If loading
+     failed in the middle, the windchest of the last one may not have it
+     attached yet */
+  for (unsigned windchestI = mp_InternalTremulants.size(); windchestI > 0;) {
+    GOTremulant *const pTremulant = mp_InternalTremulants[--windchestI];
+    GOWindchest *const pWindchest = GetWindchest(windchestI);
+    const unsigned nWindchestTremulants = pWindchest->GetTremulantCount();
+    const unsigned tremulantI = GetTremulantCount() - 1;
+
+    assert(GetTremulant(tremulantI) == pTremulant);
+    if (
+      nWindchestTremulants
+      && pWindchest->GetTremulantId(nWindchestTremulants - 1) == tremulantI)
+      pWindchest->RemoveTremulant(tremulantI);
+    RemoveTremulant(pTremulant);
+  }
+  mp_InternalTremulants.clear();
 }
 
 void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
@@ -375,8 +443,9 @@ void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
 
   GOOrganModel::Load(cfg);
 
-  // The metronome's windchest and the internal enclosures must exist before
-  // LoadCmbButtons(); the GOMetronome itself is created below
+  // The metronome's windchest, the internal enclosures and the internal
+  // tremulants must exist before LoadCmbButtons(); the GOMetronome itself is
+  // created below
   std::unique_ptr<GOWindchest> oMetronomeWindchest
     = GOMetronome::createWindchest(cfg, *this);
   GOWindchest *const pMetronomeWindchest = oMetronomeWindchest.get();
@@ -386,6 +455,7 @@ void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
   p_MetronomeWindchest = pMetronomeWindchest;
 
   InitInternalEnclosures(cfg);
+  InitInternalTremulants(cfg);
 
   m_VirtualCouplers.Load(*this, cfg);
 
