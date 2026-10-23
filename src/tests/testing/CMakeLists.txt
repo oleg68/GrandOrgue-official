@@ -1,6 +1,7 @@
 set(go_tests
     # Add here your tests files
     combinations/GOTestDivisionalSetter.cpp
+    gui/GOTestGUILayoutEngine.cpp
     loader/GOTestOrganReader.cpp
     midi/GOTestMidiEvent.cpp
     midi/GOTestMidiPlayerContent.cpp

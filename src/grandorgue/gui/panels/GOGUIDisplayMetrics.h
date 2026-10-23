@@ -103,6 +103,39 @@ public:
   unsigned GetButtonHeight();
   unsigned GetEnclosureWidth();
   unsigned GetEnclosureHeight();
+
+  /**
+   * The sizes of the cells of the grids by the index. The base gives the same
+   * size for every column and every row; a derived metrics may give each its
+   * own. The layout engine sums them to get the coordinates.
+   * @param colN the column from 1
+   * @param rowN the row, numbered as in the grid: from 1 (the drawstop and
+   *   the enclosure grids), from 100 for the extra rows of the drawstop and
+   *   the pushbutton grids, the manual number for the pushbutton grid
+   */
+  virtual unsigned GetDrawstopColumnWidth(unsigned colN) {
+    return GetDrawstopWidth();
+  }
+  virtual unsigned GetDrawstopRowHeight(int rowN) {
+    return GetDrawstopHeight();
+  }
+  virtual unsigned GetButtonColumnWidth(unsigned colN) {
+    return GetButtonWidth();
+  }
+  virtual unsigned GetButtonRowHeight(int rowN) { return GetButtonHeight(); }
+  virtual unsigned GetEnclosureColumnWidth(unsigned colN) {
+    return GetEnclosureWidth();
+  }
+  virtual unsigned GetEnclosureRowHeight(int rowN) {
+    return GetEnclosureHeight();
+  }
+
+  /**
+   * @return the number of the rows of the enclosure grid: the enclosures and,
+   *   in a derived metrics, the rows below them. The base has one row
+   */
+  virtual unsigned GetNEnclosureRows() { return 1; }
+
   unsigned GetManualKeyWidth();
   unsigned GetManualHeight();
   unsigned GetPedalKeyWidth();

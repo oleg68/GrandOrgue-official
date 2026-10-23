@@ -7,6 +7,8 @@
 
 #include "GOGUILayoutEngine.h"
 
+#include <algorithm>
+
 #include <wx/intl.h>
 
 #include "GOGUIDisplayMetrics.h"
@@ -26,12 +28,96 @@ GOGUILayoutEngine::GOGUILayoutEngine(GOGUIDisplayMetrics &metrics)
 GOGUILayoutEngine::~GOGUILayoutEngine() {}
 
 /*
+ * SIZES OF THE LINES OF THE CELLS OF THE GRIDS
+ */
+
+unsigned GOGUILayoutEngine::computeCellOffset(
+  unsigned nCells,
+  const std::function<unsigned(unsigned)> &getCellSize,
+  unsigned gap) {
+  unsigned offset = 0;
+
+  for (unsigned cellI = 0; cellI < nCells; ++cellI)
+    offset += getCellSize(cellI) + gap;
+  return offset;
+}
+
+int GOGUILayoutEngine::computeCentredPosition(
+  int cellStart, unsigned cellSize, unsigned itemSize) {
+  return cellStart + (int)cellSize / 2 - (int)itemSize / 2;
+}
+
+int GOGUILayoutEngine::computeEnclosureAreaX(
+  unsigned screenWidth, unsigned areaWidth) {
+  return ((int)screenWidth - (int)areaWidth + 6) >> 1;
+}
+
+unsigned GOGUILayoutEngine::GetDrawstopColumnsWidth(
+  unsigned firstColN, unsigned nCols) {
+  return computeCellOffset(
+    nCols,
+    [this, firstColN](unsigned colI) {
+      return r_metrics.GetDrawstopColumnWidth(firstColN + colI);
+    },
+    0);
+}
+
+unsigned GOGUILayoutEngine::GetDrawstopRowsHeight(
+  int firstRowN, unsigned nRows) {
+  return computeCellOffset(
+    nRows,
+    [this, firstRowN](unsigned rowI) {
+      return r_metrics.GetDrawstopRowHeight(firstRowN + rowI);
+    },
+    0);
+}
+
+unsigned GOGUILayoutEngine::GetButtonColumnsWidth(
+  unsigned firstColN, unsigned nCols) {
+  return computeCellOffset(
+    nCols,
+    [this, firstColN](unsigned colI) {
+      return r_metrics.GetButtonColumnWidth(firstColN + colI);
+    },
+    0);
+}
+
+unsigned GOGUILayoutEngine::GetButtonRowsHeight(int firstRowN, unsigned nRows) {
+  return computeCellOffset(
+    nRows,
+    [this, firstRowN](unsigned rowI) {
+      return r_metrics.GetButtonRowHeight(firstRowN + rowI);
+    },
+    0);
+}
+
+unsigned GOGUILayoutEngine::GetEnclosureColumnsWidth(
+  unsigned firstColN, unsigned nCols) {
+  return computeCellOffset(
+    nCols,
+    [this, firstColN](unsigned colI) {
+      return r_metrics.GetEnclosureColumnWidth(firstColN + colI);
+    },
+    0);
+}
+
+unsigned GOGUILayoutEngine::GetEnclosureRowsHeight(
+  int firstRowN, unsigned nRows) {
+  return computeCellOffset(
+    nRows,
+    [this, firstRowN](unsigned rowI) {
+      return r_metrics.GetEnclosureRowHeight(firstRowN + rowI);
+    },
+    GOGUIDisplayMetrics::ROW_GAP);
+}
+
+/*
  * COMPUTED VALUES FROM ODF PARAMETERS
  */
 
 unsigned GOGUILayoutEngine::GetJambLeftRightHeight() {
-  return (r_metrics.NumberOfDrawstopRowsToDisplay() + 1)
-    * r_metrics.GetDrawstopHeight();
+  return GetDrawstopRowsHeight(
+    1, r_metrics.NumberOfDrawstopRowsToDisplay() + 1);
 }
 
 int GOGUILayoutEngine::GetJambLeftRightY() {
@@ -43,8 +129,8 @@ int GOGUILayoutEngine::GetJambLeftRightY() {
 }
 
 int GOGUILayoutEngine::GetJambLeftRightWidth() {
-  int jamblrw = r_metrics.NumberOfDrawstopColsToDisplay()
-    * r_metrics.GetDrawstopWidth() / 2;
+  int jamblrw
+    = GetDrawstopColumnsWidth(1, r_metrics.NumberOfDrawstopColsToDisplay()) / 2;
   if (r_metrics.HasPairDrawstopCols())
     jamblrw += ((r_metrics.NumberOfDrawstopColsToDisplay() >> 2)
                 * (r_metrics.GetDrawstopWidth() / 4))
@@ -53,13 +139,13 @@ int GOGUILayoutEngine::GetJambLeftRightWidth() {
 }
 
 unsigned GOGUILayoutEngine::GetJambTopHeight() {
-  return r_metrics.NumberOfExtraDrawstopRowsToDisplay()
-    * r_metrics.GetDrawstopHeight();
+  return GetDrawstopRowsHeight(
+    100, r_metrics.NumberOfExtraDrawstopRowsToDisplay());
 }
 
 unsigned GOGUILayoutEngine::GetJambTopWidth() {
-  return r_metrics.NumberOfExtraDrawstopColsToDisplay()
-    * r_metrics.GetDrawstopWidth();
+  return GetDrawstopColumnsWidth(
+    1, r_metrics.NumberOfExtraDrawstopColsToDisplay());
 }
 
 int GOGUILayoutEngine::GetJambTopX() {
@@ -67,11 +153,11 @@ int GOGUILayoutEngine::GetJambTopX() {
 }
 
 unsigned GOGUILayoutEngine::GetPistonTopHeight() {
-  return r_metrics.NumberOfExtraButtonRows() * r_metrics.GetButtonHeight();
+  return GetButtonRowsHeight(100, r_metrics.NumberOfExtraButtonRows());
 }
 
 unsigned GOGUILayoutEngine::GetPistonWidth() {
-  return r_metrics.NumberOfButtonCols() * r_metrics.GetButtonWidth();
+  return GetButtonColumnsWidth(1, r_metrics.NumberOfButtonCols());
 }
 
 int GOGUILayoutEngine::GetPistonX() {
@@ -93,23 +179,42 @@ int GOGUILayoutEngine::GetCenterY() { return m_CenterY; }
 int GOGUILayoutEngine::GetHackY() { return m_HackY; }
 
 unsigned GOGUILayoutEngine::GetEnclosureAreaWidth() {
-  return r_metrics.GetEnclosureWidth() * m_Enclosures.size();
+  return GetEnclosureColumnsWidth(1, m_Enclosures.size());
 }
 
-int GOGUILayoutEngine::GetEnclosureY() { return m_EnclosureY; }
+unsigned GOGUILayoutEngine::GetEnclosureAreaHeight() {
+  // the gap after the last row is not a part of the area
+  return GetEnclosureRowsHeight(1, r_metrics.GetNEnclosureRows())
+    - GOGUIDisplayMetrics::ROW_GAP;
+}
+
+int GOGUILayoutEngine::GetEnclosureY() {
+  int x = 0;
+  int y = 0;
+
+  GetEnclosureBlitPosition(
+    1, 1, r_metrics.GetEnclosureWidth(), r_metrics.GetEnclosureHeight(), x, y);
+  return y;
+}
 
 int GOGUILayoutEngine::GetEnclosureX(const GOGUIEnclosure *enclosure) {
   assert(enclosure);
 
-  int enclosure_x
-    = (r_metrics.GetScreenWidth() - GetEnclosureAreaWidth() + 6) >> 1;
-  for (unsigned int i = 0; i < m_Enclosures.size(); i++) {
-    if (enclosure == m_Enclosures[i])
-      return enclosure_x;
-    enclosure_x += r_metrics.GetEnclosureWidth();
-  }
+  const auto it
+    = std::find(m_Enclosures.begin(), m_Enclosures.end(), enclosure);
+  int x = 0;
+  int y = 0;
 
-  throw(wxString) _("enclosure not found");
+  if (it == m_Enclosures.end())
+    throw(wxString) _("enclosure not found");
+  GetEnclosureBlitPosition(
+    1,
+    (it - m_Enclosures.begin()) + 1,
+    r_metrics.GetEnclosureWidth(),
+    r_metrics.GetEnclosureHeight(),
+    x,
+    y);
+  return x;
 }
 
 int GOGUILayoutEngine::GetJambLeftX() {
@@ -148,33 +253,66 @@ int GOGUILayoutEngine::GetJambTopY() {
  * BLIT POSITION FUNCTIONS
  */
 
+void GOGUILayoutEngine::GetBlitPosition(
+  GridType gridType,
+  int rowN,
+  int colN,
+  unsigned width,
+  unsigned height,
+  int &outX,
+  int &outY) {
+  switch (gridType) {
+  case GRID_DRAWSTOP:
+    GetDrawstopBlitPosition(rowN, colN, outX, outY);
+    break;
+  case GRID_PUSHBUTTON:
+    GetPushbuttonBlitPosition(rowN, colN, outX, outY);
+    break;
+  case GRID_ENCLOSURE:
+    GetEnclosureBlitPosition(rowN, colN, width, height, outX, outY);
+    break;
+  }
+}
+
+void GOGUILayoutEngine::GetEnclosureBlitPosition(
+  int rowN, int colN, unsigned width, unsigned height, int &outX, int &outY) {
+  const int areaX = computeEnclosureAreaX(
+    r_metrics.GetScreenWidth(), GetEnclosureAreaWidth());
+
+  outX = computeCentredPosition(
+    areaX + (int)GetEnclosureColumnsWidth(1, colN - 1),
+    r_metrics.GetEnclosureColumnWidth(colN),
+    width);
+  outY = computeCentredPosition(
+    m_EnclosureY + (int)GetEnclosureRowsHeight(1, rowN - 1),
+    r_metrics.GetEnclosureRowHeight(rowN),
+    height);
+}
+
 void GOGUILayoutEngine::GetDrawstopBlitPosition(
   const int drawstopRow, const int drawstopCol, int &blitX, int &blitY) {
   int i;
   if (drawstopRow > 99) {
-    blitX
-      = GetJambTopX() + (drawstopCol - 1) * r_metrics.GetDrawstopWidth() + 6;
+    blitX = GetJambTopX() + GetDrawstopColumnsWidth(1, drawstopCol - 1) + 6;
     if (r_metrics.HasExtraDrawstopRowsAboveExtraButtonRows()) {
       blitY = GetJambTopDrawstop()
-        + (drawstopRow - 100) * r_metrics.GetDrawstopHeight() + 2;
+        + GetDrawstopRowsHeight(100, drawstopRow - 100) + 2;
     } else {
       blitY = GetJambTopDrawstop()
-        + (drawstopRow - 100) * r_metrics.GetDrawstopHeight()
-        + (r_metrics.NumberOfExtraButtonRows() * r_metrics.GetButtonHeight())
-        + 2;
+        + GetDrawstopRowsHeight(100, drawstopRow - 100)
+        + GetButtonRowsHeight(100, r_metrics.NumberOfExtraButtonRows()) + 2;
     }
   } else {
     i = r_metrics.NumberOfDrawstopColsToDisplay() >> 1;
     if (drawstopCol <= i) {
-      blitX
-        = GetJambLeftX() + (drawstopCol - 1) * r_metrics.GetDrawstopWidth() + 6;
-      blitY = GetJambLeftRightY()
-        + (drawstopRow - 1) * r_metrics.GetDrawstopHeight() + 32;
+      blitX = GetJambLeftX() + GetDrawstopColumnsWidth(1, drawstopCol - 1) + 6;
+      blitY
+        = GetJambLeftRightY() + GetDrawstopRowsHeight(1, drawstopRow - 1) + 32;
     } else {
       blitX = GetJambRightX()
-        + (drawstopCol - 1 - i) * r_metrics.GetDrawstopWidth() + 6;
-      blitY = GetJambLeftRightY()
-        + (drawstopRow - 1) * r_metrics.GetDrawstopHeight() + 32;
+        + GetDrawstopColumnsWidth(i + 1, drawstopCol - 1 - i) + 6;
+      blitY
+        = GetJambLeftRightY() + GetDrawstopRowsHeight(1, drawstopRow - 1) + 32;
     }
     if (r_metrics.HasPairDrawstopCols())
       blitX
@@ -193,17 +331,16 @@ void GOGUILayoutEngine::GetDrawstopBlitPosition(
 
 void GOGUILayoutEngine::GetPushbuttonBlitPosition(
   const int buttonRow, const int buttonCol, int &blitX, int &blitY) {
-  blitX = GetPistonX() + (buttonCol - 1) * r_metrics.GetButtonWidth() + 6;
+  blitX = GetPistonX() + GetButtonColumnsWidth(1, buttonCol - 1) + 6;
   if (buttonRow > 99) {
     if (r_metrics.HasExtraDrawstopRowsAboveExtraButtonRows()) {
-      blitY = GetJambTopPiston()
-        + (buttonRow - 100) * r_metrics.GetButtonHeight()
-        + (r_metrics.NumberOfExtraDrawstopRowsToDisplay()
-           * r_metrics.GetDrawstopHeight())
+      blitY = GetJambTopPiston() + GetButtonRowsHeight(100, buttonRow - 100)
+        + GetDrawstopRowsHeight(
+                100, r_metrics.NumberOfExtraDrawstopRowsToDisplay())
         + 5;
     } else {
-      blitY = GetJambTopPiston()
-        + (buttonRow - 100) * r_metrics.GetButtonHeight() + 5;
+      blitY
+        = GetJambTopPiston() + GetButtonRowsHeight(100, buttonRow - 100) + 5;
     }
   } else {
     int i = buttonRow;
@@ -250,13 +387,13 @@ void GOGUILayoutEngine::Update() {
       m_ManualRenderInfo[0].piston_y = m_CenterY;
       m_CenterWidth = std::max(m_CenterWidth, (int)GetEnclosureAreaWidth());
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
-      m_CenterY -= r_metrics.GetEnclosureHeight();
+      m_CenterY -= GetEnclosureAreaHeight();
       m_EnclosureY = m_CenterY;
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
     }
     if (!i && !m_Manuals[i] && m_Enclosures.size()) {
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
-      m_CenterY -= r_metrics.GetEnclosureHeight();
+      m_CenterY -= GetEnclosureAreaHeight();
       m_EnclosureY = m_CenterY;
       m_CenterY -= GOGUIDisplayMetrics::ROW_GAP;
     }

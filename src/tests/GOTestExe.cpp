@@ -23,6 +23,7 @@
 #include "testing/GOTestNameMap.h"
 #include "testing/GOTestOrganController.h"
 #include "testing/combinations/GOTestDivisionalSetter.h"
+#include "testing/gui/GOTestGUILayoutEngine.h"
 #include "testing/loader/GOTestOrganReader.h"
 #include "testing/midi/GOTestMidiEvent.h"
 #include "testing/midi/GOTestMidiPlayerContent.h"
@@ -249,6 +250,7 @@ int main(int argc, char *argv[]) {
 
   /* Instantiate all the test classes here */
   GOTestDivisionalSetter testDivisionalSetter;
+  GOTestGUILayoutEngine testGUILayoutEngine;
   GOTestOrganReader testOrganReader;
   GOTestOrganController testOrganController;
   GOTestDrawStop testDrawStop;
