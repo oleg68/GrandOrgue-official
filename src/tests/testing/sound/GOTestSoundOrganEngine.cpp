@@ -379,7 +379,7 @@ void GOTestSoundOrganEngine::TestReconnectAfterMidPeriodDisconnect() {
 }
 
 void GOTestSoundOrganEngine::TestStopStartResumePreservesSamplers() {
-  controller->AddWindchest(new GOWindchest(*controller));
+  controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
 
   GOSoundOrganEngine &engine = BuildAndStartEngine(1, 0, 1);
 
@@ -424,7 +424,7 @@ void GOTestSoundOrganEngine::TestStopStartResumePreservesSamplers() {
 void GOTestSoundOrganEngine::TestDestroyRebuildReclaimsAndResizesPool() {
   static constexpr unsigned FIRST_LIMIT = 4;
 
-  controller->AddWindchest(new GOWindchest(*controller));
+  controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
 
   GOSoundOrganEngine &engine = BuildAndStartEngine(1, 0, 1);
 
@@ -474,7 +474,7 @@ void GOTestSoundOrganEngine::TestAudioGroupRoutingChangeIsEmpty() {
     defaultChange.IsEmpty(),
     "A default-constructed AudioGroupRoutingChange should be empty");
 
-  controller->AddWindchest(new GOWindchest(*controller));
+  controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
 
   GOSoundOrganEngine &engine = BuildAndStartEngine(2, 0, 1);
   GOSoundOrganEngine::AudioGroupRoutingChange realChange
@@ -493,7 +493,7 @@ void GOTestSoundOrganEngine::TestAudioGroupRoutingChangeIsEmpty() {
 }
 
 void GOTestSoundOrganEngine::TestHasSoundRoutingFor() {
-  controller->AddWindchest(new GOWindchest(*controller));
+  controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
 
   GOSoundOrganEngine &engine = BuildAndStartEngine(2, 0, 1);
 
@@ -522,7 +522,7 @@ void GOTestSoundOrganEngine::TestHasSoundRoutingFor() {
 }
 
 void GOTestSoundOrganEngine::TestPrepareAndCommitSoundRoutingFor() {
-  controller->AddWindchest(new GOWindchest(*controller));
+  controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
 
   GOSoundOrganEngine &engine = BuildAndStartEngine(2, 0, 1);
 
@@ -564,7 +564,7 @@ void GOTestSoundOrganEngine::TestPrepareAndCommitSoundRoutingFor() {
 }
 
 void GOTestSoundOrganEngine::TestSamplerAudioReachesPlanarOutput() {
-  controller->AddWindchest(new GOWindchest(*controller));
+  controller->AddWindchest(std::make_unique<GOWindchest>(*controller));
 
   GOSoundOrganEngine &engine = BuildAndStartEngine(
     /* nAudioGroups */ 1, /* nAuxThreads */ 0, /* nOutputs */ 1);
