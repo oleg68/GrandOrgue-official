@@ -1,6 +1,6 @@
 /*
  * Copyright 2006 Milan Digital Audio LLC
- * Copyright 2009-2025 GrandOrgue contributors (see AUTHORS)
+ * Copyright 2009-2026 GrandOrgue contributors (see AUTHORS)
  * License GPL-2.0 or later
  * (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
  */
@@ -19,17 +19,20 @@ GOGUIControl::GOGUIControl(GOGUIPanel *panel, GOControl *pControl)
   m_metrics = panel->GetDisplayMetrics();
   m_layout = panel->GetLayoutEngine();
   m_panel->GetOrganFile()->RegisterControlChangedHandler(this);
+  m_panel->GetOrganFile()->RegisterSaveableObject(this);
 }
 
-GOGUIControl::~GOGUIControl() {}
+GOGUIControl::~GOGUIControl() {
+  // in the reverse order of the constructor
+  m_panel->GetOrganFile()->UnregisterSaveableObject(this);
+  m_panel->GetOrganFile()->UnRegisterControlChangedHandler(this);
+}
 
 void GOGUIControl::Init(GOConfigReader &cfg, wxString group) {
-  m_panel->GetOrganFile()->RegisterSaveableObject(this);
   m_group = group;
 }
 
 void GOGUIControl::Load(GOConfigReader &cfg, wxString group) {
-  m_panel->GetOrganFile()->RegisterSaveableObject(this);
   m_group = group;
 }
 
