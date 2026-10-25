@@ -7,6 +7,7 @@
 #ifndef GOTESTORGANCONTROLLER_H
 #define GOTESTORGANCONTROLLER_H
 
+#include <set>
 #include <string>
 
 #include "GOTest.h"
@@ -23,8 +24,60 @@ public:
   std::string GetName();
 
 private:
+  /**
+   * The objects registered in the registries of the controller. The pointers
+   * are compared as addresses only, they are never dereferenced.
+   */
+  struct RegistrySets {
+    std::set<const void *> cacheObjects;
+    std::set<const void *> referencingObjects;
+    std::set<const void *> combinationButtonSets;
+    std::set<const void *> midiObjects;
+    std::set<const void *> midiEventHandlers;
+    std::set<const void *> lifecycleListeners;
+    std::set<const void *> saveableObjects;
+
+    bool operator==(const RegistrySets &) const = default;
+
+    /** @return true if every registry has the same number of objects */
+    bool HasSameSizes(const RegistrySets &other) const;
+
+    /** @return the numbers of the objects in every registry as a text */
+    std::string ToString() const;
+  };
+
+  /**
+   * Collects the objects of the registries. Freezes them for reading and
+   * unfreezes them again, so that the controller is left unfrozen.
+   */
+  RegistrySets GetRegistrySets();
+
+  /**
+   * Checks that the model of the cleared controller is empty: no windchests,
+   * enclosures, ranks, children of the root pipe config node and general
+   * template elements.
+   */
+  void CheckClearedCoreData();
+
+  /**
+   * Loads the core data of an ODF with LoadOrganCoreData(), bypassing Load().
+   * @param odfPath the path of the ODF file
+   * @throws wxString if the loading fails
+   */
+  void LoadCoreData(const wxString &odfPath);
+
+  /**
+   * Saves the core data with SaveOrganCoreData(), writes the test.cmb file
+   * and checks the saved groups.
+   * @return the plain text of the saved .cmb
+   */
+  std::string SaveCoreData();
+
+  /** Checks that the minimal ODF is loaded as expected. */
+  void CheckLoadedCoreData();
+
   /*
-   * Loading, saving and clearing of the organ core data.
+   * Loading, saving, clearing and repeated loading of the organ core data.
    */
   void TestOrganCoreData();
 
@@ -35,6 +88,28 @@ private:
    * live GOMidiSystem or a configured GOMidiRecorder, which GOTestExe lacks.
    */
   void TestOnStateLifecycleSending();
+
+  /*
+   * The setter exists before the first loading.
+   */
+  void TestGetSetterBeforeLoad();
+
+  /*
+   * ClearOrganCoreData() without a loading is a safe no-op.
+   */
+  void TestClearIdempotency();
+
+  /*
+   * After a failed loading ClearOrganCoreData() leaves the controller as new.
+   */
+  void TestLoadAfterFailedLoad();
+
+  /*
+   * After a loading failed late (in LoadCmbButtons(), after the internal
+   * enclosures and the metronome windchest were added)
+   * ClearOrganCoreData() leaves the controller as new.
+   */
+  void TestLoadAfterLateFailedLoad();
 };
 
 #endif /* GOTESTORGANCONTROLLER_H */

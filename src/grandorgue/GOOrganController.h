@@ -95,8 +95,8 @@ private:
   /**
    * The master volume enclosure that is applied to every windchest. Not an
    * ODF object: it is created by InitInternalEnclosures() and saved to the
-   * .cmb group SetterMasterVolume. Non-owning - the organ model owns it, so
-   * it is reset in ClearOrganCoreData() before the model is cleaned up.
+   * .cmb group SetterMasterVolume. Non-owning - the organ model owns it; it
+   * is removed from the windchests and the model by ClearInternalEnclosures().
    * nullptr while the organ core data is not loaded.
    */
   GOEnclosure *p_MasterEnclosure = nullptr;
@@ -107,8 +107,20 @@ private:
    * organ model owns them. Empty while the organ core data is not loaded.
    */
   std::vector<GOEnclosure *> mp_InternalEnclosures;
+  /**
+   * The windchest of the metronome added by LoadOrganCoreData(). Non-owning -
+   * the organ model owns it; removed by ClearOrganCoreData() with
+   * RemoveWindchest(). nullptr while it is not added.
+   */
+  GOWindchest *p_MetronomeWindchest = nullptr;
 
   ptr_vector<GOElementCreator> m_elementcreators;
+  /**
+   * The number of the element creators made by the constructor (only the
+   * setter). ClearOrganCoreData() keeps them and deletes the creators that
+   * LoadOrganCoreData() added after them
+   */
+  unsigned m_NConstructorCreators = 0;
 
   GOMidiSystem *m_midi;
   std::vector<bool> m_MidiSamplesetMatch;
@@ -148,6 +160,14 @@ private:
    * @param cfg the config reader of the organ being loaded
    */
   void InitInternalEnclosures(GOConfigReader &cfg);
+  /**
+   * The mirror of InitInternalEnclosures(): removes the internal enclosures
+   * from the windchests and from the model in the reverse order of adding and
+   * resets p_MasterEnclosure and mp_InternalEnclosures. Idempotent. Must be
+   * called after the objects that refer to the enclosures are deleted and
+   * before the windchests are removed.
+   */
+  void ClearInternalEnclosures();
   /** Loads pipe/sample data from the cache or, failing that, from the
    * sample files in parallel worker threads. Sets m_IsObjectsLoaded. */
   void LoadObjects(GOProgressMonitor &monitor);
@@ -156,7 +176,14 @@ private:
   void SaveOrganCoreData(GOConfigWriter &cfg);
   /** Undoes LoadObjects if it ran. Idempotent. */
   void ClearObjects();
-  /** Undoes LoadOrganCoreData if it ran. Idempotent. */
+  /**
+   * The counterpart of LoadOrganCoreData(): clears only what it loaded, in the
+   * strictly reverse order. Only the objects created by the constructor
+   * survive (the setter, the On indicator button and the modification
+   * listener), so LoadOrganCoreData() may be called again afterwards.
+   * Idempotent. The registries must not be frozen: the owned objects
+   * unregister themselves in their destructors.
+   */
   void ClearOrganCoreData();
   /**
    * Sends the MIDI events of the On indicator button at the end of starting or
@@ -248,10 +275,7 @@ public:
    * from within ~GOOrganController() would only ever reach
    * GOOrganController::OnClear(), never a subclass override, since C++
    * virtual dispatch during base-class destruction is restricted to the
-   * base class. The destructor only asserts that ClearObjects()/OnClear()
-   * already ran; it still re-runs the non-virtual ClearOrganCoreData() on
-   * its own as a safety net regardless of whether the caller called
-   * Clear(). */
+   * base class. The destructor only asserts that Clear() already ran. */
   void Clear();
   /**
    * Exports organ combinations in the yaml file
