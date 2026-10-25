@@ -54,6 +54,7 @@
 #include "temperaments/GOTemperament.h"
 #include "yaml/GOYamlModel.h"
 
+#include "go_clear_in_reverse.h"
 #include "go_defs.h"
 
 #include "GOAudioRecorder.h"
@@ -68,6 +69,9 @@
 static const GOMidiObjectContext MIDI_CONTEXT_VOLUMES(
   wxT("volumes"), _("volumes"));
 
+// The value of m_CurrentPitch that forces updating the pitch label the next
+// time
+static const float PITCH_UNKNOWN = 999999.0;
 static const wxString WX_ORGAN = wxT("Organ");
 static const wxString WX_GRANDORGUE_VERSION = wxT("GrandOrgueVersion");
 
@@ -86,7 +90,7 @@ GOOrganController::GOOrganController(GOConfig &config)
     m_MidiRecorder(NULL),
     m_timer(NULL),
     p_OnStateButton(nullptr),
-    m_CurrentPitch(999999.0), // for enforcing updating the label first time
+    m_CurrentPitch(PITCH_UNKNOWN),
     m_OrganModified(false),
     m_midi(0),
     m_SampleSetId1(0),
@@ -106,6 +110,8 @@ GOOrganController::GOOrganController(GOConfig &config)
   // only place registering it) may never run (e.g. in tests, or if loading
   // fails before reaching that point), which would otherwise leak it.
   m_elementcreators.push_back(m_setter);
+  // ClearOrganCoreData() keeps the creators made here, and deletes the rest
+  m_NConstructorCreators = m_elementcreators.size();
   p_OnStateButton = GetButtonControl(GOSetter::KEY_ON_STATE);
   assert(p_OnStateButton);
   // The On indicator must not send its MIDI events together with the others
@@ -125,16 +131,17 @@ GOOrganController::~GOOrganController() {
   // expected to have already run (by the caller) with ClearObjects()
   // having already preceded it. We only assert that it did.
   //
-  // ClearOrganCoreData() is different: it is non-virtual, idempotent, and
-  // has no ordering dependency on OnClear() having actually reached a
-  // subclass override, so it is safe - and necessary - to (re-)run it here
-  // unconditionally, regardless of NDEBUG: it frees m_elementcreators,
-  // which must happen before m_timer is deleted below.
   // The GUI-loaded flag (formerly m_IsOrganGuiLoaded here) now lives in
   // GOGuiOrgan, which owns the GUI data it guards - this base class can no
   // longer assert on it.
   assert(!m_IsObjectsLoaded);
-  ClearOrganCoreData();
+  assert(!m_IsOrganCoreDataLoaded);
+  // Free what the constructor created (ClearOrganCoreData() keeps it). The
+  // creators (the setter) must be freed before m_timer is deleted below:
+  // their destructors use GetTimer()
+  GOOrganModel::SetModelModificationListener(nullptr);
+  m_elementcreators.clear();
+  m_setter = nullptr;
   m_FileStore.CloseArchives();
   if (m_timer)
     delete m_timer;
@@ -155,32 +162,30 @@ void GOOrganController::ClearObjects() {
 
 void GOOrganController::ClearOrganCoreData() {
   if (m_IsOrganCoreDataLoaded) {
-    // They refer to the enclosures that GOOrganModel::Cleanup() frees
-    p_MasterEnclosure = nullptr;
-    mp_InternalEnclosures.clear();
+    // the element creators in the reverse order of loading
+    const auto creatorsBegin = m_elementcreators.begin();
 
-    GOOrganModel::CleanupCmbButtons();
-    // Just to be sure, that the sound providers are freed before the pool
-    GOOrganModel::Cleanup();
-
-    m_VirtualCouplers.Cleanup();
-    GOOrganModel::SetModelModificationListener(nullptr);
-    GOOrganModel::SetCombinationController(nullptr);
-
-    // m_elementcreators (a ptr_vector) is the sole owner of m_setter,
-    // m_DivisionalSetter, m_AudioRecorder, m_MidiRecorder, m_MidiPlayer, and
-    // the anonymous GOMetronome pushed onto it in LoadOrganCoreData().
-    // ptr_vector::clear() deletes every contained pointer (see
-    // ptrvector.h:59-68), so this single call is what actually frees all
-    // six objects; the raw-pointer members below are then only reset to
-    // nullptr to avoid leaving them dangling, not separately deleted.
-    m_elementcreators.clear();
-
-    m_setter = nullptr;
+    for (auto creatorIt = m_elementcreators.end(); creatorIt != creatorsBegin;)
+      (*--creatorIt)->ClearLoaded();
+    // delete the creators made by LoadOrganCoreData() from the last one, keep
+    // the constructor's
+    go_clear_in_reverse(m_elementcreators, m_NConstructorCreators);
     m_DivisionalSetter = nullptr;
     m_AudioRecorder = nullptr;
     m_MidiRecorder = nullptr;
     m_MidiPlayer = nullptr;
+
+    GOOrganModel::CleanupCmbButtons();
+    m_VirtualCouplers.Cleanup();
+    ClearInternalEnclosures();
+    if (p_MetronomeWindchest) {
+      RemoveWindchest(p_MetronomeWindchest);
+      p_MetronomeWindchest = nullptr;
+    }
+    // Just to be sure, that the sound providers are freed before the pool
+    GOOrganModel::Cleanup();
+    GOOrganModel::SetCombinationController(nullptr);
+    m_CurrentPitch = PITCH_UNKNOWN;
 
     m_IsOrganCoreDataLoaded = false;
   }
@@ -253,8 +258,10 @@ void GOOrganController::InitInternalEnclosures(GOConfigReader &cfg) {
   oMaster->SetContext(&MIDI_CONTEXT_VOLUMES);
   oMaster->Init(cfg, wxT("SetterMasterVolume"), _("Master"), 127);
   AddEnclosure(std::move(oMaster));
-  pMaster->SetElementId(GetRecorderElementID(wxT("SM")));
+  // Remember every added object at once, so that ClearInternalEnclosures()
+  // knows about it even if the next step throws
   p_MasterEnclosure = pMaster;
+  pMaster->SetElementId(GetRecorderElementID(wxT("SM")));
 
   mp_InternalEnclosures.reserve(nWindchests);
   for (unsigned windchestI = 0; windchestI < nWindchests; ++windchestI) {
@@ -263,7 +270,6 @@ void GOOrganController::InitInternalEnclosures(GOConfigReader &cfg) {
     std::unique_ptr<GOEnclosure> oEnc = std::make_unique<GOEnclosure>(*this);
     GOEnclosure *const pEnc = oEnc.get();
 
-    pWindchest->AddEnclosure(pMaster);
     oEnc->SetContext(&MIDI_CONTEXT_VOLUMES);
     oEnc->SetHardName(
       hardName.IsEmpty()
@@ -274,15 +280,46 @@ void GOOrganController::InitInternalEnclosures(GOConfigReader &cfg) {
       wxString::Format(wxT("SetterMaster%03d"), windchestI + 1),
       pWindchest->GetName(),
       127);
+    /* The enclosure is initialized before it touches the model or the
+       windchest, so a failed Init() leaves nothing to undo. Then it is added
+       to the model and remembered at once, before it is attached to the
+       windchest, so that ClearInternalEnclosures() knows about it even if the
+       next step throws */
     AddEnclosure(std::move(oEnc));
+    mp_InternalEnclosures.push_back(pEnc);
+    pWindchest->AddEnclosure(pMaster);
+    pWindchest->AddEnclosure(pEnc);
     pEnc->SetElementId(
       GetRecorderElementID(wxString::Format(wxT("SM%d"), windchestI)));
-    pWindchest->AddEnclosure(pEnc);
-    mp_InternalEnclosures.push_back(pEnc);
+  }
+}
+
+void GOOrganController::ClearInternalEnclosures() {
+  /* the enclosures that are added to the model, from the last one. If loading
+     failed in the middle, a windchest that is in mp_InternalEnclosures may
+     have neither the master nor its own enclosure, or only the master */
+  for (unsigned windchestI = mp_InternalEnclosures.size(); windchestI > 0;) {
+    GOEnclosure *const pEnc = mp_InternalEnclosures[--windchestI];
+    GOWindchest *const pWindchest = GetWindchest(windchestI);
+    const std::vector<GOEnclosure *> &windchestEncs
+      = pWindchest->GetEnclosures();
+
+    if (windchestEncs.size() && windchestEncs.back() == pEnc)
+      pWindchest->RemoveEnclosure(pEnc);
+    if (windchestEncs.size() && windchestEncs.back() == p_MasterEnclosure)
+      pWindchest->RemoveEnclosure(p_MasterEnclosure);
+    RemoveEnclosure(pEnc);
+  }
+  mp_InternalEnclosures.clear();
+  if (p_MasterEnclosure) {
+    RemoveEnclosure(p_MasterEnclosure);
+    p_MasterEnclosure = nullptr;
   }
 }
 
 void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
+  // A repeated loading requires ClearOrganCoreData() in between
+  assert(!m_IsOrganCoreDataLoaded);
   m_IsOrganCoreDataLoaded = true;
 
   /* load church info */
@@ -340,8 +377,13 @@ void GOOrganController::LoadOrganCoreData(GOConfigReader &cfg) {
 
   // The metronome's windchest and the internal enclosures must exist before
   // LoadCmbButtons(); the GOMetronome itself is created below
+  std::unique_ptr<GOWindchest> oMetronomeWindchest
+    = GOMetronome::createWindchest(cfg, *this);
+  GOWindchest *const pMetronomeWindchest = oMetronomeWindchest.get();
   const unsigned metronomeWindchestN
-    = AddWindchest(GOMetronome::createWindchest(cfg, *this));
+    = AddWindchest(std::move(oMetronomeWindchest));
+
+  p_MetronomeWindchest = pMetronomeWindchest;
 
   InitInternalEnclosures(cfg);
 
