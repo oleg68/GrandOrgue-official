@@ -7,6 +7,7 @@
 
 #include "GOSetter.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -735,14 +736,6 @@ const GOSetter::ButtonDefinitionEntry *const GOSetter::P_BUTTON_DEFS
 
 GOSetter::GOSetter(GOOrganController *organController)
   : m_OrganController(organController),
-    m_IsCmbFileListPopulated(false),
-    m_CmbFilePos(-1),
-    m_pos(0),
-    m_NumericModeDigitsEntered(-1),
-    m_NumericModeAccomulated(0),
-    m_bank(0),
-    m_crescendopos(0),
-    m_crescendobank(0),
     m_framegeneral(0),
     m_general(0),
     m_crescendo(0),
@@ -757,8 +750,7 @@ GOSetter::GOSetter(GOOrganController *organController)
 
   m_CrescendoCtrl.SetContext(&MIDI_CONTEXT_CRESCENDOS);
 
-  SetSetterType(GOSetterState::SETTER_REGULAR);
-  SetCrescendoType(m_crescendobank);
+  ResetState();
 
   m_OrganController->RegisterLifecycleListener(this);
   m_OrganController->RegisterCombinationButtonSet(this);
@@ -786,6 +778,41 @@ static wxString crescendo_cmb_state_name(
 wxString GOSetter::GetCrescendoCmbStateName(uint8_t crescendoIdx) const {
   return crescendo_cmb_state_name(
     m_CrescendoOverrideMode[crescendoIdx], crescendoIdx);
+}
+
+void GOSetter::ResetState() {
+  // working with combination files
+  m_CmbFilesDir.Clear();
+  m_CmbFileList.Clear();
+  m_IsCmbFileListPopulated = false;
+  m_CmbFileLastLoaded.Clear();
+  m_CmbFileDisplayed.Clear();
+  m_CmbFilePos = -1;
+
+  m_state = GOSetterState();
+  m_pos = 0;
+  m_bank = 0;
+  m_crescendopos = 0;
+  m_crescendobank = 0;
+  m_NumericModeDigitsEntered = -1;
+  m_NumericModeAccomulated = 0;
+  std::fill(
+    std::begin(m_CrescendoOverrideMode),
+    std::end(m_CrescendoOverrideMode),
+    false);
+  SetSetterType(GOSetterState::SETTER_REGULAR);
+  SetCrescendoType(0);
+}
+
+void GOSetter::ClearLoaded() {
+  m_crescendo.clear();
+  m_general.clear();
+  m_framegeneral.clear();
+  ResetState();
+  // the buttons that follow m_state and the numeric mode
+  m_buttons[ID_SETTER_SET]->Display(false);
+  m_buttons[ID_SETTER_FULL]->Display(false);
+  m_buttons[ID_SETTER_N]->Display(false);
 }
 
 void GOSetter::Load(GOConfigReader &cfg) {

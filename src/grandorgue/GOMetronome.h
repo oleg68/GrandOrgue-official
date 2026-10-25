@@ -100,6 +100,12 @@ public:
 
   void Load(GOConfigReader &cfg) override;
 
+  /**
+   * Removes the rank added by Load() from the model. The mirror of the
+   * AddRank() call in Load().
+   */
+  void ClearLoaded() override;
+
   GOEnclosure *GetEnclosure(const wxString &name, bool is_panel) override;
   GOLabelControl *GetLabelControl(const wxString &name, bool is_panel) override;
 };
