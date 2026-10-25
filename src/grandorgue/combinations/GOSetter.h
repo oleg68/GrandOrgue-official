@@ -161,30 +161,32 @@ public:
 private:
   GOOrganController *m_OrganController;
 
+  /* The values of the scalar working state are set only by ResetState() */
+
   // working with combination files
   wxString m_CmbFilesDir;
   wxArrayString m_CmbFileList;
-  bool m_IsCmbFileListPopulated;
+  bool m_IsCmbFileListPopulated{};
   // current loaded cmb file name (with dir and extension)
   wxString m_CmbFileLastLoaded;
   // current displayed cmb file name (with dir and extension)
   wxString m_CmbFileDisplayed;
   GOSetterState m_state;
-  int m_CmbFilePos; // current displayed position or -1 or the list is not
-                    // populated yet or no file are loaded
+  int m_CmbFilePos{}; // current displayed position or -1 or the list is not
+                      // populated yet or no file are loaded
 
-  unsigned m_pos;
+  unsigned m_pos{};
   // -1 - not in the numeric mode. 0, 1, 2, 3 - the number of digits entered
-  int m_NumericModeDigitsEntered;
+  int m_NumericModeDigitsEntered{};
   // The number already entered in the numeric mode
-  unsigned m_NumericModeAccomulated;
-  unsigned m_bank;
-  unsigned m_crescendopos;
-  unsigned m_crescendobank;
+  unsigned m_NumericModeAccomulated{};
+  unsigned m_bank{};
+  unsigned m_crescendopos{};
+  unsigned m_crescendobank{};
   ptr_vector<GOGeneralCombination> m_framegeneral;
   ptr_vector<GOGeneralCombination> m_general;
   ptr_vector<GOGeneralCombination> m_crescendo;
-  bool m_CrescendoOverrideMode[N_CRESCENDOS];
+  bool m_CrescendoOverrideMode[N_CRESCENDOS]{};
   GOLabelControl m_CurrFileDisplay;
   GOLabelControl m_PosDisplay;
   GOLabelControl m_BankDisplay;
@@ -265,6 +267,15 @@ private:
   void UpdateAllSetsButtonsLight(
     GOButtonControl *buttonToLight, int manualIndexOnlyFor);
 
+  /**
+   * Sets all the working state (the combination files, the setter state, the
+   * position, the bank, the numeric mode, the crescendo type and the
+   * crescendo override modes) to the values of a just constructed setter.
+   * It is the single source of these values for the constructor and
+   * ClearLoaded(). The buttons must already be created.
+   */
+  void ResetState();
+
 public:
   static const wxString KEY_REFRESH_FILES;
   static const wxString KEY_PREV_FILE;
@@ -297,6 +308,14 @@ public:
   void ToYaml(YAML::Node &yamlNode) const override;
   void FromYaml(const YAML::Node &yamlNode) override;
   void Load(GOConfigReader &cfg) override;
+
+  /**
+   * Releases the combinations and the state loaded by Load() and restores the
+   * state built by the constructor. The buttons, the labels and their
+   * registrations are kept: they belong to the constructor and Load()
+   * initializes them again.
+   */
+  void ClearLoaded() override;
   void Save(GOConfigWriter &cfg) override;
   GOEnclosure *GetEnclosure(const wxString &name, bool is_panel) override;
   GOLabelControl *GetLabelControl(const wxString &name, bool is_panel) override;
