@@ -106,6 +106,13 @@ GOMetronome::~GOMetronome() {
   m_OrganController->UnRegisterLifecycleListener(this);
 }
 
+void GOMetronome::ClearLoaded() {
+  if (m_rank) {
+    m_OrganController->RemoveRank(m_rank);
+    m_rank = nullptr;
+  }
+}
+
 static const wxString WX_EMPTY_STRING;
 static const wxString WX_BELL_BEAT_PATH = wxT("sounds\\metronome\\beat.wv");
 static const wxString WX_BELL_FIRST_BEAT_PATH
@@ -168,8 +175,14 @@ void GOMetronome::Load(GOConfigReader &cfg) {
 
   oRank->Init(cfg, wxT("MetronomSounds"), _("Metronome"), 36, m_WindchestN);
   m_StopID = oRank->RegisterStop(NULL);
-  m_rank = oRank.get(); // non-owning, valid until the model is cleared
+
+  GORank *const pRank = oRank.get();
+
   m_OrganController->AddRank(std::move(oRank));
+  // assigned only after AddRank() succeeded, so that ClearLoaded() removes
+  // only the rank that is really added. Non-owning, valid until the model is
+  // cleared
+  m_rank = pRank;
 
   GOSoundingPipe *pipe;
 
