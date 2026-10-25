@@ -7,6 +7,8 @@
 
 #include "GOWindchest.h"
 
+#include <cassert>
+
 #include <wx/intl.h>
 
 #include "config/GOConfigReader.h"
@@ -87,6 +89,14 @@ void GOWindchest::UpdateVolume() {
   for (unsigned i = 0; i < m_enclosure.size(); i++)
     f *= m_enclosure[i]->GetAttenuation();
   m_amplitude = f;
+}
+
+void GOWindchest::RemoveEnclosure(GOEnclosure *pEnclosure) {
+  const bool isLast = !m_enclosure.empty() && m_enclosure.back() == pEnclosure;
+
+  assert(isLast);
+  if (isLast)
+    m_enclosure.pop_back();
 }
 
 void GOWindchest::UpdateTremulant(GOTremulant *tremulant) {
