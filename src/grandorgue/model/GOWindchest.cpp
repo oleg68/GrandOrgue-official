@@ -7,6 +7,8 @@
 
 #include "GOWindchest.h"
 
+#include <cassert>
+
 #include <wx/intl.h>
 
 #include "config/GOConfigReader.h"
@@ -107,6 +109,14 @@ void GOWindchest::AddPipe(GOPipeWindchestCallback *pipe) {
 
 void GOWindchest::AddEnclosure(GOEnclosure *enclosure) {
   m_enclosure.push_back(enclosure);
+}
+
+void GOWindchest::RemoveEnclosure(GOEnclosure *pEnclosure) {
+  const bool isLast = !m_enclosure.empty() && m_enclosure.back() == pEnclosure;
+
+  assert(isLast);
+  if (isLast)
+    m_enclosure.pop_back();
 }
 
 const wxString &GOWindchest::GetName() { return m_Name; }
