@@ -3,6 +3,7 @@ set(go_tests
     combinations/GOTestDivisionalSetter.cpp
     gui/GOTestGUIDisplayMetrics.cpp
     gui/GOTestGUILayoutEngine.cpp
+    gui/GOTestOrganSettingsTremulantsTab.cpp
     loader/GOTestOrganReader.cpp
     midi/GOTestMidiEvent.cpp
     midi/GOTestMidiPlayerContent.cpp
