@@ -5968,6 +5968,86 @@ role="bold">Group</emphasis> attribute are grouped in the same submenu.
       </sect2>
     </sect1>
     <sect1>
+      <title>Tremulants</title>
+      <indexterm><primary>Organ settings.Tremulants</primary></indexterm>
+      <figure>
+	<title>Organ Settings dialog, Tremulants tab</title>
+	<mediaobject>
+	  <imageobject>
+	    <imagedata scalefit="1" width="100%" fileref="images/organ_settings_tremulants.png"/>
+	  </imageobject>
+	</mediaobject>
+      </figure>
+      <para>
+	In its left box, this dialog displays all tremulants: both added
+	internally by GrandOrgue (one for every windchest) and the ones found
+	in the definition file. The right controls show whether the selected
+	tremulant is defined in the definition file and its type. Only the
+	parameters of the tremulants added internally are allowed to be
+	changed.
+      </para>
+      <simpara>
+	Select the tremulant you wish to customize. It is possible to select
+	multiple tremulants at once, to e.g. update one parameter of
+	multiple tremulants to the same value in a single operation.
+      </simpara>
+      <simpara>
+	Type a new value into an edit or change it with the
+	<emphasis role="bold">&#8722;</emphasis> and
+	<emphasis role="bold">+</emphasis> buttons next to it. The
+	buttons change the value by one within the allowed range of the
+	parameter. The new values are applied only after pressing
+	<emphasis role="bold">Apply</emphasis>.
+      </simpara>
+      <simpara>
+	Press <emphasis role="bold">Apply</emphasis> to apply the changes:
+	the modified tremulants start to sound with the new parameters at
+	once, from the same phase. The sound may be briefly interrupted
+	while the change is being applied. <emphasis role="bold">Default</emphasis>
+	restores the default parameters of the selected tremulants. The
+	parameters of the tremulants added internally are saved in the
+	combination (.cmb) file of the organ.
+      </simpara>
+      <sect2>
+	<title>Period</title>
+	<para>
+	  The period of the modulation, in ms. The allowed range is
+	  32&#160;-&#160;441000.
+	</para>
+      </sect2>
+      <sect2>
+	<title>Amplitude depth</title>
+	<para>
+	  How much the volume is changed, in percent. The allowed range is
+	  0&#160;-&#160;100; 0 means no volume modulation.
+	</para>
+      </sect2>
+      <sect2>
+	<title>Pitch depth and pitch phase</title>
+	<para>
+	  <emphasis role="bold">Pitch depth (cents)</emphasis> is the peak
+	  pitch depth: the pitch goes down by exactly this value and up a
+	  little less. The allowed range is 0&#160;-&#160;2400; 0 means no
+	  pitch modulation. A deep or slow modulation may be limited by the
+	  delay of the pitch modulation processor, so the effective depth may
+	  be smaller.
+	</para>
+	<para>
+	  <emphasis role="bold">Pitch phase (degrees)</emphasis> is the phase
+	  of the pitch modulation against the volume modulation. The allowed
+	  range is -180&#160;-&#160;359. With a positive value the pitch leads.
+	</para>
+      </sect2>
+      <sect2>
+	<title>Start time and stop time</title>
+	<para>
+	  The time, in ms, over which the modulation depth grows after the
+	  tremulant is switched on and fades after it is switched off. The
+	  allowed range is 0&#160;-&#160;10000; 0 means an instant change.
+	</para>
+      </sect2>
+    </sect1>
+    <sect1>
       <title>Buttons row</title>
       <para>These buttons are used to drive the dialog and always act on the selected element.</para>
       <variablelist>
