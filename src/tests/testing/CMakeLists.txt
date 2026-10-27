@@ -4,6 +4,7 @@ set(go_tests
     core/GOTestWave.cpp
     gui/GOTestGUIDisplayMetrics.cpp
     gui/GOTestGUILayoutEngine.cpp
+    gui/GOTestOrganSettingsTremulantsTab.cpp
     loader/GOTestOrganReader.cpp
     midi/GOTestMidiEvent.cpp
     midi/GOTestMidiPlayerContent.cpp
