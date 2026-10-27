@@ -303,6 +303,143 @@ void GOTestTremulant::TestSettersMarkModified() {
   GOAssert(model.organModel.IsOrganModelModified(), "SetPitchModPhaseDegrees");
 }
 
+void GOTestTremulant::TestGettersReturnSetValues() {
+  GOTestTremulantModel model;
+  std::unique_ptr<GOTremulant> oTremulant
+    = init_tremulant_from_cmb(model.organModel, "");
+
+  oTremulant->SetPeriodMs(123);
+  oTremulant->SetStartTimeMs(11.0f);
+  oTremulant->SetStopTimeMs(22.0f);
+  oTremulant->SetAmpModDepthPcnt(33);
+  oTremulant->SetPitchModDepthCents(44.0f);
+  oTremulant->SetPitchModPhaseDegrees(-55);
+  GOAssert(oTremulant->GetPeriodMs() == 123, "GetPeriodMs");
+  GOAssert(oTremulant->GetStartTimeMs() == 11.0f, "GetStartTimeMs");
+  GOAssert(oTremulant->GetStopTimeMs() == 22.0f, "GetStopTimeMs");
+  GOAssert(oTremulant->GetAmpModDepthPcnt() == 33, "GetAmpModDepthPcnt");
+  GOAssert(oTremulant->GetPitchModDepthCents() == 44.0f, "GetPitchModDepth");
+  GOAssert(oTremulant->GetPitchModPhaseDegrees() == -55, "GetPitchModPhase");
+}
+
+void GOTestTremulant::TestParamRanges() {
+  const GOParamRange<int> range{-2, 5};
+
+  GOAssert(range.Contains(-2) && range.Contains(5), "both ends are included");
+  GOAssert(range.Contains(0), "an inner value is contained");
+  GOAssert(!range.Contains(-3) && !range.Contains(6), "outside is not");
+
+  // The .cmb accepts the borders of the ranges
+  GOTestTremulantModel model;
+  std::unique_ptr<GOTremulant> oMin = init_tremulant_from_cmb(
+    model.organModel,
+    "PeriodMs=32\nStartTimeMs=0\nStopTimeMs=0\nAmpModDepthPcnt=0\n"
+    "PitchModDepthCents=0\nPitchModPhaseDegrees=-180\n");
+  std::unique_ptr<GOTremulant> oMax = init_tremulant_from_cmb(
+    model.organModel,
+    "PeriodMs=441000\nStartTimeMs=10000\nStopTimeMs=10000\n"
+    "AmpModDepthPcnt=100\nPitchModDepthCents=2400\nPitchModPhaseDegrees=359\n");
+
+  GOAssert(
+    oMin->GetPeriodMs() == GOTremulant::PERIOD_MS_RANGE.m_Min
+      && oMax->GetPeriodMs() == GOTremulant::PERIOD_MS_RANGE.m_Max,
+    "period");
+  GOAssert(
+    oMin->GetStartTimeMs() == GOTremulant::START_TIME_MS_RANGE.m_Min
+      && oMax->GetStartTimeMs() == GOTremulant::START_TIME_MS_RANGE.m_Max,
+    "start time");
+  GOAssert(
+    oMin->GetStopTimeMs() == GOTremulant::STOP_TIME_MS_RANGE.m_Min
+      && oMax->GetStopTimeMs() == GOTremulant::STOP_TIME_MS_RANGE.m_Max,
+    "stop time");
+  GOAssert(
+    oMin->GetAmpModDepthPcnt() == GOTremulant::AMP_MOD_DEPTH_PCNT_RANGE.m_Min
+      && oMax->GetAmpModDepthPcnt()
+        == GOTremulant::AMP_MOD_DEPTH_PCNT_RANGE.m_Max,
+    "amplitude depth");
+  GOAssert(
+    oMin->GetPitchModDepthCents()
+        == GOTremulant::PITCH_MOD_DEPTH_CENTS_RANGE.m_Min
+      && oMax->GetPitchModDepthCents()
+        == GOTremulant::PITCH_MOD_DEPTH_CENTS_RANGE.m_Max,
+    "pitch depth");
+  GOAssert(
+    oMin->GetPitchModPhaseDegrees()
+        == GOTremulant::PITCH_MOD_PHASE_DEGREES_RANGE.m_Min
+      && oMax->GetPitchModPhaseDegrees()
+        == GOTremulant::PITCH_MOD_PHASE_DEGREES_RANGE.m_Max,
+    "pitch phase");
+}
+
+void GOTestTremulant::TestApplySynthParamChanges() {
+  GOTestTremulantModel model;
+  std::unique_ptr<GOTremulant> oTremulant
+    = init_tremulant_from_cmb(model.organModel, "");
+  GOTremulant::SynthParamChanges changes;
+
+  GOAssert(
+    !oTremulant->ApplySynthParamChanges(changes)
+      && !model.organModel.IsOrganModelModified(),
+    "no values present: nothing changes");
+
+  changes.periodMs = oTremulant->GetPeriodMs();
+  changes.pitchModDepthCents = oTremulant->GetPitchModDepthCents();
+  GOAssert(
+    !oTremulant->ApplySynthParamChanges(changes)
+      && !model.organModel.IsOrganModelModified(),
+    "the same values: nothing changes");
+
+  changes.periodMs = 300;
+  changes.stopTimeMs = 77.0f;
+  GOAssert(
+    oTremulant->ApplySynthParamChanges(changes)
+      && model.organModel.IsOrganModelModified(),
+    "different values: changed and modified");
+  GOAssert(
+    oTremulant->GetPeriodMs() == 300 && oTremulant->GetStopTimeMs() == 77.0f,
+    "the present values are applied");
+  GOAssert(
+    oTremulant->GetStartTimeMs() == 300.0f
+      && oTremulant->GetAmpModDepthPcnt() == 50
+      && oTremulant->GetPitchModDepthCents() == 0.0f
+      && oTremulant->GetPitchModPhaseDegrees() == 0,
+    "the absent values are kept");
+}
+
+void GOTestTremulant::TestResetSynthParamsToDefault() {
+  GOTestTremulantModel model;
+  std::unique_ptr<GOTremulant> oTremulant
+    = init_tremulant_from_cmb(model.organModel, "");
+  GOTremulant::Description defaultDesc;
+  GOTremulant::Description desc;
+
+  oTremulant->Render(48000, defaultDesc);
+  GOAssert(
+    !oTremulant->ResetSynthParamsToDefault()
+      && !model.organModel.IsOrganModelModified(),
+    "the defaults: nothing changes");
+
+  oTremulant->SetPeriodMs(300);
+  oTremulant->SetStartTimeMs(1.0f);
+  oTremulant->SetStopTimeMs(2.0f);
+  oTremulant->SetAmpModDepthPcnt(3);
+  oTremulant->SetPitchModDepthCents(4.0f);
+  oTremulant->SetPitchModPhaseDegrees(5);
+  model.organModel.ResetOrganModelModified();
+  GOAssert(oTremulant->ResetSynthParamsToDefault(), "changed parameters");
+  GOAssert(model.organModel.IsOrganModelModified(), "the organ is modified");
+  GOAssert(
+    !oTremulant->ResetSynthParamsToDefault(),
+    "the second call changes nothing");
+
+  oTremulant->Render(48000, desc);
+  GOAssert(
+    desc.amp == defaultDesc.amp && desc.pitchCents == defaultDesc.pitchCents
+      && desc.nStartFrames == defaultDesc.nStartFrames
+      && desc.nStopFrames == defaultDesc.nStopFrames,
+    "the same wave form as after Init()");
+}
+
 void GOTestTremulant::TestRenderLoopLength() {
   GOTestTremulantModel model;
   GOTremulant::Description desc;
@@ -418,6 +555,10 @@ void GOTestTremulant::run() {
   GO_RUN_TEST(TestOdfIgnoresCmb())
   GO_RUN_TEST(TestLoadDoesNotMarkModified())
   GO_RUN_TEST(TestSettersMarkModified())
+  GO_RUN_TEST(TestGettersReturnSetValues())
+  GO_RUN_TEST(TestParamRanges())
+  GO_RUN_TEST(TestApplySynthParamChanges())
+  GO_RUN_TEST(TestResetSynthParamsToDefault())
   GO_RUN_TEST(TestRenderLoopLength())
   GO_RUN_TEST(TestRenderAmplitude())
   GO_RUN_TEST(TestRenderPitch())
