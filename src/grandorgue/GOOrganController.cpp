@@ -967,6 +967,19 @@ void GOOrganController::EnsureSoundRoutingFor(
   }
 }
 
+void GOOrganController::RebuildTremulantWaveForms(
+  const std::set<unsigned> &tremulantIndices) {
+  if (p_SoundSystem && !tremulantIndices.empty()) {
+    GOSoundOrganEngine::TremulantWaveFormChange change
+      = m_SoundEngine.PrepareTremulantWaveForms(tremulantIndices);
+
+    SuspendOrgan();
+    m_SoundEngine.CommitTremulantWaveForms(change);
+    ResumeOrgan();
+    // change is destroyed here: the old forms are freed while the sound plays
+  }
+}
+
 void GOOrganController::SendOnStateMidi(bool isOn) {
   p_OnStateButton->SetLifecycleSendingEnabled(true);
   if (isOn) {

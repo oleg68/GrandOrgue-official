@@ -1,3 +1,4 @@
+- Added the "Tremulants" tab to the Organ Settings dialog for changing the parameters of the built-in tremulants on the fly https://github.com/GrandOrgue/grandorgue/issues/709
 - Fixed leak of the organ objects when loading an organ fails
 - Added a built-in tremulant for every windchest, switched by a button under the windchest's enclosure in the "Coupler manuals and volume" panel https://github.com/GrandOrgue/grandorgue/issues/709
 - Added a swell-box shelf equalizer: enclosures can now cut low or high frequencies as they close, in addition to overall volume attenuation https://github.com/GrandOrgue/grandorgue/issues/717
