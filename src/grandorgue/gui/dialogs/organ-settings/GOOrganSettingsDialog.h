@@ -21,6 +21,7 @@ class wxButton;
 class GOOrganModel;
 class GOOrganSettingsEnclosuresTab;
 class GOOrganSettingsPipesTab;
+class GOOrganSettingsTremulantsTab;
 
 class GOOrganSettingsDialog : public GOOrganSettingsDialogBase,
                               public GODocumentView {
@@ -32,6 +33,7 @@ private:
 
   GOOrganSettingsPipesTab *m_PipesTab;
   GOOrganSettingsEnclosuresTab *m_EnclosuresTab;
+  GOOrganSettingsTremulantsTab *m_TremulantsTab;
 
 public:
   GOOrganSettingsDialog(
