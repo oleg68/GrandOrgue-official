@@ -9,11 +9,13 @@
 #define GOTREMULANT_H
 
 #include <memory>
+#include <optional>
 #include <vector>
 #include <wx/string.h>
 
 #include "GOCacheObject.h"
 #include "GODrawstop.h"
+#include "GOParamRange.h"
 
 class GOConfigReader;
 class GOConfigWriter;
@@ -24,6 +26,16 @@ typedef enum { GOSynthTrem, GOWavTrem } GOTremulantType;
 
 class GOTremulant : public GODrawstop, private GOCacheObject {
 public:
+  // The allowed ranges of the parameters of a Synth tremulant, both ends
+  // included. Defined in the .cpp so that this header does not include the
+  // sound engine headers that the upper bound of the pitch depth comes from
+  static const GOParamRange<int> PERIOD_MS_RANGE;
+  static const GOParamRange<float> START_TIME_MS_RANGE;
+  static const GOParamRange<float> STOP_TIME_MS_RANGE;
+  static const GOParamRange<int> AMP_MOD_DEPTH_PCNT_RANGE;
+  static const GOParamRange<float> PITCH_MOD_DEPTH_CENTS_RANGE;
+  static const GOParamRange<int> PITCH_MOD_PHASE_DEGREES_RANGE;
+
   /**
    * The wave form of a tremulant as one loop, in frames of a given sample rate.
    * Built by Render() from the parameters; read by GOSoundTremulantTask.
@@ -38,6 +50,19 @@ public:
     unsigned nStartFrames;
     // the length of the depth ramp on disengaging, in frames
     unsigned nStopFrames;
+  };
+
+  /**
+   * The changes of the parameters of a Synth tremulant. A value is present
+   * only if the parameter is to be changed.
+   */
+  struct SynthParamChanges {
+    std::optional<int> periodMs;
+    std::optional<int> ampModDepthPcnt;
+    std::optional<float> pitchModDepthCents;
+    std::optional<int> pitchModPhaseDegrees;
+    std::optional<float> startTimeMs;
+    std::optional<float> stopTimeMs;
   };
 
 private:
@@ -111,6 +136,39 @@ public:
   /** @return whether the tremulant is defined in the ODF */
   bool IsOdfDefined() const { return m_IsOdfDefined; }
 
+  // The setters store the value and mark the organ model as modified if it
+  // changed. The sound changes when the wave form is rendered again
+  // (GOSoundOrganEngine::PrepareTremulantWaveForms)
+  int GetPeriodMs() const { return m_PeriodMs; }
+  void SetPeriodMs(int v) { SetParam(m_PeriodMs, v); }
+  float GetStartTimeMs() const { return m_StartTimeMs; }
+  void SetStartTimeMs(float v) { SetParam(m_StartTimeMs, v); }
+  float GetStopTimeMs() const { return m_StopTimeMs; }
+  void SetStopTimeMs(float v) { SetParam(m_StopTimeMs, v); }
+  int GetAmpModDepthPcnt() const { return m_AmpModDepthPcnt; }
+  void SetAmpModDepthPcnt(int v) { SetParam(m_AmpModDepthPcnt, v); }
+  float GetPitchModDepthCents() const { return m_PitchModDepthCents; }
+  void SetPitchModDepthCents(float v) { SetParam(m_PitchModDepthCents, v); }
+  int GetPitchModPhaseDegrees() const { return m_PitchModPhaseDegrees; }
+  void SetPitchModPhaseDegrees(int v) { SetParam(m_PitchModPhaseDegrees, v); }
+
+  /**
+   * Applies the changes to the parameters of a Synth tremulant and marks the
+   * organ model as modified if anything has changed. The ranges are not
+   * checked here.
+   * @param changes the parameters to change
+   * @return whether any parameter has really changed
+   */
+  bool ApplySynthParamChanges(const SynthParamChanges &changes);
+
+  /**
+   * Sets the parameters of a Synth tremulant to their default values and marks
+   * the organ model as modified if anything has changed. Whether it is allowed
+   * for an ODF-defined tremulant is decided by the caller.
+   * @return whether any parameter has really changed
+   */
+  bool ResetSynthParamsToDefault();
+
   /**
    * Initialises an internal (not defined in the ODF) tremulant: a Synth one
    * with the default parameters, which the .cmb may override.
@@ -127,25 +185,15 @@ public:
 
   /**
    * Renders the loop and the ramp lengths for a sample rate. Called only from
-   * the control thread; reads the parameters that nothing else changes at that
-   * time (they are written by Load(), Init() and the setters, which the
-   * settings dialog does not call yet).
+   * the control thread; reads the parameters written by Load(), Init(), the
+   * setters, ApplySynthParamChanges() and ResetSynthParamsToDefault(), which
+   * also run only in the control thread. The audio thread never reads them.
    * Must not be called for a Wave tremulant.
    *
    * @param sampleRate the sample rate of the sound engine, in Hz
    * @param outDesc the result; overwritten
    */
   void Render(unsigned sampleRate, Description &outDesc) const;
-
-  // The setters below store the value and mark the organ model as modified if
-  // it changed. The sound changes when the wave form is rendered again
-  // (GOSoundOrganEngine::PrepareTremulantWaveForms)
-  void SetPeriodMs(int v) { SetParam(m_PeriodMs, v); }
-  void SetStartTimeMs(float v) { SetParam(m_StartTimeMs, v); }
-  void SetStopTimeMs(float v) { SetParam(m_StopTimeMs, v); }
-  void SetAmpModDepthPcnt(int v) { SetParam(m_AmpModDepthPcnt, v); }
-  void SetPitchModDepthCents(float v) { SetParam(m_PitchModDepthCents, v); }
-  void SetPitchModPhaseDegrees(int v) { SetParam(m_PitchModPhaseDegrees, v); }
 };
 
 #endif /* GOTREMULANT_H_ */
