@@ -401,6 +401,14 @@ public:
   void EnsureSoundRoutingFor(
     const std::set<std::pair<unsigned, unsigned>> &pairs) override;
 
+  /**
+   * @see GOOrganModel::RebuildTremulantWaveForms(). Suspends and resumes the
+   * organ once; does nothing while the sound engine does not exist yet
+   * (p_SoundSystem null) or the set is empty.
+   */
+  void RebuildTremulantWaveForms(
+    const std::set<unsigned> &tremulantIndices) override;
+
   void Update();
   void Reset();
   void ProcessMidi(const GOMidiEvent &event);
