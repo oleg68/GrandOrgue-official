@@ -26,6 +26,7 @@
 #include "testing/core/GOTestWave.h"
 #include "testing/gui/GOTestGUIDisplayMetrics.h"
 #include "testing/gui/GOTestGUILayoutEngine.h"
+#include "testing/gui/GOTestOrganSettingsTremulantsTab.h"
 #include "testing/loader/GOTestOrganReader.h"
 #include "testing/midi/GOTestMidiEvent.h"
 #include "testing/midi/GOTestMidiPlayerContent.h"
@@ -259,6 +260,7 @@ int main(int argc, char *argv[]) {
   GOTestWave testWave;
   GOTestGUIDisplayMetrics testGUIDisplayMetrics;
   GOTestGUILayoutEngine testGUILayoutEngine;
+  GOTestOrganSettingsTremulantsTab testOrganSettingsTremulantsTab;
   GOTestOrganReader testOrganReader;
   GOTestOrganController testOrganController;
   GOTestDrawStop testDrawStop;

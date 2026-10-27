@@ -328,6 +328,17 @@ public:
   void CollectWindchestsForNode(
     const GOPipeConfigNode &node, std::set<unsigned> &outWindchests) const;
 
+  /**
+   * Re-renders the wave forms of the given tremulants from their current
+   * parameters and installs them in the running sound engine. Call it after
+   * changing the parameters. The base implementation is a no-op: GOOrganModel
+   * alone has no engine. GOOrganController overrides it.
+   * @param tremulantIndices the indexes of the changed tremulants in the organ
+   *   model
+   */
+  virtual void RebuildTremulantWaveForms(
+    const std::set<unsigned> &tremulantIndices) {}
+
   unsigned GetNumberOfReversiblePistons();
   GOPistonControl *GetPiston(unsigned index);
 
