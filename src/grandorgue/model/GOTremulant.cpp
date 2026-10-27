@@ -39,6 +39,28 @@ static constexpr float DEFAULT_PITCH_MOD_DEPTH_CENTS = 0.0f;
 static constexpr int DEFAULT_PITCH_MOD_PHASE_DEGREES = 0;
 
 /**
+ * Assigns a new value to a parameter.
+ * @param outField the field of the parameter
+ * @param newValue the new value
+ * @return whether the value has changed
+ */
+template <typename T> static bool assign_param(T &outField, T newValue) {
+  const bool isChanged = outField != newValue;
+
+  outField = newValue;
+  return isChanged;
+}
+
+/**
+ * Assigns a new value to a parameter if it is present.
+ * @return whether the value has changed
+ */
+template <typename T>
+static bool assign_param(T &outField, const std::optional<T> &newValue) {
+  return newValue && assign_param(outField, *newValue);
+}
+
+/**
  * Converts a time to a number of frames, rounded to the nearest. Unlike
  * GOSoundVibratoProcessor.cpp (rounds up) and GOSoundSamplerPlayer::MsToSamples
  * (truncates) this is deliberate: the loop of a tremulant should be as close
@@ -81,47 +103,90 @@ void GOTremulant::LoadFromCmb(GOConfigReader &cfg) {
   const wxString &group = GODrawstop::m_group;
 
   m_PeriodMs = cfg.ReadInteger(
-    CMBSetting, group, WX_PERIOD_MS, 32, 441000, false, DEFAULT_PERIOD_MS);
+    CMBSetting,
+    group,
+    WX_PERIOD_MS,
+    PERIOD_MS_RANGE.m_Min,
+    PERIOD_MS_RANGE.m_Max,
+    false,
+    DEFAULT_PERIOD_MS);
   m_StartTimeMs = cfg.ReadFloat(
     CMBSetting,
     group,
     WX_START_TIME_MS,
-    0.0,
-    10000.0,
+    START_TIME_MS_RANGE.m_Min,
+    START_TIME_MS_RANGE.m_Max,
     false,
     DEFAULT_START_TIME_MS);
   m_StopTimeMs = cfg.ReadFloat(
     CMBSetting,
     group,
     WX_STOP_TIME_MS,
-    0.0,
-    10000.0,
+    STOP_TIME_MS_RANGE.m_Min,
+    STOP_TIME_MS_RANGE.m_Max,
     false,
     DEFAULT_STOP_TIME_MS);
   m_AmpModDepthPcnt = cfg.ReadInteger(
     CMBSetting,
     group,
     WX_AMP_MOD_DEPTH_PCNT,
-    0,
-    100,
+    AMP_MOD_DEPTH_PCNT_RANGE.m_Min,
+    AMP_MOD_DEPTH_PCNT_RANGE.m_Max,
     false,
     DEFAULT_AMP_MOD_DEPTH_PCNT);
   m_PitchModDepthCents = cfg.ReadFloat(
     CMBSetting,
     group,
     WX_PITCH_MOD_DEPTH_CENTS,
-    0.0,
-    GOSoundVibratoPitchRateCurve::MAX_PITCH_DEVIATION_CENTS,
+    PITCH_MOD_DEPTH_CENTS_RANGE.m_Min,
+    PITCH_MOD_DEPTH_CENTS_RANGE.m_Max,
     false,
     DEFAULT_PITCH_MOD_DEPTH_CENTS);
   m_PitchModPhaseDegrees = cfg.ReadInteger(
     CMBSetting,
     group,
     WX_PITCH_MOD_PHASE_DEGREES,
-    -180,
-    359,
+    PITCH_MOD_PHASE_DEGREES_RANGE.m_Min,
+    PITCH_MOD_PHASE_DEGREES_RANGE.m_Max,
     false,
     DEFAULT_PITCH_MOD_PHASE_DEGREES);
+}
+
+bool GOTremulant::ApplySynthParamChanges(const SynthParamChanges &changes) {
+  assert(m_TremulantType == GOSynthTrem);
+
+  bool isChanged = assign_param(m_PeriodMs, changes.periodMs);
+
+  isChanged
+    = assign_param(m_AmpModDepthPcnt, changes.ampModDepthPcnt) || isChanged;
+  isChanged = assign_param(m_PitchModDepthCents, changes.pitchModDepthCents)
+    || isChanged;
+  isChanged = assign_param(m_PitchModPhaseDegrees, changes.pitchModPhaseDegrees)
+    || isChanged;
+  isChanged = assign_param(m_StartTimeMs, changes.startTimeMs) || isChanged;
+  isChanged = assign_param(m_StopTimeMs, changes.stopTimeMs) || isChanged;
+  if (isChanged)
+    SetOrganModified();
+  return isChanged;
+}
+
+bool GOTremulant::ResetSynthParamsToDefault() {
+  assert(m_TremulantType == GOSynthTrem);
+
+  bool isChanged = assign_param(m_PeriodMs, DEFAULT_PERIOD_MS);
+
+  isChanged = assign_param(m_StartTimeMs, DEFAULT_START_TIME_MS) || isChanged;
+  isChanged = assign_param(m_StopTimeMs, DEFAULT_STOP_TIME_MS) || isChanged;
+  isChanged
+    = assign_param(m_AmpModDepthPcnt, DEFAULT_AMP_MOD_DEPTH_PCNT) || isChanged;
+  isChanged = assign_param(m_PitchModDepthCents, DEFAULT_PITCH_MOD_DEPTH_CENTS)
+    || isChanged;
+  isChanged
+    = assign_param(m_PitchModPhaseDegrees, DEFAULT_PITCH_MOD_PHASE_DEGREES)
+    || isChanged;
+  if (isChanged)
+    SetOrganModified();
+  return isChanged;
 }
 
 void GOTremulant::Init(

@@ -54,6 +54,21 @@ private:
   /** A setter marks the organ model as modified only if the value changes. */
   void TestSettersMarkModified();
 
+  /** The getters return what the setters stored. */
+  void TestGettersReturnSetValues();
+
+  /** GOParamRange::Contains includes both ends; the ranges of GOTremulant are
+   * what the .cmb accepts. */
+  void TestParamRanges();
+
+  /** ApplySynthParamChanges applies only the present values, reports whether
+   * anything changed and marks the organ model as modified only then. */
+  void TestApplySynthParamChanges();
+
+  /** ResetSynthParamsToDefault gives the same parameters as Init() without
+   * keys in the .cmb and reports whether anything changed. */
+  void TestResetSynthParamsToDefault();
+
   /** The length of the loop for several periods and sample rates. */
   void TestRenderLoopLength();
 

@@ -15,6 +15,7 @@
 
 #include "GOOrganSettingsEnclosuresTab.h"
 #include "GOOrganSettingsPipesTab.h"
+#include "GOOrganSettingsTremulantsTab.h"
 
 enum {
   ID_EVENT_TREE = 300,
@@ -77,6 +78,9 @@ GOOrganSettingsDialog::GOOrganSettingsDialog(
 
   m_EnclosuresTab = new GOOrganSettingsEnclosuresTab(organModel, this);
   AddTab(m_EnclosuresTab);
+
+  m_TremulantsTab = new GOOrganSettingsTremulantsTab(organModel, this);
+  AddTab(m_TremulantsTab);
 
   LayoutDialog();
 }
