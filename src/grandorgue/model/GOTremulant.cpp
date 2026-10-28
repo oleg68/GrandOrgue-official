@@ -112,6 +112,51 @@ static unsigned ms_to_frames(double ms, unsigned sampleRate) {
   return (unsigned)std::llround(ms * sampleRate / 1000.0);
 }
 
+// The amplitude modulation depth of an ODF tremulant that does not give it
+static constexpr int ODF_AMP_MOD_DEPTH_PCNT_DEFAULT = 0;
+
+// A value outside every range that marks a key as absent in the ODF
+static constexpr int ODF_VALUE_ABSENT = -1;
+
+/**
+ * Reads the duration of a ramp, given either as a rate or as a time. Exactly
+ * one of the two keys must be present.
+ * @param cfg the ODF reader
+ * @param group the section of the tremulant
+ * @param rateKey the key of the rate (1 - 100), the duration is 1000 / rate ms
+ *   rounded to the nearest integer
+ * @param timeKey the key of the time in ms
+ * @param timeRange the allowed range of the time
+ * @return the duration in integer ms
+ */
+static int read_ramp_time_ms(
+  GOConfigReader &cfg,
+  const wxString &group,
+  const wxString &rateKey,
+  const wxString &timeKey,
+  const GOParamRange<int> &timeRange) {
+  const int rate = cfg.ReadInteger(
+    ODFSetting, group, rateKey, 1, 100, false, ODF_VALUE_ABSENT);
+  const int timeMs = cfg.ReadInteger(
+    ODFSetting,
+    group,
+    timeKey,
+    timeRange.m_min,
+    timeRange.m_max,
+    false,
+    ODF_VALUE_ABSENT);
+  const bool hasRate = rate != ODF_VALUE_ABSENT;
+  const bool hasTime = timeMs != ODF_VALUE_ABSENT;
+
+  if (hasRate == hasTime)
+    throw wxString::Format(
+      _("Exactly one of '%s' and '%s' must be given at section '%s'"),
+      rateKey,
+      timeKey,
+      group);
+  return hasRate ? (int)std::lround(1000.0 / rate) : timeMs;
+}
+
 GOTremulant::GOTremulant(GOOrganModel &organModel)
   : GODrawstop(organModel, OBJECT_TYPE_TREMULANT),
     m_IsOdfDefined(false),
@@ -251,17 +296,41 @@ void GOTremulant::Load(GOConfigReader &cfg, const wxString &group) {
     false,
     GOSynthTrem);
   if (m_TremulantType == GOSynthTrem) {
-    const int startRate
-      = cfg.ReadInteger(ODFSetting, group, wxT("StartRate"), 1, 100);
-    const int stopRate
-      = cfg.ReadInteger(ODFSetting, group, wxT("StopRate"), 1, 100);
-
     o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
-    m_PeriodMs = cfg.ReadLong(ODFSetting, group, wxT("Period"), 32, 441000);
-    m_StartTimeMs = (int)std::lround(1000.0 / startRate);
-    m_StopTimeMs = (int)std::lround(1000.0 / stopRate);
-    m_AmpModDepthPcnt
-      = cfg.ReadInteger(ODFSetting, group, wxT("AmpModDepth"), 1, 100);
+    m_PeriodMs = cfg.ReadLong(
+      ODFSetting,
+      group,
+      wxT("Period"),
+      PERIOD_MS_RANGE.m_min,
+      PERIOD_MS_RANGE.m_max);
+    m_StartTimeMs = read_ramp_time_ms(
+      cfg, group, wxT("StartRate"), WX_START_TIME_MS, START_TIME_MS_RANGE);
+    m_StopTimeMs = read_ramp_time_ms(
+      cfg, group, wxT("StopRate"), WX_STOP_TIME_MS, STOP_TIME_MS_RANGE);
+    m_AmpModDepthPcnt = cfg.ReadInteger(
+      ODFSetting,
+      group,
+      wxT("AmpModDepth"),
+      AMP_MOD_DEPTH_PCNT_RANGE.m_min,
+      AMP_MOD_DEPTH_PCNT_RANGE.m_max,
+      false,
+      ODF_AMP_MOD_DEPTH_PCNT_DEFAULT);
+    m_PitchModDepthCents = cfg.ReadFloat(
+      ODFSetting,
+      group,
+      WX_PITCH_MOD_DEPTH_CENTS,
+      PITCH_MOD_DEPTH_CENTS_RANGE.m_min,
+      PITCH_MOD_DEPTH_CENTS_RANGE.m_max,
+      false,
+      PITCH_MOD_DEPTH_CENTS_DEFAULT);
+    m_PitchModPhaseDegrees = cfg.ReadInteger(
+      ODFSetting,
+      group,
+      WX_PITCH_MOD_PHASE_DEGREES,
+      PITCH_MOD_PHASE_DEGREES_RANGE.m_min,
+      PITCH_MOD_PHASE_DEGREES_RANGE.m_max,
+      false,
+      PITCH_MOD_PHASE_DEGREES_DEFAULT);
   }
   GODrawstop::Load(cfg, group);
 }
