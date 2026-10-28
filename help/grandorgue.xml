@@ -11252,7 +11252,20 @@ Synthesized tremulants have the following attributes:
           <term>StartRate</term>
           <listitem>
             <para>
-(integer 1 - 100, required) Determines the startup time of the tremulant.
+(integer 1 - 100) Determines the startup time of the tremulant: 1000 / StartRate
+ms, rounded to an integer. Exactly one of StartRate and StartTimeMs must be
+given.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>StartTimeMs</term>
+          <listitem>
+            <para>
+(integer 0 - 10000) Startup time of the tremulant in ms: the time in which the
+modulation depth grows from zero to the full depth after the tremulant is
+switched on. 0 means that the tremulant starts at the full depth at once.
+Exactly one of StartRate and StartTimeMs must be given.
      </para>
           </listitem>
         </varlistentry>
@@ -11260,7 +11273,20 @@ Synthesized tremulants have the following attributes:
           <term>StopRate</term>
           <listitem>
             <para>
-(integer 1 - 100, required) Determines the stop time of the tremulant.
+(integer 1 - 100) Determines the stop time of the tremulant: 1000 / StopRate
+ms, rounded to an integer. Exactly one of StopRate and StopTimeMs must be
+given.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>StopTimeMs</term>
+          <listitem>
+            <para>
+(integer 0 - 10000) Stop time of the tremulant in ms: the time in which the
+modulation depth fades to zero after the tremulant is switched off. 0 means
+that the tremulant stops at once. Exactly one of StopRate and StopTimeMs must
+be given.
      </para>
           </listitem>
         </varlistentry>
@@ -11268,7 +11294,67 @@ Synthesized tremulants have the following attributes:
           <term>AmpModDepth</term>
           <listitem>
             <para>
-(integer 1 - 100, required) Determines, how much the volume will be changed.
+(integer 0 - 100, default: 0) Determines, how much the volume will be changed.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PitchModDepthCents</term>
+          <listitem>
+            <para>
+(float 0 - 2400, default: 0) The depth of the pitch modulation in cents (a
+hundredth of a semitone). The depth is the larger, downward peak: the pitch
+goes down by exactly this value and up a little less. The pitch changes with
+the same period as the volume. Very deep or very slow pitch modulation is
+limited by the length of the internal delay of 100 ms: the actual depth of such
+a modulation may be smaller than requested.
+     </para>
+            <para>
+The frequency follows a sine: it is linear in Hz, as the pressure of a real
+tremulant, so the average frequency is exactly the nominal one. In cents the
+curve is therefore slightly asymmetric and the average pitch lies a little
+below zero:
+     </para>
+            <informaltable frame="none">
+              <tgroup cols="3">
+                <tbody>
+                  <row valign="top">
+                    <entry><emphasis role="strong">PitchModDepthCents</emphasis></entry>
+                    <entry><emphasis role="strong">Down / up, cents</emphasis></entry>
+                    <entry><emphasis role="strong">Average pitch, cents</emphasis></entry>
+                  </row>
+                  <row valign="top">
+                    <entry>15</entry>
+                    <entry>-15 / +14.9</entry>
+                    <entry>-0.03</entry>
+                  </row>
+                  <row valign="top">
+                    <entry>50</entry>
+                    <entry>-50 / +48.6</entry>
+                    <entry>-0.35</entry>
+                  </row>
+                  <row valign="top">
+                    <entry>2400</entry>
+                    <entry>-2400 / +969</entry>
+                    <entry>-321</entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </informaltable>
+            <para>
+At the usual depths of a tremulant (5 - 50 cents) the asymmetry is a fraction
+of a cent and is inaudible.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PitchModPhaseDegrees</term>
+          <listitem>
+            <para>
+(integer -180 - 359, default: 0) The shift of the pitch modulation relative to
+the volume modulation in degrees of the period. A positive value means that
+the pitch leads the volume. A negative value is equal to the value increased by
+360.
      </para>
           </listitem>
         </varlistentry>
