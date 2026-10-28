@@ -11251,7 +11251,19 @@ Synthesized tremulants have the following attributes:
           <term>StartRate</term>
           <listitem>
             <para>
-(integer 1 - 100, required) Determines the startup time of the tremulant.
+(integer 1 - 100) Determines the startup time of the tremulant: 1000 / StartRate
+ms, rounded to an integer. Exactly one of StartRate and StartTime must be given.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>StartTime</term>
+          <listitem>
+            <para>
+(integer 0 - 10000) Startup time of the tremulant in ms: the time in which the
+modulation depth grows from zero to the full depth after the tremulant is
+switched on. 0 means that the tremulant starts at the full depth at once.
+Exactly one of StartRate and StartTime must be given.
      </para>
           </listitem>
         </varlistentry>
@@ -11259,7 +11271,19 @@ Synthesized tremulants have the following attributes:
           <term>StopRate</term>
           <listitem>
             <para>
-(integer 1 - 100, required) Determines the stop time of the tremulant.
+(integer 1 - 100) Determines the stop time of the tremulant: 1000 / StopRate
+ms, rounded to an integer. Exactly one of StopRate and StopTime must be given.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>StopTime</term>
+          <listitem>
+            <para>
+(integer 0 - 10000) Stop time of the tremulant in ms: the time in which the
+modulation depth fades to zero after the tremulant is switched off. 0 means
+that the tremulant stops at once. Exactly one of StopRate and StopTime must be
+given.
      </para>
           </listitem>
         </varlistentry>
@@ -11267,7 +11291,30 @@ Synthesized tremulants have the following attributes:
           <term>AmpModDepth</term>
           <listitem>
             <para>
-(integer 1 - 100, required) Determines, how much the volume will be changed.
+(integer 0 - 100, default: 0) Determines, how much the volume will be changed.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PitchModDepth</term>
+          <listitem>
+            <para>
+(float 0 - 2400, default: 0) The maximum deviation of the pitch in cents (a
+hundredth of a semitone). The pitch changes with the same period as the
+volume. Very deep or very slow pitch modulation is limited by the length of
+the internal delay of 100 ms: the actual depth of such a modulation may be
+smaller than requested.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PitchModPhase</term>
+          <listitem>
+            <para>
+(integer -180 - 359, default: 0) The shift of the pitch modulation relative to
+the volume modulation in degrees of the period. A positive value means that
+the pitch leads the volume. A negative value is equal to the value increased by
+360.
      </para>
           </listitem>
         </varlistentry>

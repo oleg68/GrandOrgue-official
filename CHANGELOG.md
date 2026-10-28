@@ -1,3 +1,4 @@
+- Added the StartTime, StopTime, PitchModDepth and PitchModPhase keys to synthesized tremulants in organ definition files, allowing pitch (vibrato) modulation https://github.com/GrandOrgue/grandorgue/issues/709
 - Added the "Tremulants" tab to the Organ Settings dialog for changing the parameters of the built-in tremulants on the fly https://github.com/GrandOrgue/grandorgue/issues/709
 - Fixed leak of the organ objects when loading an organ fails
 - Added a built-in tremulant for every windchest, switched by a button under the windchest's enclosure in the "Coupler manuals and volume" panel https://github.com/GrandOrgue/grandorgue/issues/709

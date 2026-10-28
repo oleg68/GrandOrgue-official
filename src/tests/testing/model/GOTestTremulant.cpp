@@ -81,8 +81,147 @@ void GOTestTremulant::TestLoadRequiredKeys() {
     does_load_throw(head + "Period=100\nStartRate=4\nAmpModDepth=20\n"),
     "a missing StopRate must throw");
   GOAssert(
-    does_load_throw(head + "Period=100\nStartRate=4\nStopRate=8\n"),
-    "a missing AmpModDepth must throw");
+    !does_load_throw(head + "Period=100\nStartRate=4\nStopRate=8\n"),
+    "a missing AmpModDepth must not throw");
+}
+
+/**
+ * The ODF text of a Synth tremulant with the given keys after the required
+ * Period.
+ */
+static std::string synth_odf(const std::string &keys) {
+  return "[Tremulant001]\nName=Test\nPeriod=100\n" + keys;
+}
+
+/**
+ * Loads a Synth tremulant with the given keys and renders it at 48 kHz.
+ */
+static void load_and_render(
+  const std::string &keys, GOTremulant::Description &outDesc) {
+  GOTestTremulantModel model;
+
+  load_tremulant_from_text(model.organModel, synth_odf(keys), "")
+    ->Render(48000, outDesc);
+}
+
+void GOTestTremulant::TestLoadStartStopTime() {
+  GOTremulant::Description desc;
+
+  load_and_render("StartTime=250\nStopTime=125\n", desc);
+  GOAssert(desc.nStartFrames == 12000, "StartTime 250 must be 12000 frames");
+  GOAssert(desc.nStopFrames == 6000, "StopTime 125 must be 6000 frames");
+
+  load_and_render("StartTime=0\nStopTime=0\n", desc);
+  GOAssert(desc.nStartFrames == 0, "StartTime 0 must be an instant ramp");
+  GOAssert(desc.nStopFrames == 0, "StopTime 0 must be an instant ramp");
+
+  load_and_render("StartTime=10000\nStopTime=10000\n", desc);
+  GOAssert(desc.nStartFrames == 480000, "StartTime 10000 must load");
+  GOAssert(
+    does_load_throw(synth_odf("StartTime=10001\nStopTime=1\n")),
+    "StartTime above 10000 must throw");
+  GOAssert(
+    does_load_throw(synth_odf("StartTime=1\nStopTime=10001\n")),
+    "StopTime above 10000 must throw");
+  GOAssert(
+    does_load_throw(synth_odf("StartTime=-1\nStopTime=1\n")),
+    "a negative StartTime must throw");
+}
+
+void GOTestTremulant::TestLoadRatePairExclusive() {
+  GOAssert(
+    does_load_throw(synth_odf("StartRate=4\nStartTime=250\nStopRate=8\n")),
+    "both StartRate and StartTime must throw");
+  GOAssert(
+    does_load_throw(synth_odf("StartRate=4\nStopRate=8\nStopTime=125\n")),
+    "both StopRate and StopTime must throw");
+  GOAssert(
+    does_load_throw(synth_odf("StopRate=8\n")),
+    "neither StartRate nor StartTime must throw");
+  GOAssert(
+    does_load_throw(synth_odf("StartRate=4\n")),
+    "neither StopRate nor StopTime must throw");
+  GOAssert(
+    !does_load_throw(synth_odf("StartTime=250\nStopRate=8\n")),
+    "StartTime with StopRate must load");
+
+  GOTremulant::Description desc;
+
+  load_and_render("StartTime=250\nStopRate=8\n", desc);
+  GOAssert(desc.nStartFrames == 12000, "StartTime 250 must be 12000 frames");
+  GOAssert(desc.nStopFrames == 6000, "StopRate 8 must be 125 ms");
+}
+
+void GOTestTremulant::TestLoadPitchModDepth() {
+  const std::string rates = "StartRate=4\nStopRate=8\n";
+  GOTremulant::Description desc;
+
+  load_and_render(rates, desc);
+  GOAssert(desc.pitchCents.empty(), "the default PitchModDepth must be 0");
+
+  load_and_render(rates + "PitchModDepth=15\n", desc);
+  GOAssert(are_close(max_of(desc.pitchCents), 15.0f), "PitchModDepth 15 peak");
+
+  load_and_render(rates + "PitchModDepth=2400\n", desc);
+  GOAssert(
+    are_close(max_of(desc.pitchCents), 2400.0f),
+    "PitchModDepth 2400 must load");
+  GOAssert(
+    does_load_throw(synth_odf(rates + "PitchModDepth=2400.1\n")),
+    "PitchModDepth above 2400 must throw");
+  GOAssert(
+    does_load_throw(synth_odf(rates + "PitchModDepth=-1\n")),
+    "a negative PitchModDepth must throw");
+}
+
+void GOTestTremulant::TestLoadPitchModPhase() {
+  const std::string head = "StartRate=4\nStopRate=8\nPitchModDepth=25\n";
+  GOTremulant::Description desc;
+  GOTremulant::Description descMinus90;
+  GOTremulant::Description desc270;
+
+  load_and_render(head, desc);
+  GOAssert(are_close(desc.pitchCents[0], 0.0f), "the default phase is 0");
+
+  load_and_render(head + "PitchModPhase=-90\n", descMinus90);
+  load_and_render(head + "PitchModPhase=270\n", desc270);
+  GOAssert(
+    descMinus90.pitchCents == desc270.pitchCents, "phase -90 must equal 270");
+
+  // The borders -180 and 359 are the same angles as 180 and -1
+  load_and_render(head + "PitchModPhase=-180\n", descMinus90);
+  load_and_render(head + "PitchModPhase=180\n", desc270);
+  GOAssert(
+    descMinus90.pitchCents == desc270.pitchCents, "phase -180 must equal 180");
+  load_and_render(head + "PitchModPhase=359\n", descMinus90);
+  load_and_render(head + "PitchModPhase=-1\n", desc270);
+  GOAssert(
+    descMinus90.pitchCents == desc270.pitchCents, "phase 359 must equal -1");
+  GOAssert(
+    does_load_throw(synth_odf(head + "PitchModPhase=-181\n")),
+    "PitchModPhase below -180 must throw");
+  GOAssert(
+    does_load_throw(synth_odf(head + "PitchModPhase=360\n")),
+    "PitchModPhase above 359 must throw");
+}
+
+void GOTestTremulant::TestLoadAmpModDepth() {
+  const std::string rates = "StartRate=4\nStopRate=8\n";
+  GOTremulant::Description desc;
+
+  load_and_render(rates + "AmpModDepth=0\n", desc);
+  GOAssert(are_close(min_of(desc.amp), 1.0f), "AmpModDepth 0 must be flat");
+
+  load_and_render(rates, desc);
+  GOAssert(
+    are_close(min_of(desc.amp), 1.0f) && are_close(max_of(desc.amp), 1.0f),
+    "a missing AmpModDepth must be 0");
+
+  load_and_render(rates + "AmpModDepth=20\n", desc);
+  GOAssert(are_close(min_of(desc.amp), 0.8f), "AmpModDepth 20 must dip to 0.8");
+  GOAssert(
+    does_load_throw(synth_odf(rates + "AmpModDepth=101\n")),
+    "AmpModDepth above 100 must throw");
 }
 
 void GOTestTremulant::TestLoadTypes() {
@@ -558,6 +697,11 @@ void GOTestTremulant::TestRenderOverwritesDescription() {
 void GOTestTremulant::run() {
   GO_RUN_TEST(TestLoadRateConversion())
   GO_RUN_TEST(TestLoadRequiredKeys())
+  GO_RUN_TEST(TestLoadStartStopTime())
+  GO_RUN_TEST(TestLoadRatePairExclusive())
+  GO_RUN_TEST(TestLoadPitchModDepth())
+  GO_RUN_TEST(TestLoadPitchModPhase())
+  GO_RUN_TEST(TestLoadAmpModDepth())
   GO_RUN_TEST(TestLoadTypes())
   GO_RUN_TEST(TestInitDefaults())
   GO_RUN_TEST(TestLoadFromCmbFallback())

@@ -24,8 +24,27 @@ private:
   /** StartRate and StopRate are converted to the ramp lengths in frames. */
   void TestLoadRateConversion();
 
-  /** A missing Period, StartRate, StopRate or AmpModDepth throws. */
+  /** A missing Period throws, as does a missing StartRate together with
+   * StartTime or a missing StopRate together with StopTime. A missing
+   * AmpModDepth does not throw. */
   void TestLoadRequiredKeys();
+
+  /** StartTime and StopTime in integer ms: conversion, the instant ramp 0 and
+   * the range. */
+  void TestLoadStartStopTime();
+
+  /** Exactly one of StartRate/StartTime and of StopRate/StopTime is
+   * required. */
+  void TestLoadRatePairExclusive();
+
+  /** PitchModDepth: the default 0, the range and the rendered peak. */
+  void TestLoadPitchModDepth();
+
+  /** PitchModPhase: the default 0, the range and the equality mod 360. */
+  void TestLoadPitchModPhase();
+
+  /** AmpModDepth: optional with the default 0, the range 0 - 100. */
+  void TestLoadAmpModDepth();
 
   /** The type is Synth by default, Wave is recognised. */
   void TestLoadTypes();
