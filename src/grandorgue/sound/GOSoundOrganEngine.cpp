@@ -250,7 +250,8 @@ static std::unique_ptr<GOSoundProcessingChain> build_windchest_chain(
       const unsigned tremulantId = pWindchest->GetTremulantId(tremulantI);
 
       if (
-        organModel.GetTremulant(tremulantId)->GetTremulantType() != GOWavTrem) {
+        organModel.GetTremulant(tremulantId)->GetTremulantType()
+        != GOTremulant::WAVE) {
         auto oProcessor = std::make_unique<GOSoundVibratoProcessor>(
           samplerPlayer.GetResample(), samplerPlayer.GetInterpolationType());
         GOSoundVibratoProcessor &processor = *oProcessor;

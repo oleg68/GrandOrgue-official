@@ -289,7 +289,7 @@ void GOTestOrganController::CheckLoadedCoreData() {
           == controller->GetODFTremulantCount() + windchestI,
       "A windchest should have its own internal tremulant" + suffix);
     GOAssert(
-      pTremulant->GetTremulantType() == GOSynthTrem
+      pTremulant->GetTremulantType() == GOTremulant::SYNTH
         && !pTremulant->IsOdfDefined(),
       "An internal tremulant should be a not-ODF synth one" + suffix);
     GOAssert(
