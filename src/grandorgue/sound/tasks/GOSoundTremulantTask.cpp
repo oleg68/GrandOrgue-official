@@ -87,7 +87,7 @@ GOSoundTremulantTask::GOSoundTremulantTask(
     /* Always for a Synth tremulant, see the member; a Wave tremulant never gets
      * a wave form (BuildWaveForm() gives nullptr), so never needs the buffer */
     o_RampRates(
-      tremulant.GetTremulantType() != GOWavTrem
+      tremulant.GetTremulantType() != GOTremulant::WAVE
         ? std::make_unique_for_overwrite<uint16_t[]>(nFramesPerBuffer)
         : nullptr) {}
 
@@ -97,7 +97,7 @@ std::unique_ptr<GOSoundTremulantWaveForm> GOSoundTremulantTask::BuildWaveForm()
   const {
   std::unique_ptr<GOSoundTremulantWaveForm> oWaveForm;
 
-  if (r_tremulant.GetTremulantType() != GOWavTrem) {
+  if (r_tremulant.GetTremulantType() != GOTremulant::WAVE) {
     const GOTremulant::Description desc = r_tremulant.Render(m_SampleRate);
 
     oWaveForm
