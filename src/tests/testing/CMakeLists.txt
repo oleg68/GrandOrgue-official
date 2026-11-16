@@ -54,6 +54,7 @@ set(go_tests
     sound/GOTestSoundOrganEngineFactories.cpp
     sound/GOTestSoundOrganEngineStress.cpp
     sound/GOTestSoundWindchestGroupTaskGrid.cpp
+    sound/GOTestWaveFileBuilder.cpp
     sound/mappers/GOTestPerfSoundEnclosureShelfMapper.cpp
     sound/mappers/GOTestSoundEnclosureShelfMapper.cpp
     sound/mappers/GOTestSoundTremulantVibratoMapper.cpp

@@ -1,3 +1,4 @@
+- Added support for 32-bit float wave files https://github.com/GrandOrgue/grandorgue/issues/709
 - Fixed distorted sound of pipes and reverb impulse responses loaded from 8-bit PCM wave files
 - Added the High-quality sinc interpolation mode for pipe playback https://github.com/GrandOrgue/grandorgue/discussions/1559
 - Fixed crash on receiving or playing a malformed GrandOrgue setup SysEx MIDI message shorter than 8 bytes

@@ -7,6 +7,8 @@
 
 #include "GOTestWave.h"
 
+#include <cstring>
+
 #include "GOBuffer.h"
 #include "GOWave.h"
 #include "GOWaveTypes.h"
@@ -72,4 +74,85 @@ void GOTestWave::TestEightBitSigned() {
     "8-bit samples must scale to the exact float values");
 }
 
-void GOTestWave::run() { GO_RUN_TEST(TestEightBitSigned()) }
+void GOTestWave::TestIntegersUnchanged() {
+  const int16_t pcm16[4] = {0x1234, -2, 32767, -32768};
+  GOWave wave;
+
+  wave.Open(make_wav(false, 16, pcm16, 4), wxT("sixteen.wav"));
+
+  int16_t out16[4];
+
+  wave.ReadSamples(out16, GOWave::SF_SIGNEDSHORT_16, wave.GetSampleRate(), 1);
+  GOAssert(
+    memcmp(out16, pcm16, sizeof(pcm16)) == 0,
+    "16-bit samples must come out unchanged");
+
+  // Little-endian 24-bit items: 0x123456, -2, +FS, -FS
+  const uint8_t pcm24[12]
+    = {0x56, 0x34, 0x12, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F, 0x00, 0x00, 0x80};
+
+  wave.Open(make_wav(false, 24, pcm24, 4), wxT("twentyfour.wav"));
+
+  uint8_t out24[12];
+
+  wave.ReadSamples(out24, GOWave::SF_SIGNEDINT24_24, wave.GetSampleRate(), 1);
+  GOAssert(
+    memcmp(out24, pcm24, sizeof(pcm24)) == 0,
+    "24-bit samples must come out unchanged");
+}
+
+void GOTestWave::TestFloatBitExact() {
+  const float floatData[4] = {0.1f, -0.3f, 1.0f, 1e-7f};
+  GOWave wave;
+
+  wave.Open(make_wav(true, 32, floatData, 4), wxT("float.wav"));
+  GOAssert(wave.IsFloat(), "a float file must be recognised as float");
+
+  float out[4];
+
+  wave.ReadSamples(out, GOWave::SF_IEEE_FLOAT, wave.GetSampleRate(), 1);
+  GOAssert(
+    memcmp(out, floatData, sizeof(floatData)) == 0,
+    "float samples must stay bit-exact");
+}
+
+void GOTestWave::TestThirtyTwoBitPcmRejected() {
+  const int32_t pcm32[2] = {0x12345678, -1};
+  GOWave wave;
+  bool isRejected = false;
+
+  try {
+    wave.Open(make_wav(false, 32, pcm32, 2), wxT("pcm32.wav"));
+  } catch (const wxString &) {
+    isRejected = true;
+  }
+  GOAssert(isRejected, "32-bit integer PCM must be rejected");
+}
+
+void GOTestWave::TestOwnFormat() {
+  const int16_t pcm16[1] = {0};
+  const float floatData[1] = {0.1f};
+  GOWave wave;
+
+  wave.Open(make_wav(false, 16, pcm16, 1), wxT("pcm16.wav"));
+  GOAssert(wave.GetOwnFormat() == GOWave::SF_SIGNEDSHORT_16, "16-bit PCM");
+  GOAssert(
+    wave.GetMinIntFormat(24) == GOWave::SF_SIGNEDSHORT_16,
+    "a shallower file keeps its depth");
+  GOAssert(
+    wave.GetMinIntFormat(8) == GOWave::SF_SIGNEDBYTE_8,
+    "a deeper file is reduced");
+  wave.Open(make_wav(true, 32, floatData, 1), wxT("float.wav"));
+  GOAssert(wave.GetOwnFormat() == GOWave::SF_IEEE_FLOAT, "float");
+  GOAssert(
+    wave.GetMinIntFormat(24) == GOWave::SF_SIGNEDINT24_24,
+    "a float file is converted to the requested integer depth");
+}
+
+void GOTestWave::run() {
+  GO_RUN_TEST(TestEightBitSigned())
+  GO_RUN_TEST(TestIntegersUnchanged())
+  GO_RUN_TEST(TestFloatBitExact())
+  GO_RUN_TEST(TestThirtyTwoBitPcmRejected())
+  GO_RUN_TEST(TestOwnFormat())
+}
