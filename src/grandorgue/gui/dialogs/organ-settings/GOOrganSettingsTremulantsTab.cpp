@@ -534,7 +534,7 @@ void GOOrganSettingsTremulantsTab::DisplaySelectedTremulantParameters() {
     nSelected++;
     if (!tremulant.IsOdfDefined())
       nInternal++;
-    if (tremulant.GetTremulantType() == GOSynthTrem)
+    if (tremulant.GetTremulantType() == GOTremulant::SYNTH)
       nSynth++;
     pLastTremulant = &tremulant;
   });
