@@ -22,10 +22,11 @@ class GOConfigWriter;
 class GOMemoryPool;
 class GOSoundTremulantProvider;
 
-typedef enum { GOSynthTrem, GOWavTrem } GOTremulantType;
-
 class GOTremulant : public GODrawstop, private GOCacheObject {
 public:
+  /** The kind of a tremulant: how its modulation is produced */
+  enum TremulantType { SYNTH, WAVE };
+
   // The allowed ranges of the parameters of a Synth tremulant, both ends
   // included. Defined in the .cpp so that this header does not include the
   // sound engine headers that the upper bound of the pitch depth comes from
@@ -78,7 +79,7 @@ private:
    */
   bool m_IsOdfDefined;
 
-  GOTremulantType m_TremulantType;
+  TremulantType m_TremulantType;
   // The period of the modulation, in ms. Shared by Synth and Lfo
   int m_PeriodMs;
   // The lengths of the depth ramps on engaging / disengaging, in ms; 0 means an
@@ -144,7 +145,7 @@ public:
     GOConfigReader &cfg, const wxString &group, const wxString &name) override;
 
   void Load(GOConfigReader &cfg, const wxString &group) override;
-  GOTremulantType GetTremulantType() const;
+  TremulantType GetTremulantType() const;
 
   /**
    * Renders the loop and the ramp lengths for a sample rate. Called only from

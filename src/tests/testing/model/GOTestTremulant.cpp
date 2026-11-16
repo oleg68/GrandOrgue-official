@@ -268,17 +268,17 @@ void GOTestTremulant::TestLoadTypes() {
       "AmpModDepth=20\n",
       "")
         ->GetTremulantType()
-      == GOSynthTrem,
+      == GOTremulant::SYNTH,
     "the default type must be Synth");
   GOAssert(
     load_tremulant(model.organModel, "Synth", 100, 4, 8, 20)->GetTremulantType()
-      == GOSynthTrem,
+      == GOTremulant::SYNTH,
     "Synth must be recognised");
   GOAssert(
     load_tremulant_from_text(
       model.organModel, "[Tremulant001]\nName=Test\nTremulantType=Wave\n", "")
         ->GetTremulantType()
-      == GOWavTrem,
+      == GOTremulant::WAVE,
     "Wave must be recognised");
 }
 
@@ -306,7 +306,8 @@ void GOTestTremulant::TestInitDefaults() {
   const GOTremulant::Description desc = oTremulant->Render(48000);
 
   GOAssert(!oTremulant->IsOdfDefined(), "Init() must make it internal");
-  GOAssert(oTremulant->GetTremulantType() == GOSynthTrem, "the type is Synth");
+  GOAssert(
+    oTremulant->GetTremulantType() == GOTremulant::SYNTH, "the type is Synth");
   GOAssert(desc.nPeriodFrames == 9600, "the default period is 200 ms");
   GOAssert(
     desc.ampDeviation.size() == 9600, "the amplitude has the period length");
