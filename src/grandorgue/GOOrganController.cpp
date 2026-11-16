@@ -265,6 +265,8 @@ GOHashType GOOrganController::GenerateCacheHash() {
   GOSoundProvider::UpdateCacheHash(hash);
   hash.Update(sizeof(GOSoundAudioSection::StartSegment));
   hash.Update(sizeof(GOSoundAudioSection::EndSegment));
+  // The decoded samples of a section change without changing sizeof()
+  hash.Update(GOSoundAudioSection::CACHE_VERSION);
   return hash.getHash();
 }
 
