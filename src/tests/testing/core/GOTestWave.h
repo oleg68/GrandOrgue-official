@@ -23,6 +23,16 @@ private:
   /** 8-bit PCM is offset binary: 0x00/0x80/0xFF/0x40 -> -128/0/+127/-64 */
   void TestEightBitSigned();
 
+  /** 16- and 24-bit PCM read in their own format come out unchanged */
+  void TestIntegersUnchanged();
+
+  /** A float file read as float stays bit-exact */
+  void TestFloatBitExact();
+
+  /** A 32-bit integer PCM file is rejected: 4 bytes is not necessarily float */
+  void TestThirtyTwoBitPcmRejected();
+  void TestOwnFormat();
+
 public:
   std::string GetName() override { return TEST_NAME; }
   void run() override;

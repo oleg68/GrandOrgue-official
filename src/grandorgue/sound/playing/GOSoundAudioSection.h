@@ -8,7 +8,9 @@
 #ifndef GOSOUNDAUDIOSECTION_H_
 #define GOSOUNDAUDIOSECTION_H_
 
+#include <algorithm>
 #include <assert.h>
+#include <limits>
 #include <math.h>
 
 #include "sound/dsp-kernels/GOSoundResample.h"
@@ -26,6 +28,13 @@ class GOLoaderFilename;
 class GOMemoryPool;
 class GOSoundReleaseAlignTable;
 class GOSampleStatistic;
+
+// The float sections store 32-bit IEEE floats and the compressed or Q23 samples
+// are held in 32-bit ints
+static_assert(
+  sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
+  "float must be a 32-bit IEEE float");
+static_assert(sizeof(int) == 4, "int must be 32 bits");
 
 class GOSoundAudioSection {
 public:
@@ -51,8 +60,10 @@ public:
    * changing sizeof(), because GOOrganController::GenerateCacheHash() relies on
    * sizeof() to detect layout changes. It is added to the hash so that the
    * caches created before such a change are not used.
+   *
+   * 2: the sections of 32-bit float wave files are stored as floats
    */
-  static constexpr unsigned CACHE_VERSION = 1;
+  static constexpr unsigned CACHE_VERSION = 2;
 
   struct StartSegment {
     /* Sample offset into entire audio section where data begins. */
@@ -131,6 +142,10 @@ private:
 
   GOBool3 m_WaveTremulantStateFor;
   bool m_IsCompressed;
+  /* The items passed to Setup() were IEEE floats rather than integers. The
+   * stored bytes of a compressed float section are int32 raw units, so use
+   * IsFloatData() to decide how to interpret them. */
+  bool m_IsFloat;
 
   /* Size of the section in BYTES */
   GOMemoryPool &m_Pool;
@@ -145,6 +160,14 @@ private:
 
   void ClearData();
 
+  /**
+   * Converts the end segments of a float section from floats to int32 raw
+   * units at 2^-23 FS. It must be called only after Compress() succeeded: the
+   * main block is int32 then, and the stream reads the main block and the end
+   * segments with one gain.
+   */
+  void ConvertEndSegmentsToRawUnits();
+
   template <typename T>
   inline static int getSampleData(
     const T *data, unsigned position, uint8_t channels, uint8_t channel) {
@@ -156,7 +179,8 @@ private:
     unsigned position,
     uint8_t channels,
     uint8_t channel,
-    uint8_t bitsPerSample) {
+    uint8_t bitsPerSample,
+    bool isFloat) {
     int res;
 
     if (bitsPerSample <= 8)
@@ -168,10 +192,11 @@ private:
     else if (bitsPerSample <= 24)
       res = getSampleData(
         (const GOInt24 *)sampleData, position, channels, channel);
-    else {
-      assert(0 && "broken sampler type");
-      res = 0;
-    }
+    else if (isFloat)
+      res = floatToIntQ23(
+        ((const float *)sampleData)[position * channels + channel]);
+    else
+      res = ((const int32_t *)sampleData)[position * channels + channel];
     return res;
   }
 
@@ -187,6 +212,7 @@ private:
     uint8_t channels,
     uint8_t channel,
     uint8_t bitsPerSample,
+    bool isFloat,
     int value) {
     if (bitsPerSample <= 8)
       setSampleData((GOInt8 *)sampleData, position, channels, channel, value);
@@ -194,14 +220,23 @@ private:
       setSampleData((GOInt16 *)sampleData, position, channels, channel, value);
     else if (bitsPerSample <= 24)
       setSampleData((GOInt24 *)sampleData, position, channels, channel, value);
+    else if (isFloat)
+      ((float *)sampleData)[position * channels + channel]
+        = (float)value / GOWave::SCALE_24_BITS;
     else
-      assert(0 && "broken sampler type");
+      ((int32_t *)sampleData)[position * channels + channel] = value;
   }
 
   inline void SetSampleData(
     unsigned char *sampleData, unsigned position, uint8_t channel, int value) {
     setSampleData(
-      sampleData, position, m_channels, channel, m_BitsPerSample, value);
+      sampleData,
+      position,
+      m_channels,
+      channel,
+      m_BitsPerSample,
+      IsFloatData(),
+      value);
   }
 
   /**
@@ -222,6 +257,28 @@ public:
     return (a > b) ? a - b : 0;
   }
 
+  /**
+   * @param value a float sample, full scale is +-1.0
+   * @return the sample as an integer in the Q23 format (23 fractional bits:
+   * full scale is 2^23 raw units), clamped to full scale
+   *
+   * The int32 items of a float section are Q23, the scale of a 24-bit section,
+   * so a float is handled by everything that works with 8/16/24-bit samples.
+   * Alternative considered: Q31 (the scale of a real 32-bit PCM), rejected:
+   * - a float has only 24 significant bits, so the other 8 would be zeros;
+   * - the compression stores the prediction deltas in 2-4 bytes, and Q31
+   *   deltas are 2^8 times larger than Q23 ones, so it would rarely pay off;
+   * - the amplitude, derivative and release alignment code holds the samples in
+   *   int/unsigned and multiplies them, which overflows at 2^31 (+1.0 does not
+   *   even fit in an int).
+   * A future 32-bit integer PCM needs its own scale (Q31) and wider arithmetic
+   * in that code; this int32 branch is then no longer free for it, so
+   * IsFloat() has to be checked first.
+   */
+  inline static int floatToIntQ23(float value) {
+    return (int)lroundf(std::clamp(value, -1.0f, 1.0f) * GOWave::SCALE_24_BITS);
+  }
+
   GOSoundAudioSection(GOMemoryPool &pool);
   ~GOSoundAudioSection() { ClearData(); }
 
@@ -234,6 +291,13 @@ public:
   uint8_t GetBytesPerSample() const { return m_BytesPerSample; }
   inline uint8_t GetChannels() const { return m_channels; }
   bool IsCompressed() const { return m_IsCompressed; }
+
+  /**
+   * Whether the stored sample items are IEEE floats rather than integers. A
+   * 32-bit section stores floats when it is uncompressed and int32 raw units
+   * at 2^-23 FS when it is compressed.
+   */
+  bool IsFloatData() const { return m_IsFloat && !m_IsCompressed; }
 
   inline GOBool3 GetWaveTremulantStateFor() const {
     return m_WaveTremulantStateFor;
@@ -261,7 +325,12 @@ public:
   inline int GetSampleData(
     const unsigned char *sampleData, unsigned position, uint8_t channel) const {
     return getSampleData(
-      sampleData, position, m_channels, channel, m_BitsPerSample);
+      sampleData,
+      position,
+      m_channels,
+      channel,
+      m_BitsPerSample,
+      IsFloatData());
   }
 
   bool LoadCache(GOCache &cache);
@@ -288,6 +357,16 @@ public:
 
   unsigned PickEndSegment(unsigned start_segment_index) const;
 
+  /**
+   * Reads one stored sample item in raw units, see GetNormGain().
+   * @param position the frame index in the stored data, which starts with
+   *   PROLOGUE_LENGTH zero frames: PCM frame k is at PROLOGUE_LENGTH + k
+   * @param channel the channel index
+   * @param cache the decompression cache of a compressed section; if null, a
+   *   temporary one is used
+   * @return the item; for an uncompressed float section, the float rounded to
+   *   raw units of 2^-23 FS, not the stored float
+   */
   inline int GetSample(
     unsigned position,
     unsigned channel,
@@ -308,6 +387,12 @@ public:
     }
   }
 
+  /**
+   * @return the gain that brings the items read by GOSoundStream to full scale
+   * (1.0). It is not the scale of GetSample(), which returns integer raw
+   * units: for an uncompressed float section GetSample() is in units of 2^-23
+   * FS, while the stream items are the floats themselves and the gain is 1.0.
+   */
   inline float GetNormGain() const {
     return scalbnf(1.0f, -((int)m_SampleFracBits));
   }
