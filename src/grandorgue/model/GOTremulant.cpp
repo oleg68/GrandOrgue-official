@@ -20,8 +20,8 @@
 #include "sound/providers/GOSoundTremulantProviderSynth.h"
 
 static const GOConfigEnum TREMULANT_TYPES({
-  {wxT("Synth"), GOSynthTrem},
-  {wxT("Wave"), GOWavTrem},
+  {wxT("Synth"), GOTremulant::SYNTH},
+  {wxT("Wave"), GOTremulant::WAVE},
 });
 
 static const wxString WX_PERIOD_MS = wxT("PeriodMs");
@@ -62,7 +62,7 @@ static constexpr int PITCH_MOD_PHASE_DEGREES_DEFAULT = 0;
 GOTremulant::GOTremulant(GOOrganModel &organModel)
   : GODrawstop(organModel, OBJECT_TYPE_TREMULANT),
     m_IsOdfDefined(false),
-    m_TremulantType(GOSynthTrem),
+    m_TremulantType(SYNTH),
     m_PeriodMs(0),
     m_StartTimeMs(0),
     m_StopTimeMs(0),
@@ -231,7 +231,7 @@ static int read_ramp_time_ms(
 }
 
 bool GOTremulant::ApplySynthParamChanges(const SynthParamChanges &changes) {
-  const bool isSynth = m_TremulantType == GOSynthTrem;
+  const bool isSynth = m_TremulantType == SYNTH;
   bool isChanged = false;
 
   assert(isSynth);
@@ -281,7 +281,7 @@ void GOTremulant::Init(
   GOConfigReader &cfg, const wxString &group, const wxString &name) {
   m_IsOdfDefined = false;
   GODrawstop::Init(cfg, group, name);
-  m_TremulantType = GOSynthTrem;
+  m_TremulantType = SYNTH;
   o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
   LoadFromCmb(cfg);
 }
@@ -289,14 +289,9 @@ void GOTremulant::Init(
 void GOTremulant::Load(GOConfigReader &cfg, const wxString &group) {
   m_IsOdfDefined = true;
   SetGroupAndPrefix(group, wxEmptyString);
-  m_TremulantType = (GOTremulantType)cfg.ReadEnum(
-    ODFSetting,
-    group,
-    wxT("TremulantType"),
-    TREMULANT_TYPES,
-    false,
-    GOSynthTrem);
-  if (m_TremulantType == GOSynthTrem) {
+  m_TremulantType = (TremulantType)cfg.ReadEnum(
+    ODFSetting, group, wxT("TremulantType"), TREMULANT_TYPES, false, SYNTH);
+  if (m_TremulantType == SYNTH) {
     o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
     m_PeriodMs = cfg.ReadLong(
       ODFSetting,
@@ -344,7 +339,7 @@ void GOTremulant::SetupIsToStoreInCmb() {
 
 GOTremulant::Description GOTremulant::Render(unsigned sampleRate) const {
   // A Wave tremulant has no provider and is not rendered
-  assert(m_TremulantType != GOWavTrem);
+  assert(m_TremulantType != WAVE);
   assert(o_provider);
 
   // The loop is rounded to the nearest frame: it should be as close as
@@ -361,7 +356,7 @@ GOTremulant::Description GOTremulant::Render(unsigned sampleRate) const {
   /* How the deviations are modified: the depths as multipliers and the pitch
    * phase. TODO calculate for lfo; until then an Lfo tremulant gets 0, that is
    * no modulation */
-  const bool isSynth = m_TremulantType == GOSynthTrem;
+  const bool isSynth = m_TremulantType == SYNTH;
   const float ampFactor = isSynth ? m_AmpModDepthPcnt / 100.0f : 0.0f;
   /* Linear in frequency: the pitch goes down by exactly m_PitchModDepthCents.
    * A zero depth is set to an exact 0, whatever the rounding of
@@ -417,18 +412,18 @@ GOTremulant::Description GOTremulant::Render(unsigned sampleRate) const {
 }
 
 void GOTremulant::OnDrawstopStateChanged(bool on) {
-  if (m_TremulantType == GOWavTrem)
+  if (m_TremulantType == WAVE)
     r_OrganModel.UpdateTremulant(this);
 }
 
 void GOTremulant::StartPlayback() {
   GODrawstop::StartPlayback();
 
-  if (m_TremulantType == GOWavTrem)
+  if (m_TremulantType == WAVE)
     r_OrganModel.UpdateTremulant(this);
 }
 
-GOTremulantType GOTremulant::GetTremulantType() const {
+GOTremulant::TremulantType GOTremulant::GetTremulantType() const {
   return m_TremulantType;
 }
 
