@@ -1,3 +1,4 @@
+- Added the TremulantType=Lfo tremulant whose modulation shapes are read from a Hauptwerk-compatible LFO wav file https://github.com/GrandOrgue/grandorgue/issues/709
 - Added support for 32-bit float wave files https://github.com/GrandOrgue/grandorgue/issues/709
 - Fixed distorted sound of pipes and reverb impulse responses loaded from 8-bit PCM wave files
 - Fixed the audio output gain of exactly +40 dB being muted instead of applied

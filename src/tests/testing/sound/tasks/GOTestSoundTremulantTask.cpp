@@ -13,6 +13,8 @@
 #include "model/GOTremulant.h"
 #include "sound/dsp-kernels/GOSoundLinearFaderCore.h"
 
+#include "GOMemoryPool.h"
+
 #include "../GOSoundTestSignals.h"
 #include "GOSoundTremulantTaskTestFixture.h"
 #include "GOTestScope.h"
@@ -356,6 +358,52 @@ void GOTestSoundTremulantTask::TestBuildWaveForm() {
   GOAssert(oWaveForm->GetNLoopFrames() == 4800, "100 ms are 4800 frames");
 }
 
+void GOTestSoundTremulantTask::TestBuildWaveFormLfo() {
+  using LfoFile = GOTestTremulantModel::LfoFile;
+
+  GOTestTremulantModel model;
+  const LfoFile lfoFile(model.config);
+  GOMemoryPool pool;
+  const auto oLoaded
+    = load_tremulant_from_text(model.organModel, LfoFile::ODF_HEAD, "");
+  // Its data is never loaded, as in the GUI-only mode
+  const auto oNotLoaded
+    = load_tremulant_from_text(model.organModel, LfoFile::ODF_HEAD, "");
+
+  GOAssert(
+    oLoaded->LoadFromFileWithoutExc(lfoFile.fileStore, pool),
+    "the Lfo file must be loaded");
+
+  GOSoundTremulantTask loadedTask(*oLoaded, N_FRAMES, TASK_TEST_SAMPLE_RATE);
+  const auto oWaveForm = loadedTask.BuildWaveForm();
+
+  GOAssert(oWaveForm.get(), "an Lfo tremulant must have a wave form");
+  GOAssert(oWaveForm->GetNLoopFrames() == 4800, "100 ms are 4800 frames");
+  GOAssert(
+    oWaveForm->HasAmplitude() && oWaveForm->HasPitch(),
+    "both shapes of the file must be in the wave form");
+  // The constant amplitude channel is a level offset: its DC is kept
+  GOAssert(
+    std::fabs(amplitude_at(*oWaveForm, 100, 1.0f) - (1.0f + LfoFile::AMP_VALUE))
+      < 0.01f,
+    "the amplitude multiplier must follow the amplitude channel");
+
+  GOSoundTremulantTask notLoadedTask(
+    *oNotLoaded, N_FRAMES, TASK_TEST_SAMPLE_RATE);
+  auto oEmptyForm = notLoadedTask.BuildWaveForm();
+
+  GOAssert(
+    oEmptyForm.get() && oEmptyForm->GetNLoopFrames() == 4800
+      && !oEmptyForm->HasAmplitude() && !oEmptyForm->HasPitch(),
+    "a tremulant without loaded data must give a form without modulation");
+  notLoadedTask.SwapWaveForm(oEmptyForm);
+  GOSoundTremulantTaskTestFixture::RunRound(notLoadedTask);
+  GOAssert(
+    notLoadedTask.GetAmplitude() == 1.0f
+      && !notLoadedTask.GetPitchRateChunk().HasRates(),
+    "a form without modulation must not modulate");
+}
+
 void GOTestSoundTremulantTask::TestStableBuffers() {
   GOSoundTremulantTaskTestFixture fixture(TASK_TEST_PITCH_DEVIATION);
   const uint16_t *pRampRates = fixture.task.o_RampRates.get();
@@ -422,6 +470,7 @@ void GOTestSoundTremulantTask::run() {
   GO_RUN_TEST(TestSwapWaveForm())
   GO_RUN_TEST(TestNoNaN())
   GO_RUN_TEST(TestBuildWaveForm())
+  GO_RUN_TEST(TestBuildWaveFormLfo())
   GO_RUN_TEST(TestStableBuffers())
   GO_RUN_TEST(TestNoAmplitude())
 }
