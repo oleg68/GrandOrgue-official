@@ -21,6 +21,7 @@
 
 class wxCheckBox;
 class wxPanel;
+class wxSimplebook;
 class wxSpinButton;
 class wxStaticText;
 class wxTextCtrl;
@@ -78,6 +79,9 @@ private:
   wxTreeCtrl *p_Tree;
   wxCheckBox *p_IsOdfDefined;
   wxStaticText *p_TypeText;
+  // The parameters of the selected tremulants: the pages are empty (Wave, a
+  // mixed or no selection), the Synth edits and the Lfo texts. Owned by wx
+  wxSimplebook *p_ParamsBook;
   // contains the edits of the Synth parameters; shown only for Synth
   // tremulants
   wxPanel *p_SynthParamsPanel;
@@ -93,6 +97,17 @@ private:
   wxSpinButton *p_StartTimeMsSpin;
   wxTextCtrl *p_StopTimeMsEdit;
   wxSpinButton *p_StopTimeMsSpin;
+  // The panel of the parameters of an Lfo tremulant: read only texts; shown
+  // only for Lfo tremulants
+  wxPanel *p_LfoParamsPanel;
+  wxStaticText *p_LfoFileNameText;
+  wxStaticText *p_LfoPeriodMsText;
+  wxStaticText *p_LfoStartTimeMsText;
+  wxStaticText *p_LfoStopTimeMsText;
+  wxStaticText *p_LfoPitchChannelText;
+  wxStaticText *p_LfoAmpChannelText;
+  wxStaticText *p_LfoAmpDepthAdjustDbText;
+  wxStaticText *p_LfoPitchDepthAdjustPcntText;
 
   /**
    * Parses and validates the text of one edit.
@@ -164,6 +179,15 @@ private:
 
   /** Empties the edits. */
   void ClearEdits();
+
+  /**
+   * Shows the parameters of an Lfo tremulant in the texts of its panel.
+   * @param tremulant the Lfo tremulant
+   */
+  void FillLfoTexts(const GOTremulant &tremulant);
+
+  /** Empties the texts of the Lfo panel. */
+  void ClearLfoTexts();
 
   /**
    * Shows the reason why an edit is invalid and moves the focus to the edit.

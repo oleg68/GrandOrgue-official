@@ -38,6 +38,7 @@
 #include "testing/model/GOTestSoundingPipe.h"
 #include "testing/model/GOTestSwitch.h"
 #include "testing/model/GOTestTremulant.h"
+#include "testing/model/GOTestTremulantLfo.h"
 #include "testing/model/GOTestWindchest.h"
 #include "testing/model/registry/GOTestDynamicRegistry.h"
 #include "testing/model/registry/GOTestFreezableRegistry.h"
@@ -84,6 +85,7 @@
 #include "testing/sound/playing/GOTestSoundToneBalanceFilter.h"
 #include "testing/sound/processing/GOTestSoundProcessingChain.h"
 #include "testing/sound/processing/GOTestSoundProcessorTyped.h"
+#include "testing/sound/providers/GOTestSoundTremulantProviderLfo.h"
 #include "testing/sound/providers/GOTestSoundTremulantProviderSynth.h"
 #include "testing/sound/reverb/GOTestSoundReverb.h"
 #include "testing/sound/tasks/GOTestPerfSoundTaskBase.h"
@@ -272,6 +274,7 @@ int main(int argc, char *argv[]) {
   GOTestSoundingPipe testSoundingPipe;
   GOTestSwitch testSwitch;
   GOTestTremulant testTremulant;
+  GOTestTremulantLfo testTremulantLfo;
   GOTestWindchest testWindchest;
   GOTestDynamicRegistry testDynamicRegistry;
   GOTestFreezableRegistry testFreezableRegistry;
@@ -311,6 +314,7 @@ int main(int argc, char *argv[]) {
   GOTestSoundResample testSoundResample;
   GOTestPerfSoundResample testPerfSoundResample;
   GOTestSoundToneBalanceFilter testSoundToneBalanceFilter;
+  GOTestSoundTremulantProviderLfo testSoundTremulantProviderLfo;
   GOTestSoundTremulantProviderSynth testSoundTremulantProviderSynth;
   GOTestSoundReverb testSoundReverb;
   GOTestSoundReverbProcessor testSoundReverbProcessor;
