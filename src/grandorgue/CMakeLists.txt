@@ -240,6 +240,7 @@ sound/processing/GOSoundProcessingChain.cpp
 sound/processing/GOSoundProcessingChainState.cpp
 sound/providers/GOSoundProvider.cpp
 sound/providers/GOSoundProviderWave.cpp
+sound/providers/GOSoundTremulantProviderLfo.cpp
 sound/providers/GOSoundTremulantProviderSynth.cpp
 sound/reverb/GOSoundReverb.cpp
 sound/reverb/GOSoundReverbEngine.cpp

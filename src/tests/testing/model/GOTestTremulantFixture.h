@@ -8,12 +8,14 @@
 #ifndef GOTESTTREMULANTFIXTURE_H
 #define GOTESTTREMULANTFIXTURE_H
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
 #include <wx/string.h>
 
 #include "config/GOConfig.h"
+#include "loader/GOFileStore.h"
 #include "model/GOOrganModel.h"
 
 class GOTremulant;
@@ -28,6 +30,39 @@ struct GOTestTremulantModel {
   GOOrganModel organModel;
 
   GOTestTremulantModel();
+
+  /**
+   * A temporary directory with a stereo float file FILE_NAME with a constant
+   * pitch channel PITCH_VALUE and a constant amplitude channel AMP_VALUE and a
+   * loop, and a file store that looks into it. The directory is removed by the
+   * destructor.
+   */
+  class LfoFile {
+  private:
+    std::filesystem::path m_Path;
+
+  public:
+    /** The length of the file in frames */
+    static constexpr unsigned N_FILE_FRAMES = 600;
+    /** The values of the two channels of the file */
+    static constexpr float PITCH_VALUE = 0.01f;
+    static constexpr float AMP_VALUE = 0.25f;
+    /** The name of the file in the directory of fileStore */
+    static const std::string FILE_NAME;
+    /**
+     * The ODF of an Lfo tremulant that uses FILE_NAME: the group, the name,
+     * the type, Period=100 and both ramps; more keys may be appended to it
+     */
+    static const std::string ODF_HEAD;
+
+    GOFileStore fileStore;
+
+    /** @param config the configuration that the file store needs */
+    explicit LfoFile(const GOConfig &config);
+    ~LfoFile();
+    LfoFile(const LfoFile &) = delete;
+    LfoFile &operator=(const LfoFile &) = delete;
+  };
 };
 
 /** The group of the tremulant in the test ODF and .cmb text */
