@@ -21,11 +21,12 @@ class GOConfigReader;
 class GOConfigWriter;
 class GOMemoryPool;
 class GOSoundTremulantProvider;
+class GOSoundTremulantProviderLfo;
 
 class GOTremulant : public GODrawstop, private GOCacheObject {
 public:
   /** The kind of a tremulant: how its modulation is produced */
-  enum TremulantType { SYNTH, WAVE };
+  enum TremulantType { SYNTH, WAVE, LFO };
 
   // The allowed ranges of the parameters of a Synth tremulant, both ends
   // included. Defined in the .cpp so that this header does not include the
@@ -36,6 +37,12 @@ public:
   static const GOParamRange<int> AMP_MOD_DEPTH_PCNT_RANGE;
   static const GOParamRange<float> PITCH_MOD_DEPTH_CENTS_RANGE;
   static const GOParamRange<int> PITCH_MOD_PHASE_DEGREES_RANGE;
+
+  // The allowed ranges of the parameters of an Lfo tremulant, both ends
+  // included. A channel number 0 means that the file has no such shape
+  static const GOParamRange<int> LFO_CHANNEL_N_RANGE;
+  static const GOParamRange<float> LFO_AMP_DEPTH_ADJUST_DB_RANGE;
+  static const GOParamRange<float> LFO_PITCH_DEPTH_ADJUST_PCNT_RANGE;
 
   /**
    * The wave form of a tremulant as one period, in frames of a given sample
@@ -72,6 +79,10 @@ public:
   };
 
 private:
+  // Access for the model tests that call LoadFromFileWithoutExc,
+  // LoadFromCacheWithoutExc and Render, as in GOSoundVibratoProcessorState
+  friend class GOTestTremulantLfo;
+
   /**
    * Whether the tremulant is defined in the ODF. Its parameters then come only
    * from the ODF and are never saved to the .cmb. Otherwise it is an internal
@@ -100,8 +111,15 @@ private:
   // the pitch phase against the amplitude, in degrees, in -180 .. 359 (a
   // negative value is equivalent to +360); positive: the pitch leads
   int m_PitchModPhaseDegrees;
-  // Renders the loop of a Synth tremulant; nullptr for a Wave tremulant
+  // Lfo only: the level of the amplitude channel of the file, dB
+  float m_LfoAmpDepthAdjustDb;
+  // Lfo only: the depth of the pitch channel of the file, percent
+  float m_LfoPitchDepthAdjustPcnt;
+  // Renders the loop of a Synth or Lfo tremulant; nullptr for a Wave tremulant
   std::unique_ptr<GOSoundTremulantProvider> o_provider;
+
+  /** @return the provider of an Lfo tremulant; the type must be LFO */
+  const GOSoundTremulantProviderLfo &GetLfoProvider() const;
 
   // Marks the organ model as modified. Defined in the .cpp so that this header
   // does not include GOOrganModel.h
@@ -119,8 +137,8 @@ private:
   void Initialize() override;
   void LoadData(const GOFileStore &fileStore, GOMemoryPool &pool) override;
   bool LoadCache(GOMemoryPool &pool, GOCache &cache) override;
-  bool SaveCache(GOCacheWriter &cache) const override { return true; }
-  void UpdateHash(GOHash &hash) const override {}
+  bool SaveCache(GOCacheWriter &cache) const override;
+  void UpdateHash(GOHash &hash) const override;
   const wxString &GetLoadTitle() const override { return GetName(); };
 
   void StartPlayback() override;
@@ -169,6 +187,14 @@ public:
   int GetAmpModDepthPcnt() const { return m_AmpModDepthPcnt; }
   float GetPitchModDepthCents() const { return m_PitchModDepthCents; }
   int GetPitchModPhaseDegrees() const { return m_PitchModPhaseDegrees; }
+  float GetLfoAmpDepthAdjustDb() const { return m_LfoAmpDepthAdjustDb; }
+  float GetLfoPitchDepthAdjustPcnt() const { return m_LfoPitchDepthAdjustPcnt; }
+
+  // The next three are for an Lfo tremulant only: they come from its provider,
+  // which exists after Load() in every loading mode
+  const wxString &GetLfoFileName() const;
+  unsigned GetLfoPitchChannelN() const;
+  unsigned GetLfoAmpChannelN() const;
 
   /**
    * Applies the changes to the parameters of a Synth tremulant and marks the

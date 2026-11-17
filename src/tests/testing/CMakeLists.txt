@@ -17,6 +17,7 @@ set(go_tests
     model/GOTestSwitch.cpp
     model/GOTestTremulant.cpp
     model/GOTestTremulantFixture.cpp
+    model/GOTestTremulantLfo.cpp
     model/GOTestWindchest.cpp
     model/registry/GOTestDynamicRegistry.cpp
     model/registry/GOTestFreezableRegistry.cpp
@@ -67,6 +68,7 @@ set(go_tests
     sound/processing/GOSoundProcessingTestImpls.cpp
     sound/processing/GOTestSoundProcessingChain.cpp
     sound/processing/GOTestSoundProcessorTyped.cpp
+    sound/providers/GOTestSoundTremulantProviderLfo.cpp
     sound/providers/GOTestSoundTremulantProviderSynth.cpp
     sound/reverb/GOTestSoundReverb.cpp
     sound/tasks/GOSoundCooperativeTaskTestImpl.cpp

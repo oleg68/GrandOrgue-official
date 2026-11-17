@@ -31,6 +31,7 @@ static const wxString WX_TAB_TITLE = _("Tremulants");
 
 static const wxString WX_INT_FORMAT = wxT("%d");
 static const wxString WX_PITCH_DEPTH_CENTS_FORMAT = wxT("%.1f");
+static const wxString WX_FLOAT_FORMAT = wxT("%g");
 
 enum {
   ID_EVENT_TREE = 300,
@@ -117,6 +118,35 @@ static void add_edit_row(
     wxGBPosition(row, 2),
     wxDefaultSpan,
     wxALIGN_CENTER_VERTICAL | wxRIGHT | wxBOTTOM,
+    5);
+}
+
+/**
+ * Adds a row "label: value" of read only text to a grid sizer of a panel.
+ * @param panel the parent of the new controls
+ * @param sizer the sizer of the panel
+ * @param row the row of the sizer
+ * @param label the text of the label
+ * @param outPValue the new text of the value; it is owned by the panel
+ */
+static void add_text_row(
+  wxPanel &panel,
+  wxGridBagSizer &sizer,
+  int row,
+  const wxString &label,
+  wxStaticText *&outPValue) {
+  outPValue = new wxStaticText(&panel, wxID_ANY, wxEmptyString);
+  sizer.Add(
+    new wxStaticText(&panel, wxID_ANY, label),
+    wxGBPosition(row, 0),
+    wxDefaultSpan,
+    wxALIGN_RIGHT | wxALIGN_CENTER_VERTICAL | wxLEFT | wxBOTTOM,
+    5);
+  sizer.Add(
+    outPValue,
+    wxGBPosition(row, 1),
+    wxDefaultSpan,
+    wxEXPAND | wxALIGN_CENTER_VERTICAL | wxRIGHT | wxBOTTOM,
     5);
 }
 
@@ -224,6 +254,55 @@ GOOrganSettingsTremulantsTab::GOOrganSettingsTremulantsTab(
   // the panel keeps its place when hidden, so the dialog does not resize
   mainSizer->Add(
     p_SynthParamsPanel,
+    wxGBPosition(2, 1),
+    wxGBSpan(1, 3),
+    wxEXPAND | wxRESERVE_SPACE_EVEN_IF_HIDDEN,
+    0);
+
+  // The read only panel of an Lfo tremulant, in the same grid cell
+  p_LfoParamsPanel = new wxPanel(this);
+
+  wxGridBagSizer *const lfoSizer = new wxGridBagSizer(5, 5);
+
+  add_text_row(
+    *p_LfoParamsPanel, *lfoSizer, 0, _("Wave file:"), p_LfoFileNameText);
+  add_text_row(
+    *p_LfoParamsPanel, *lfoSizer, 1, _("Period (ms):"), p_LfoPeriodMsText);
+  add_text_row(
+    *p_LfoParamsPanel,
+    *lfoSizer,
+    2,
+    _("Start time (ms):"),
+    p_LfoStartTimeMsText);
+  add_text_row(
+    *p_LfoParamsPanel, *lfoSizer, 3, _("Stop time (ms):"), p_LfoStopTimeMsText);
+  add_text_row(
+    *p_LfoParamsPanel,
+    *lfoSizer,
+    4,
+    _("Pitch channel:"),
+    p_LfoPitchChannelText);
+  add_text_row(
+    *p_LfoParamsPanel,
+    *lfoSizer,
+    5,
+    _("Amplitude channel:"),
+    p_LfoAmpChannelText);
+  add_text_row(
+    *p_LfoParamsPanel,
+    *lfoSizer,
+    6,
+    _("Amplitude adjust (dB):"),
+    p_LfoAmpDepthAdjustDbText);
+  add_text_row(
+    *p_LfoParamsPanel,
+    *lfoSizer,
+    7,
+    _("Pitch adjust (%):"),
+    p_LfoPitchDepthAdjustPcntText);
+  p_LfoParamsPanel->SetSizer(lfoSizer);
+  mainSizer->Add(
+    p_LfoParamsPanel,
     wxGBPosition(2, 1),
     wxGBSpan(1, 3),
     wxEXPAND | wxRESERVE_SPACE_EVEN_IF_HIDDEN,
@@ -449,6 +528,46 @@ void GOOrganSettingsTremulantsTab::ClearEdits() {
   set_edit_text(*p_StopTimeMsEdit, *p_StopTimeMsSpin, wxEmptyString);
 }
 
+/**
+ * @param channelN the channel of an Lfo shape, 1-based
+ * @return the number, or "none" for 0: the file has no such shape
+ */
+static wxString format_lfo_channel(unsigned channelN) {
+  return channelN ? wxString::Format(WX_INT_FORMAT, (int)channelN)
+                  : wxString(_("none"));
+}
+
+void GOOrganSettingsTremulantsTab::FillLfoTexts(const GOTremulant &tremulant) {
+  p_LfoFileNameText->SetLabel(tremulant.GetLfoFileName());
+  p_LfoPeriodMsText->SetLabel(
+    wxString::Format(WX_INT_FORMAT, tremulant.GetPeriodMs()));
+  p_LfoStartTimeMsText->SetLabel(
+    wxString::Format(WX_INT_FORMAT, tremulant.GetStartTimeMs()));
+  p_LfoStopTimeMsText->SetLabel(
+    wxString::Format(WX_INT_FORMAT, tremulant.GetStopTimeMs()));
+  p_LfoPitchChannelText->SetLabel(
+    format_lfo_channel(tremulant.GetLfoPitchChannelN()));
+  p_LfoAmpChannelText->SetLabel(
+    format_lfo_channel(tremulant.GetLfoAmpChannelN()));
+  p_LfoAmpDepthAdjustDbText->SetLabel(wxString::Format(
+    WX_FLOAT_FORMAT, (double)tremulant.GetLfoAmpDepthAdjustDb()));
+  p_LfoPitchDepthAdjustPcntText->SetLabel(wxString::Format(
+    WX_FLOAT_FORMAT, (double)tremulant.GetLfoPitchDepthAdjustPcnt()));
+}
+
+void GOOrganSettingsTremulantsTab::ClearLfoTexts() {
+  for (wxStaticText *pText :
+       {p_LfoFileNameText,
+        p_LfoPeriodMsText,
+        p_LfoStartTimeMsText,
+        p_LfoStopTimeMsText,
+        p_LfoPitchChannelText,
+        p_LfoAmpChannelText,
+        p_LfoAmpDepthAdjustDbText,
+        p_LfoPitchDepthAdjustPcntText})
+    pText->SetLabel(wxEmptyString);
+}
+
 void GOOrganSettingsTremulantsTab::ShowParseError(const ParseError &error) {
   wxTextCtrl *pEdit = nullptr;
   wxString fieldName;
@@ -528,20 +647,33 @@ void GOOrganSettingsTremulantsTab::DisplaySelectedTremulantParameters() {
   unsigned nSelected = 0;
   unsigned nInternal = 0;
   unsigned nSynth = 0;
+  unsigned nLfo = 0;
+  unsigned nWave = 0;
   const GOTremulant *pLastTremulant = nullptr;
 
   DoForSelectedTremulants([&](unsigned, GOTremulant &tremulant) {
     nSelected++;
     if (!tremulant.IsOdfDefined())
       nInternal++;
-    if (tremulant.GetTremulantType() == GOTremulant::SYNTH)
+    // no default: the compiler warns about a new type
+    switch (tremulant.GetTremulantType()) {
+    case GOTremulant::SYNTH:
       nSynth++;
+      break;
+    case GOTremulant::LFO:
+      nLfo++;
+      break;
+    case GOTremulant::WAVE:
+      nWave++;
+      break;
+    }
     pLastTremulant = &tremulant;
   });
 
   const bool isAnySelected = nSelected > 0;
   const bool isAllSynth = isAnySelected && nSynth == nSelected;
-  const bool isAllWave = isAnySelected && nSynth == 0;
+  const bool isAllLfo = isAnySelected && nLfo == nSelected;
+  const bool isAllWave = isAnySelected && nWave == nSelected;
   const bool isAllInternal = isAnySelected && nInternal == nSelected;
   const bool isAllOdfDefined = isAnySelected && nInternal == 0;
   // only the parameters of internal Synth tremulants may be edited
@@ -549,12 +681,20 @@ void GOOrganSettingsTremulantsTab::DisplaySelectedTremulantParameters() {
 
   p_IsOdfDefined->SetValue(isAllOdfDefined);
   p_TypeText->SetLabel(
-    isAllSynth ? _("Synth") : (isAllWave ? _("Wave") : wxString()));
+    isAllSynth    ? _("Synth")
+      : isAllLfo  ? _("Lfo")
+      : isAllWave ? _("Wave")
+                  : wxString());
   p_SynthParamsPanel->Show(isAllSynth);
+  p_LfoParamsPanel->Show(isAllLfo);
   if (nSelected == 1 && isAllSynth)
     FillEdits(*pLastTremulant);
   else
     ClearEdits();
+  if (nSelected == 1 && isAllLfo)
+    FillLfoTexts(*pLastTremulant);
+  else
+    ClearLfoTexts();
   p_SynthParamsPanel->Enable(areEditable);
   m_IsDefaultEnabled = areEditable;
   Layout();

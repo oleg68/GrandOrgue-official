@@ -13,14 +13,18 @@
 #include <utility>
 #include <wx/intl.h>
 
+#include "GOHash.h"
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 #include "model/GOOrganModel.h"
+#include "sound/GOSoundOrganEngine.h"
+#include "sound/providers/GOSoundTremulantProviderLfo.h"
 #include "sound/providers/GOSoundTremulantProviderSynth.h"
 
 static const GOConfigEnum TREMULANT_TYPES({
   {wxT("Synth"), GOTremulant::SYNTH},
   {wxT("Wave"), GOTremulant::WAVE},
+  {wxT("Lfo"), GOTremulant::LFO},
 });
 
 static const wxString WX_PERIOD_MS = wxT("PeriodMs");
@@ -29,6 +33,13 @@ static const wxString WX_STOP_TIME_MS = wxT("StopTimeMs");
 static const wxString WX_AMP_MOD_DEPTH_PCNT = wxT("AmpModDepthPcnt");
 static const wxString WX_PITCH_MOD_DEPTH_CENTS = wxT("PitchModDepthCents");
 static const wxString WX_PITCH_MOD_PHASE_DEGREES = wxT("PitchModPhaseDegrees");
+
+static const wxString WX_LFO_WAVE_FILE = wxT("LfoWaveFile");
+static const wxString WX_LFO_PITCH_CHANNEL = wxT("LfoPitchChannel");
+static const wxString WX_LFO_AMP_CHANNEL = wxT("LfoAmpChannel");
+static const wxString WX_LFO_AMP_DEPTH_ADJUST_DB = wxT("LfoAmpDepthAdjustDb");
+static const wxString WX_LFO_PITCH_DEPTH_ADJUST_PCNT
+  = wxT("LfoPitchDepthAdjustPcnt");
 
 // The amplitude modulation depth of an ODF tremulant that does not give it
 static constexpr int ODF_AMP_MOD_DEPTH_PCNT_DEFAULT = 0;
@@ -49,6 +60,12 @@ const GOParamRange<int> GOTremulant::AMP_MOD_DEPTH_PCNT_RANGE{0, 100};
 const GOParamRange<float> GOTremulant::PITCH_MOD_DEPTH_CENTS_RANGE{
   0, MAX_PITCH_MOD_DEPTH_CENTS};
 const GOParamRange<int> GOTremulant::PITCH_MOD_PHASE_DEGREES_RANGE{-180, 359};
+// 0 means that the file has no such shape
+const GOParamRange<int> GOTremulant::LFO_CHANNEL_N_RANGE{0, 2};
+const GOParamRange<float> GOTremulant::LFO_AMP_DEPTH_ADJUST_DB_RANGE{
+  -60.0f, 20.0f};
+const GOParamRange<float> GOTremulant::LFO_PITCH_DEPTH_ADJUST_PCNT_RANGE{
+  0.0f, 400.0f};
 
 // The parameters of a tremulant that is not defined in the ODF
 static constexpr int PERIOD_MS_DEFAULT = 200;
@@ -57,6 +74,12 @@ static constexpr int STOP_TIME_MS_DEFAULT = 300;
 static constexpr int AMP_MOD_DEPTH_PCNT_DEFAULT = 50;
 static constexpr float PITCH_MOD_DEPTH_CENTS_DEFAULT = 0.0f;
 static constexpr int PITCH_MOD_PHASE_DEGREES_DEFAULT = 0;
+
+// The defaults of the Lfo keys of an ODF tremulant
+static constexpr int LFO_PITCH_CHANNEL_N_DEFAULT = 1;
+static constexpr int LFO_AMP_CHANNEL_N_DEFAULT = 2;
+static constexpr float LFO_AMP_DEPTH_ADJUST_DB_DEFAULT = 0.0f;
+static constexpr float LFO_PITCH_DEPTH_ADJUST_PCNT_DEFAULT = 100.0f;
 
 GOTremulant::GOTremulant(GOOrganModel &organModel)
   : GODrawstop(organModel, OBJECT_TYPE_TREMULANT),
@@ -67,7 +90,9 @@ GOTremulant::GOTremulant(GOOrganModel &organModel)
     m_StopTimeMs(0),
     m_AmpModDepthPcnt(0),
     m_PitchModDepthCents(0.0f),
-    m_PitchModPhaseDegrees(0) {
+    m_PitchModPhaseDegrees(0),
+    m_LfoAmpDepthAdjustDb(LFO_AMP_DEPTH_ADJUST_DB_DEFAULT),
+    m_LfoPitchDepthAdjustPcnt(LFO_PITCH_DEPTH_ADJUST_PCNT_DEFAULT) {
   r_OrganModel.RegisterCacheObject(this);
 }
 
@@ -76,14 +101,32 @@ GOTremulant::~GOTremulant() { r_OrganModel.UnRegisterCacheObject(this); }
 
 void GOTremulant::Initialize() {}
 
-/*
- * Nothing to load for Synth: the wave form is rendered by the sound engine
- * because it depends on the sample rate. Lfo (PR 12) loads and caches its wav
- * here.
- */
-void GOTremulant::LoadData(const GOFileStore &fileStore, GOMemoryPool &pool) {}
+void GOTremulant::UpdateHash(GOHash &hash) const {
+  hash.Update((int)m_TremulantType);
+  /* The compression of an Lfo section follows the global setting, so toggling
+   * it must invalidate the organ cache, as for GOSoundingPipe. Synth and Wave
+   * have no cached data, so the setting must not reset their cache */
+  if (m_TremulantType == LFO)
+    hash.Update((int)r_OrganModel.GetConfig().LosslessCompression());
+  if (o_provider)
+    o_provider->UpdateHash(hash);
+}
 
-bool GOTremulant::LoadCache(GOMemoryPool &pool, GOCache &cache) { return true; }
+void GOTremulant::LoadData(const GOFileStore &fileStore, GOMemoryPool &pool) {
+  /* Synth needs nothing: the wave form is rendered by the sound engine because
+   * it depends on the sample rate; a Wave tremulant has no provider */
+  if (m_TremulantType == LFO && o_provider)
+    o_provider->LoadData(
+      fileStore, pool, r_OrganModel.GetConfig().LosslessCompression());
+}
+
+bool GOTremulant::LoadCache(GOMemoryPool &pool, GOCache &cache) {
+  return o_provider ? o_provider->LoadCache(pool, cache) : true;
+}
+
+bool GOTremulant::SaveCache(GOCacheWriter &cache) const {
+  return o_provider ? o_provider->SaveCache(cache) : true;
+}
 
 void GOTremulant::LoadFromCmb(GOConfigReader &cfg) {
   const wxString &group = GODrawstop::m_group;
@@ -302,8 +345,8 @@ void GOTremulant::Load(GOConfigReader &cfg, const wxString &group) {
   SetGroupAndPrefix(group, wxEmptyString);
   m_TremulantType = (TremulantType)cfg.ReadEnum(
     ODFSetting, group, wxT("TremulantType"), TREMULANT_TYPES, false, SYNTH);
-  if (m_TremulantType == SYNTH) {
-    o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
+  if (m_TremulantType != WAVE) {
+    // Shared by Synth and Lfo; a Wave tremulant reads none of them
     m_PeriodMs = cfg.ReadLong(
       ODFSetting,
       group,
@@ -314,6 +357,9 @@ void GOTremulant::Load(GOConfigReader &cfg, const wxString &group) {
       cfg, group, wxT("StartRate"), WX_START_TIME_MS, START_TIME_MS_RANGE);
     m_StopTimeMs = read_ramp_time_ms(
       cfg, group, wxT("StopRate"), WX_STOP_TIME_MS, STOP_TIME_MS_RANGE);
+  }
+  if (m_TremulantType == SYNTH) {
+    o_provider = std::make_unique<GOSoundTremulantProviderSynth>();
     m_AmpModDepthPcnt = cfg.ReadInteger(
       ODFSetting,
       group,
@@ -338,8 +384,81 @@ void GOTremulant::Load(GOConfigReader &cfg, const wxString &group) {
       PITCH_MOD_PHASE_DEGREES_RANGE.m_max,
       false,
       PITCH_MOD_PHASE_DEGREES_DEFAULT);
+  } else if (m_TremulantType == LFO) {
+    // ReadFileName() does not reject an empty value, so it is checked here
+    const wxString fileName
+      = cfg.ReadFileName(ODFSetting, group, WX_LFO_WAVE_FILE, true);
+
+    if (fileName.IsEmpty())
+      throw wxString::Format(
+        _("Key '%s' must not be empty at section '%s'"),
+        WX_LFO_WAVE_FILE,
+        group);
+
+    // The file and the channels go to the provider only
+    const unsigned pitchChannelN = (unsigned)cfg.ReadInteger(
+      ODFSetting,
+      group,
+      WX_LFO_PITCH_CHANNEL,
+      LFO_CHANNEL_N_RANGE.m_min,
+      LFO_CHANNEL_N_RANGE.m_max,
+      false,
+      LFO_PITCH_CHANNEL_N_DEFAULT);
+    const unsigned ampChannelN = (unsigned)cfg.ReadInteger(
+      ODFSetting,
+      group,
+      WX_LFO_AMP_CHANNEL,
+      LFO_CHANNEL_N_RANGE.m_min,
+      LFO_CHANNEL_N_RANGE.m_max,
+      false,
+      LFO_AMP_CHANNEL_N_DEFAULT);
+
+    if (!pitchChannelN && !ampChannelN)
+      throw wxString::Format(
+        _("Section '%s' has neither %s nor %s"),
+        group,
+        WX_LFO_PITCH_CHANNEL,
+        WX_LFO_AMP_CHANNEL);
+
+    m_LfoAmpDepthAdjustDb = (float)cfg.ReadFloat(
+      ODFSetting,
+      group,
+      WX_LFO_AMP_DEPTH_ADJUST_DB,
+      LFO_AMP_DEPTH_ADJUST_DB_RANGE.m_min,
+      LFO_AMP_DEPTH_ADJUST_DB_RANGE.m_max,
+      false,
+      LFO_AMP_DEPTH_ADJUST_DB_DEFAULT);
+    m_LfoPitchDepthAdjustPcnt = (float)cfg.ReadFloat(
+      ODFSetting,
+      group,
+      WX_LFO_PITCH_DEPTH_ADJUST_PCNT,
+      LFO_PITCH_DEPTH_ADJUST_PCNT_RANGE.m_min,
+      LFO_PITCH_DEPTH_ADJUST_PCNT_RANGE.m_max,
+      false,
+      LFO_PITCH_DEPTH_ADJUST_PCNT_DEFAULT);
+    o_provider = std::make_unique<GOSoundTremulantProviderLfo>(
+      fileName, pitchChannelN, ampChannelN);
   }
+  // Wave reads nothing and creates no provider
   GODrawstop::Load(cfg, group);
+}
+
+const GOSoundTremulantProviderLfo &GOTremulant::GetLfoProvider() const {
+  assert(m_TremulantType == LFO);
+  assert(o_provider);
+  return static_cast<const GOSoundTremulantProviderLfo &>(*o_provider);
+}
+
+const wxString &GOTremulant::GetLfoFileName() const {
+  return GetLfoProvider().GetFileName();
+}
+
+unsigned GOTremulant::GetLfoPitchChannelN() const {
+  return GetLfoProvider().GetPitchChannelN();
+}
+
+unsigned GOTremulant::GetLfoAmpChannelN() const {
+  return GetLfoProvider().GetAmpChannelN();
 }
 
 void GOTremulant::SetupIsToStoreInCmb() {
@@ -360,15 +479,27 @@ GOTremulant::Description GOTremulant::Render(unsigned sampleRate) const {
   assert(nPeriodFrames > 0);
 
   /* How the deviations are modified: the depths as multipliers and the pitch
-   * phase. TODO calculate for lfo; until then an Lfo tremulant gets 0, that is
-   * no modulation */
+   * phase */
   const bool isSynth = m_TremulantType == SYNTH;
-  const float ampFactor = isSynth ? m_AmpModDepthPcnt / 100.0f : 0.0f;
-  /* Linear in frequency: the pitch goes down by exactly m_PitchModDepthCents.
-   * A zero depth is set to an exact 0, whatever the rounding of exp2() */
-  const float pitchFactor = isSynth && m_PitchModDepthCents != 0.0f
-    ? 1.0f - std::exp2(-m_PitchModDepthCents / 1200.0f)
-    : 0.0f;
+  const bool isLfo = m_TremulantType == LFO;
+  /* Synth: percent. Lfo: dB relative to the file's amplitude channel; the
+   * -60..+20 dB range is inside convertGainToScaleFactor()'s domain, so the
+   * factor is always > 0 */
+  const float ampFactor = isSynth
+    ? m_AmpModDepthPcnt / 100.0f
+    : (
+      isLfo
+        ? GOSoundOrganEngine::convertGainToScaleFactor(m_LfoAmpDepthAdjustDb)
+        : 0.0f);
+  /* Synth: linear in frequency, the pitch goes down by exactly
+   * m_PitchModDepthCents; a zero depth is set to an exact 0, whatever the
+   * rounding of exp2(). Lfo: percent of the file's pitch channel */
+  const float pitchFactor = isSynth
+    ? (
+      m_PitchModDepthCents != 0.0f
+        ? 1.0f - std::exp2(-m_PitchModDepthCents / 1200.0f)
+        : 0.0f)
+    : (isLfo ? m_LfoPitchDepthAdjustPcnt / 100.0f : 0.0f);
 
   assert(ampFactor >= 0.0f);
   assert(pitchFactor >= 0.0f);

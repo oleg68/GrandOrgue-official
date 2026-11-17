@@ -93,6 +93,17 @@ private:
   wxSpinButton *p_StartTimeMsSpin;
   wxTextCtrl *p_StopTimeMsEdit;
   wxSpinButton *p_StopTimeMsSpin;
+  // The panel of the parameters of an Lfo tremulant: read only texts; shown
+  // only for Lfo tremulants
+  wxPanel *p_LfoParamsPanel;
+  wxStaticText *p_LfoFileNameText;
+  wxStaticText *p_LfoPeriodMsText;
+  wxStaticText *p_LfoStartTimeMsText;
+  wxStaticText *p_LfoStopTimeMsText;
+  wxStaticText *p_LfoPitchChannelText;
+  wxStaticText *p_LfoAmpChannelText;
+  wxStaticText *p_LfoAmpDepthAdjustDbText;
+  wxStaticText *p_LfoPitchDepthAdjustPcntText;
 
   /**
    * Parses and validates the text of one edit.
@@ -164,6 +175,15 @@ private:
 
   /** Empties the edits. */
   void ClearEdits();
+
+  /**
+   * Shows the parameters of an Lfo tremulant in the texts of its panel.
+   * @param tremulant the Lfo tremulant
+   */
+  void FillLfoTexts(const GOTremulant &tremulant);
+
+  /** Empties the texts of the Lfo panel. */
+  void ClearLfoTexts();
 
   /**
    * Shows the reason why an edit is invalid and moves the focus to the edit.

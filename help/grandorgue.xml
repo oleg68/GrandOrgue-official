@@ -5993,6 +5993,14 @@ role="bold">Group</emphasis> attribute are grouped in the same submenu.
 	changed.
       </para>
       <simpara>
+	For a tremulant of the type <emphasis>Lfo</emphasis> the dialog shows its
+	parameters read from the definition file: the wave file, the period, the
+	start and stop times, the channels of the file with the pitch and the
+	amplitude modulation (<emphasis>none</emphasis> if the file has no such
+	modulation) and the adjustments of their depths. They can not be changed
+	here: change them in the definition file.
+      </simpara>
+      <simpara>
 	Select the tremulant you wish to customize. It is possible to select
 	multiple tremulants at once, to e.g. update one parameter of
 	multiple tremulants to the same value in a single operation.
@@ -11236,14 +11244,21 @@ Tremulants are drawstop objects with the following additional attributes:
           <listitem>
             <para>
 (enumeration, default: Synth) Type of the tremulant. Valid values are:
-Synth (synthesized tremulant) and Wave (tremulant based on different
-wave samples).
+Synth (synthesized tremulant), Lfo (tremulant whose modulation shapes are
+read from an LFO wav file) and Wave (tremulant based on different wave
+samples).
      </para>
           </listitem>
         </varlistentry>
       </variablelist>
       <para>
-Synthesized tremulants have the following attributes:
+Synth and Lfo tremulants have the attributes Period, StartRate, StartTimeMs,
+StopRate and StopTimeMs. The attributes AmpModDepth, PitchModDepthCents and
+PitchModPhaseDegrees are for Synth tremulants only; the attributes whose names
+start with Lfo are for Lfo tremulants only.
+      </para>
+      <para>
+Synth and Lfo tremulants have the following attributes:
       </para>
       <variablelist>
         <varlistentry>
@@ -11365,6 +11380,75 @@ the pitch leads the volume. A negative value is equal to the value increased by
           </listitem>
         </varlistentry>
       </variablelist>
+      <para>
+Lfo tremulants have the following attributes in addition to Period and the
+start and stop attributes:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>LfoWaveFile</term>
+          <listitem>
+            <para>
+(string, required) The wav file whose longest loop is one period of the
+modulation: 8-, 16- or 24-bit PCM or 32-bit IEEE float, mono or stereo. The
+file must have a loop. The samples before the loop are ignored. The sample rate
+of the file is not used: Period sets the rate. A sample x of the pitch channel
+is the relative frequency deviation df/f; a sample x of the amplitude channel
+is the relative level swing, and its average is kept, so a non-zero average
+changes the level while the tremulant is engaged.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>LfoPitchChannel</term>
+          <listitem>
+            <para>
+(integer 0 - 2, default: 1) The channel of LfoWaveFile with the pitch
+modulation. 0 means that the file has no pitch modulation. A channel that the
+file does not have is an error.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>LfoAmpChannel</term>
+          <listitem>
+            <para>
+(integer 0 - 2, default: 2) The channel of LfoWaveFile with the amplitude
+modulation. 0 means that the file has no amplitude modulation, which is the
+case of a mono file. A channel that the file does not have is an error. The
+LfoPitchChannel and LfoAmpChannel must not both be 0.
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>LfoAmpDepthAdjustDb</term>
+          <listitem>
+            <para>
+(float -60 - 20, default: 0) Scales the amplitude channel in dB: the factor is
+10^(dB/20).
+     </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>LfoPitchDepthAdjustPcnt</term>
+          <listitem>
+            <para>
+(float 0 - 400, default: 100) Scales the pitch channel in percent. 0 switches
+the pitch modulation off.
+     </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+The modulation of an Lfo tremulant has no phase shift: the file carries the
+phase relation between its channels. The samples are used exactly as stored,
+whichever format the file has. Changing the wav file in place does not
+invalidate the organ cache: update or delete the cache. With the lossless
+compression switched off the samples are stored exactly; with it on the
+section is compressed like a pipe, so a float file keeps 24 significant bits
+and an integer file keeps its own depth exactly. A Period that is too long for
+the length of the loop switches the modulation off, and a warning is logged.
+      </para>
     </sect1>
     <sect1>
       <title>Windchest objects</title>
