@@ -10,6 +10,12 @@
 
 #include <vector>
 
+class GOCache;
+class GOCacheWriter;
+class GOFileStore;
+class GOHash;
+class GOMemoryPool;
+
 /**
  * A source of one period of the tremulant deviations: the amplitude deviation
  * and the pitch deviation at the same frame indexes, in the provider's
@@ -36,6 +42,38 @@ public:
   virtual ~GOSoundTremulantProvider() = default;
 
   /**
+   * Adds everything the provider's cached data depends on to the hash. The
+   * default adds nothing: a provider whose data is computed needs no cache.
+   * @param hash the hash of the organ cache
+   */
+  virtual void UpdateHash(GOHash &hash) const {}
+
+  /**
+   * Loads the provider's data from the files. The default does nothing: a
+   * provider whose data is computed from the parameters needs no file.
+   * @param fileStore the source of the files
+   * @param pool the memory pool the loaded data is allocated in
+   * @param isCompressed whether to compress the loaded data, like a pipe
+   */
+  virtual void LoadData(
+    const GOFileStore &fileStore, GOMemoryPool &pool, bool isCompressed) {}
+
+  /**
+   * Restores the provider's data from the organ cache instead of LoadData().
+   * @param pool the memory pool the restored data is allocated in
+   * @param cache the organ cache to read from
+   * @return whether the data was restored; the default has nothing to restore
+   */
+  virtual bool LoadCache(GOMemoryPool &pool, GOCache &cache) { return true; }
+
+  /**
+   * Writes the provider's data to the organ cache.
+   * @param cache the cache writer
+   * @return whether the data was written; the default has nothing to write
+   */
+  virtual bool SaveCache(GOCacheWriter &cache) const { return true; }
+
+  /**
    * Renders exactly one period of the deviations, in their natural phase
    * relation (the user's phase shift is applied by the caller).
    *
@@ -45,7 +83,8 @@ public:
    * @param isPitchNeeded whether the pitch deviation is to be rendered
    * @return the deviations in the provider's natural scale, each empty or
    *   nPeriodFrames long; a deviation that is not needed is not computed and
-   *   is empty
+   *   is empty. A provider that has no data to render (not loaded) returns
+   *   both deviations empty
    */
   virtual Shapes RenderOnePeriod(
     unsigned nPeriodFrames, bool isAmpNeeded, bool isPitchNeeded) const = 0;

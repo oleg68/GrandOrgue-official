@@ -58,6 +58,11 @@ private:
   /** BuildWaveForm() renders the tremulant. */
   void TestBuildWaveForm();
 
+  /** The task builds a wave form from an Lfo tremulant with the loaded file,
+   * and a working form without modulation from one whose data is not
+   * loaded. */
+  void TestBuildWaveFormLfo();
+
   /** The buffers are not reallocated while running and swapping. */
   void TestStableBuffers();
 
