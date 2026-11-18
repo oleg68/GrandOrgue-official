@@ -1037,6 +1037,126 @@ void GOTestSoundResample::TestScaleResamplerPosIncrement() {
     "a tiny ratio must be limited to MIN_FRACTION_INCREMENT");
 }
 
+namespace {
+/** The outcome of taking all the chunks of a ChunkedIncrements */
+struct ChunkedOutcome {
+  // The source position after the last chunk, in source units
+  uint64_t nDoneSourceUnits;
+  // The length of the last chunk in target frames
+  unsigned nLastChunkTargetFrames;
+  // Whether the position was never above the exact straight line
+  bool isNeverAboveExact;
+};
+} // namespace
+
+/**
+ * Takes all the chunks of a ChunkedIncrements and adds up the source
+ * position the way ReadBlock() would advance it.
+ * @param nSourceFrames the source frames to consume in total
+ * @param nTargetFrames the target frames to render in total
+ * @param nChunkTargetFrames the length of a chunk in target frames; the last
+ *   chunk may be shorter
+ * @return the final position, the last chunk and whether the position stayed
+ *   at or below the exact line after every chunk
+ */
+static ChunkedOutcome take_all_chunks(
+  unsigned nSourceFrames, unsigned nTargetFrames, unsigned nChunkTargetFrames) {
+  GOSoundResample::ChunkedIncrements increments(nSourceFrames, nTargetFrames);
+  const uint64_t nTotalSourceUnits
+    = (uint64_t)nSourceFrames * GOSoundResample::UPSAMPLE_FACTOR;
+  ChunkedOutcome outcome = {0, 0, true};
+  unsigned firstTargetFrameI;
+
+  while ((firstTargetFrameI = increments.GetDoneTargetFrames())
+         < nTargetFrames) {
+    outcome.nLastChunkTargetFrames
+      = std::min(nChunkTargetFrames, nTargetFrames - firstTargetFrameI);
+    outcome.nDoneSourceUnits
+      += (uint64_t)increments.NextChunkIncrement(outcome.nLastChunkTargetFrames)
+      * outcome.nLastChunkTargetFrames;
+
+    // The exact position is nTotalSourceUnits * nDone / nTargetFrames; both
+    // sides are multiplied by nTargetFrames to stay in integers
+    const uint64_t nDoneTargetFrames = increments.GetDoneTargetFrames();
+
+    outcome.isNeverAboveExact = outcome.isNeverAboveExact
+      && outcome.nDoneSourceUnits * nTargetFrames
+        <= nTotalSourceUnits * nDoneTargetFrames;
+  }
+  return outcome;
+}
+
+void GOTestSoundResample::TestChunkedIncrementsError() {
+  struct Case {
+    unsigned nSourceFrames;
+    unsigned nTargetFrames;
+  };
+  // 100001: a 673-frame last chunk, 99329: a 1-frame last chunk,
+  // 1900000 / 21168000: a long run (no 64-bit overflow), 48 / 262144: 1.5
+  // units per target frame, near MIN_RATE
+  const Case cases[] = {
+    {480, 100000},
+    {480, 100001},
+    {480, 99329},
+    {1900000, 21168000},
+    {48, 262144},
+    {48, 262145}};
+
+  for (const Case &testCase : cases)
+    for (const unsigned nChunkTargetFrames : {1u, 32u, 1024u}) {
+      const ChunkedOutcome outcome = take_all_chunks(
+        testCase.nSourceFrames, testCase.nTargetFrames, nChunkTargetFrames);
+      const uint64_t nExactSourceUnits
+        = (uint64_t)testCase.nSourceFrames * GOSoundResample::UPSAMPLE_FACTOR;
+
+      GOAssert(
+        outcome.isNeverAboveExact,
+        "the position must never be above the exact line");
+      GOAssert(
+        outcome.nDoneSourceUnits <= nExactSourceUnits
+          && nExactSourceUnits - outcome.nDoneSourceUnits
+            < outcome.nLastChunkTargetFrames,
+        "the position must end short of the exact end by less than the last "
+        "chunk");
+    }
+}
+
+void GOTestSoundResample::TestChunkedIncrementsExactRates() {
+  using Resample = GOSoundResample;
+  struct Case {
+    unsigned nSourceFrames;
+    unsigned nTargetFrames;
+    unsigned expectedIncrement;
+  };
+  constexpr unsigned N_CHUNK_TARGET_FRAMES = 100;
+  const Case cases[] = {
+    {2000, 1000, 2 * Resample::UPSAMPLE_FACTOR},
+    {1000, 1000, Resample::UPSAMPLE_FACTOR},
+    {1000, 2000, Resample::UPSAMPLE_FACTOR / 2},
+    // MIN_RATE: one source frame for UPSAMPLE_FACTOR target frames
+    {1, Resample::UPSAMPLE_FACTOR, Resample::MIN_FRACTION_INCREMENT}};
+
+  for (const Case &testCase : cases) {
+    Resample::ChunkedIncrements increments(
+      testCase.nSourceFrames, testCase.nTargetFrames);
+    unsigned nDoneTargetFrames = 0;
+
+    while (nDoneTargetFrames < testCase.nTargetFrames) {
+      const unsigned nChunkTargetFrames = std::min(
+        N_CHUNK_TARGET_FRAMES, testCase.nTargetFrames - nDoneTargetFrames);
+
+      GOAssert(
+        increments.NextChunkIncrement(nChunkTargetFrames)
+          == testCase.expectedIncrement,
+        "an exact rate must give the same increment to every chunk");
+      nDoneTargetFrames += nChunkTargetFrames;
+      GOAssert(
+        increments.GetDoneTargetFrames() == nDoneTargetFrames,
+        "GetDoneTargetFrames() must follow the chunks");
+    }
+  }
+}
+
 void GOTestSoundResample::run() {
   GO_RUN_TEST(TestBandlimitedInterpolation())
   GO_RUN_TEST(TestBandlimitedVariableRatePlanar())
@@ -1056,4 +1176,6 @@ void GOTestSoundResample::run() {
   GO_RUN_TEST(TestRingOneFrameStep())
   GO_RUN_TEST(TestGetIndexIncrementByUnits())
   GO_RUN_TEST(TestComputeNUnitsToReach())
+  GO_RUN_TEST(TestChunkedIncrementsError())
+  GO_RUN_TEST(TestChunkedIncrementsExactRates())
 }

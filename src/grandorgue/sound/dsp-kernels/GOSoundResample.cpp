@@ -31,6 +31,43 @@
 #define M_PI 3.14159265358979323846264338327950288
 #endif
 
+GOSoundResample::ChunkedIncrements::ChunkedIncrements(
+  unsigned nTotalSourceFrames, unsigned nTotalTargetFrames)
+  : m_TotalSourceUnits((uint64_t)nTotalSourceFrames << UPSAMPLE_BITS),
+    m_NTotalTargetFrames(nTotalTargetFrames) {
+  assert(nTotalTargetFrames > 0);
+  // The average increment is within
+  // MIN_FRACTION_INCREMENT..MAX_FRACTION_INCREMENT
+  assert(
+    m_TotalSourceUnits
+    >= (uint64_t)MIN_FRACTION_INCREMENT * nTotalTargetFrames);
+  assert(
+    m_TotalSourceUnits
+    <= (uint64_t)MAX_FRACTION_INCREMENT * nTotalTargetFrames);
+}
+
+unsigned GOSoundResample::ChunkedIncrements::NextChunkIncrement(
+  unsigned nChunkTargetFrames) {
+  assert(nChunkTargetFrames > 0);
+  assert(m_NDoneTargetFrames + nChunkTargetFrames <= m_NTotalTargetFrames);
+
+  /* The increment is the source units that are left over the target frames
+   * that are left, rounded down. So the position never passes the end
+   * (m_DoneSourceUnits <= m_TotalSourceUnits, the subtraction cannot wrap),
+   * and the average increment of the rest never falls, so it stays within the
+   * range checked by the constructor */
+  const unsigned nRemainingTargetFrames
+    = m_NTotalTargetFrames - m_NDoneTargetFrames;
+  const uint64_t nRemainingSourceUnits = m_TotalSourceUnits - m_DoneSourceUnits;
+  const uint64_t increment = nRemainingSourceUnits / nRemainingTargetFrames;
+
+  assert(
+    increment >= MIN_FRACTION_INCREMENT && increment <= MAX_FRACTION_INCREMENT);
+  m_DoneSourceUnits += increment * nChunkTargetFrames;
+  m_NDoneTargetFrames += nChunkTargetFrames;
+  return (unsigned)increment;
+}
+
 void GOSoundResample::ResamplingPosition::Init(
   unsigned startIndex, unsigned startFraction) {
   assert(startFraction < UPSAMPLE_FACTOR);

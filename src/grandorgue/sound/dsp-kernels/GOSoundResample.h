@@ -121,6 +121,63 @@ public:
   };
 
   /**
+   * Gives the increments for resampling in chunks, so that
+   * nTotalTargetFrames target frames consume exactly nTotalSourceFrames
+   * source frames.
+   *
+   * One constant increment cannot do it: an increment is an integer number of
+   * 1/UPSAMPLE_FACTOR of a source frame, so its rounding error grows with
+   * every target frame, up to whole source frames for a long run. Here the
+   * increment of each chunk is the average of the rest, so the error of the
+   * earlier chunks is corrected by the later ones and ends in the last chunk:
+   * after it the position is short of the exact end by less than the length
+   * of that chunk, in units, and never beyond it.
+   */
+  class ChunkedIncrements {
+  private:
+    /* The source frames to consume in total, in source units: the number of
+     * the frames times UPSAMPLE_FACTOR. A source unit is 1/UPSAMPLE_FACTOR of
+     * a source frame, the unit of the increments */
+    const uint64_t m_TotalSourceUnits;
+    const unsigned m_NTotalTargetFrames;
+
+    /* The source position advanced by the chunks taken so far, in source
+     * units. It is proportional to the number of source frames consumed so
+     * far (frames * UPSAMPLE_FACTOR), and, unlike the whole frames, it also
+     * includes the fractional increments */
+    uint64_t m_DoneSourceUnits = 0;
+    unsigned m_NDoneTargetFrames = 0;
+
+  public:
+    /**
+     * @param nTotalSourceFrames the source frames to consume in total, > 0
+     * @param nTotalTargetFrames the target frames to render in total, > 0;
+     *   the average rate nTotalSourceFrames / nTotalTargetFrames must be
+     *   within MIN_RATE..MAX_RATE
+     */
+    ChunkedIncrements(unsigned nTotalSourceFrames, unsigned nTotalTargetFrames);
+
+    /**
+     * @return the target frames in the chunks taken so far: the index of the
+     *   first frame of the next chunk, up to nTotalTargetFrames
+     */
+    unsigned GetDoneTargetFrames() const { return m_NDoneTargetFrames; }
+
+    /**
+     * Takes the next chunk of the target frames and returns its increment.
+     * Call it once per ReadBlock(), in order, until nTotalTargetFrames are
+     * taken. It advances the done counters: GetDoneTargetFrames() grows by
+     * nChunkTargetFrames, and the source position done by the returned
+     * increment times nChunkTargetFrames.
+     * @param nChunkTargetFrames the length of the chunk in target (output)
+     *   frames, not in source frames; > 0; the chunks together must not
+     *   exceed nTotalTargetFrames
+     * @return the increment to pass to ReadBlock() for this chunk
+     */
+    unsigned NextChunkIncrement(unsigned nChunkTargetFrames);
+  };
+
+  /**
    * Converts a resampling-rate multiplier (source frames per target frame,
    * e.g. 1.0 = no change, 2^(cents/1200) for a pitch shift) into the
    * 1/UPSAMPLE_FACTOR-unit increment ResamplingPosition::Inc(unsigned) and
