@@ -158,6 +158,9 @@ private:
   /** Checks start segment numbering after dropping a loop. */
   void TestRejectedLoopKeepsStartSegmentIndex();
 
+  /** Checks that a stream started at segment 1 begins at the loop start. */
+  void TestInitStreamAtLoopSegment();
+
   /** Checks that an uncompressed float section is read as it is. */
   void TestFloatRead();
 
