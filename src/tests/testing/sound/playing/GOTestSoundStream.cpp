@@ -816,6 +816,36 @@ void GOTestSoundStream::TestNativeRateStartsAtFirstFrame() {
     }
 }
 
+void GOTestSoundStream::TestInitStreamAtLoopSegment() {
+  constexpr unsigned LOOP_START = 100;
+  constexpr unsigned LOOP_START_SEGMENT_INDEX = 1;
+  const GOWaveLoop loop = {LOOP_START, N_FRAMES - 1};
+  const auto pSection = CreateAudioSection(1, N_FRAMES, false, &loop);
+  GOSoundResample resample;
+  GOSoundStream stream;
+
+  stream.InitStream(
+    &resample,
+    pSection.get(),
+    GOSoundResample::GO_LINEAR_INTERPOLATION,
+    LOOP_START_SEGMENT_INDEX);
+
+  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, 2, N_FRAMES_PER_BLOCK)
+
+  GOAssert(
+    stream.ReadBlock(FRACTION_INCREMENT, buffer),
+    "a looped stream must not end");
+  // ReadBlock() gives raw units: the norm gain is applied by the caller.
+  // GetSample() counts from the start of the stored data, which begins with
+  // the prologue
+  for (unsigned frameI = 0; frameI < N_FRAMES_PER_BLOCK; frameI++)
+    GOAssert(
+      buffer.GetData()[frameI * 2]
+        == (float)pSection->GetSample(
+          GOSoundAudioSection::PROLOGUE_LENGTH + LOOP_START + frameI, 0),
+      "the loop start segment must start at the loop start");
+}
+
 void GOTestSoundStream::TestFloatRead() {
   std::vector<float> pcmData(N_FRAMES);
 
@@ -1123,6 +1153,7 @@ void GOTestSoundStream::run() {
   GO_RUN_TEST(TestProviderLoadsFloatWave())
   GO_RUN_TEST(TestReleaseAlignmentFallsBackToStart())
   GO_RUN_TEST(TestRejectedLoopKeepsStartSegmentIndex())
+  GO_RUN_TEST(TestInitStreamAtLoopSegment())
   GO_RUN_TEST(TestFloatRead())
   GO_RUN_TEST(TestFloatPolyphaseLoopMatchesInt())
   GO_RUN_TEST(TestCompressedFloatMatchesInt())
