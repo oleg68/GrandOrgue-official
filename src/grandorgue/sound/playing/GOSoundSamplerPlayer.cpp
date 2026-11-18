@@ -14,6 +14,7 @@
 
 #include "sound/GOSoundWindchestGroupTaskGrid.h"
 #include "sound/buffer/GOSoundBufferMutable.h"
+#include "sound/dsp-kernels/GOSoundConversions.h"
 #include "sound/providers/GOSoundProvider.h"
 #include "sound/tasks/GOSoundReleaseTask.h"
 #include "sound/tasks/GOSoundWindchestGroupTask.h"
@@ -89,14 +90,17 @@ void GOSoundSamplerPlayer::AdvanceTime(unsigned nSamplesPerBuffer) {
 unsigned GOSoundSamplerPlayer::SamplesDiffToMs(
   uint64_t fromSamples, uint64_t toSamples) const {
   return (unsigned)std::min(
-    (toSamples - fromSamples) * 1000 / m_SampleRate, (uint64_t)UINT_MAX);
+    GOSoundConversions::framesToMs(toSamples - fromSamples, m_SampleRate),
+    (uint64_t)UINT_MAX);
 }
 
 float GOSoundSamplerPlayer::GetRandomFactor() const {
   float result = 1;
 
   if (m_IsRandomizeSpeaking) {
-    const double factor = (pow(2, 1.0 / 1200.0) - 1) / (RAND_MAX / 2);
+    // one cent as a relative deviation of the frequency
+    const double factor
+      = (GOSoundConversions::centsToRatio(1.0) - 1) / (RAND_MAX / 2);
     int num = rand() - RAND_MAX / 2;
 
     result = 1 + num * factor;
