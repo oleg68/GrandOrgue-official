@@ -16,6 +16,7 @@
 #include "config/GOConfigReader.h"
 #include "config/GOConfigWriter.h"
 #include "model/GOOrganModel.h"
+#include "sound/dsp-kernels/GOSoundConversions.h"
 #include "sound/providers/GOSoundTremulantProviderSynth.h"
 
 static const GOConfigEnum TREMULANT_TYPES({
@@ -191,18 +192,6 @@ static void advance_shape(
 }
 
 /**
- * Converts a time to a number of frames, rounded to the nearest. Unlike
- * GOSoundVibratoProcessor.cpp (rounds up) and GOSoundSamplerPlayer::MsToSamples
- * (truncates) this is deliberate: the loop of a tremulant should be as close
- * as possible to the requested period. It takes a double because the period
- * can be fractional (the natural period of an LFO) and a float loses frames
- * at 441 s.
- */
-static unsigned ms_to_frames(double ms, unsigned sampleRate) {
-  return (unsigned)std::llround(ms * sampleRate / 1000.0);
-}
-
-/**
  * Reads the duration of a ramp, given either as a rate or as a time. Exactly
  * one of the two keys must be present.
  * @param cfg the ODF reader
@@ -358,9 +347,14 @@ GOTremulant::Description GOTremulant::Render(unsigned sampleRate) const {
   assert(m_TremulantType != GOWavTrem);
   assert(o_provider);
 
-  const unsigned nPeriodFrames = ms_to_frames(m_PeriodMs, sampleRate);
-  const unsigned nStartFrames = ms_to_frames(m_StartTimeMs, sampleRate);
-  const unsigned nStopFrames = ms_to_frames(m_StopTimeMs, sampleRate);
+  // The loop is rounded to the nearest frame: it should be as close as
+  // possible to the requested period
+  const unsigned nPeriodFrames
+    = GOSoundConversions::msToFramesRounded((unsigned)m_PeriodMs, sampleRate);
+  const unsigned nStartFrames = GOSoundConversions::msToFramesRounded(
+    (unsigned)m_StartTimeMs, sampleRate);
+  const unsigned nStopFrames
+    = GOSoundConversions::msToFramesRounded((unsigned)m_StopTimeMs, sampleRate);
 
   assert(nPeriodFrames > 0);
 
@@ -370,9 +364,10 @@ GOTremulant::Description GOTremulant::Render(unsigned sampleRate) const {
   const bool isSynth = m_TremulantType == GOSynthTrem;
   const float ampFactor = isSynth ? m_AmpModDepthPcnt / 100.0f : 0.0f;
   /* Linear in frequency: the pitch goes down by exactly m_PitchModDepthCents.
-   * A zero depth is set to an exact 0, whatever the rounding of exp2() */
+   * A zero depth is set to an exact 0, whatever the rounding of
+   * centsToRatio() */
   const float pitchFactor = isSynth && m_PitchModDepthCents != 0.0f
-    ? 1.0f - std::exp2(-m_PitchModDepthCents / 1200.0f)
+    ? 1.0f - (float)GOSoundConversions::centsToRatio(-m_PitchModDepthCents)
     : 0.0f;
 
   assert(ampFactor >= 0.0f);
