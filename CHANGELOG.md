@@ -1,3 +1,4 @@
+- Added support for 32-bit float wave files https://github.com/GrandOrgue/grandorgue/issues/709
 - Fixed the audio output gain of exactly +40 dB being muted instead of applied
 - Fixed distorted sound of pipes and reverb impulse responses loaded from 8-bit PCM wave files
 - Fixed stale panel graphics remaining in the margins after maximizing a panel window on Windows https://github.com/GrandOrgue/grandorgue/pull/2720
