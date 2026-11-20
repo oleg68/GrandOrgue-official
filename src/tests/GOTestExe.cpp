@@ -77,6 +77,7 @@
 #include "testing/sound/mappers/GOTestSoundTremulantVibratoMapper.h"
 #include "testing/sound/playing/GOTestPerfSoundPlayingFader.h"
 #include "testing/sound/playing/GOTestReleaseAlignTable.h"
+#include "testing/sound/playing/GOTestSoundItemAccessor.h"
 #include "testing/sound/playing/GOTestSoundPlayingFader.h"
 #include "testing/sound/playing/GOTestSoundSampler.h"
 #include "testing/sound/playing/GOTestSoundStream.h"
@@ -298,6 +299,7 @@ int main(int argc, char *argv[]) {
   GOTestSoundCallbackConnector testSoundCallbackConnector;
   GOTestSoundOrganEngineStress testSoundOrganEngineStress;
   GOTestReleaseAlignTable testReleaseAlignTable;
+  GOTestSoundItemAccessor testSoundItemAccessor;
   GOTestSoundPlayingFader testSoundPlayingFader;
   GOTestPerfSoundPlayingFader testPerfSoundPlayingFader;
   GOTestSoundSampler testSoundSampler;
