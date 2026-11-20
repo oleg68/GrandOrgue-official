@@ -9,13 +9,7 @@
 
 #include <algorithm>
 
-/**
- * Converts milliseconds to frames, rounding up; 0 ms gives 0 frames. In
- * integers, so the result is exact; 64 bits keep the product from overflowing.
- */
-static unsigned ms_to_frames(unsigned ms, unsigned sampleRate) {
-  return (unsigned)(((uint64_t)ms * sampleRate + 999) / 1000);
-}
+#include "sound/dsp-kernels/GOSoundConversions.h"
 
 GOSoundVibratoProcessor::GOSoundVibratoProcessor(
   const GOSoundResample &resample,
@@ -66,9 +60,9 @@ void GOSoundVibratoProcessor::EnsureSetup(
     nChannels,
     nFrames,
     sampleRate,
-    ms_to_frames(m_MaxLagMs, sampleRate),
-    ms_to_frames(m_ActivationCrossfadeMs, sampleRate),
-    ms_to_frames(m_DeactivationCrossfadeMs, sampleRate));
+    GOSoundConversions::msToFramesCeil(m_MaxLagMs, sampleRate),
+    GOSoundConversions::msToFramesCeil(m_ActivationCrossfadeMs, sampleRate),
+    GOSoundConversions::msToFramesCeil(m_DeactivationCrossfadeMs, sampleRate));
 }
 
 void GOSoundVibratoProcessor::SetActivationCrossfadeMs(unsigned ms) {
@@ -76,7 +70,8 @@ void GOSoundVibratoProcessor::SetActivationCrossfadeMs(unsigned ms) {
   m_ActivationCrossfadeMs = ms;
   if (m_IsSetupCalled)
     m_ActivationRamp = GOSoundLinearFaderCore::CrossfadeRamp(
-      GOSoundLinearFaderCore::TO_OTHER, ms_to_frames(ms, m_SampleRate));
+      GOSoundLinearFaderCore::TO_OTHER,
+      GOSoundConversions::msToFramesCeil(ms, m_SampleRate));
 }
 
 void GOSoundVibratoProcessor::SetDeactivationCrossfadeMs(unsigned ms) {
@@ -84,7 +79,8 @@ void GOSoundVibratoProcessor::SetDeactivationCrossfadeMs(unsigned ms) {
   m_DeactivationCrossfadeMs = ms;
   if (m_IsSetupCalled)
     m_DeactivationRamp = GOSoundLinearFaderCore::CrossfadeRamp(
-      GOSoundLinearFaderCore::FROM_OTHER, ms_to_frames(ms, m_SampleRate));
+      GOSoundLinearFaderCore::FROM_OTHER,
+      GOSoundConversions::msToFramesCeil(ms, m_SampleRate));
 }
 
 void GOSoundVibratoProcessor::SetPitchRateChunk(
